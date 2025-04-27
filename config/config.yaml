@@ -1,0 +1,29 @@
+# config/config.yaml
+# Main configuration file for the basic roguelike
+
+# -- Display & Tileset --
+initial_tileset_folder: "fonts/classic_roguelike_sliced_svgs" # Path relative to project root
+initial_tile_width: 16
+initial_tile_height: 16
+minimum_tile_size: 4 # Smallest allowed tile size during runtime changes
+scroll_scale_debounce_ms: 200 # Delay for applying zoom changes
+
+# -- Map Dimensions --
+map_width: 320
+map_height: 200
+
+# -- Procedural Generation --
+# Seed for dungeon generation (integer or null for random based on time)
+# Example: use 22222 for the specific layout seen in console logs
+dungeon_seed: 22222
+# dungeon_seed: null # Use null (which becomes None in Python) for time-based seed
+
+# -- Player Settings --
+player_glyph: 113 # '@' symbol in the classic set
+player_start_hp: 30
+player_fov_radius: 4
+
+# -- Engine Settings --
+resize_debounce_ms: 100 # Delay for redrawing after window resize
+
+# Add other game parameters here as needed (e.g., enemy stats, item properties)

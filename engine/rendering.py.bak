@@ -1,0 +1,71 @@
+from PIL import Image, ImageDraw
+import numpy as np
+from engine.console import Console  # Assuming Console class is here or imported
+
+
+def render_console(
+    console: Console,
+    tiles: dict[int, Image.Image],
+    tile_width: int,
+    tile_height: int,
+) -> Image.Image:
+    """
+    Renders the console state to a PIL Image using NumPy for color tinting.
+    Assumes tile images are already resized and have transparency properly set.
+    """
+    if tile_width <= 0 or tile_height <= 0:
+        raise ValueError("Tile dimensions must be positive.")
+    if not isinstance(console.tiles, np.ndarray):
+        raise TypeError("Console.tiles is expected to be a NumPy array.")
+    if (
+        console.height != console.tiles.shape[0]
+        or console.width != console.tiles.shape[1]
+    ):
+        raise ValueError(
+            f"Console dimensions ({console.width}x{console.height}) do not match "
+            f"its internal array shape ({console.tiles.shape[1]}x{console.tiles.shape[0]})."
+        )
+
+    img_width = console.width * tile_width
+    img_height = console.height * tile_height
+    img = Image.new(
+        "RGBA", (img_width, img_height), (0, 0, 0, 255)
+    )  # Solid black background
+    draw = ImageDraw.Draw(img)
+
+    for y in range(console.height):
+        for x in range(console.width):
+            tile_data = console.tiles[y, x]
+
+            if len(tile_data) != 3:
+                continue
+
+            tile_index, fg_color, bg_color = tile_data
+
+            rect_x0 = x * tile_width
+            rect_y0 = y * tile_height
+
+            # Draw background color
+            bg_color_rgba = (*bg_color, 255) if len(bg_color) == 3 else bg_color
+
+            draw.rectangle(
+                [(rect_x0, rect_y0), (rect_x0 + tile_width, rect_y0 + tile_height)],
+                fill=bg_color_rgba,
+            )
+
+            if tile_index in tiles and tile_index != 0:
+                tile_img = tiles[tile_index]
+                if tile_img.mode != "RGBA":
+                    tile_img = tile_img.convert("RGBA")
+                tile_array = np.array(tile_img)
+
+                alpha_mask = tile_array[:, :, 3] > 0  # Only where pixel is visible
+                tile_array[
+                    alpha_mask, :3
+                ] = fg_color  # Apply tint ONLY on visible pixels
+
+                tinted_tile = Image.fromarray(tile_array, "RGBA")
+
+                img.alpha_composite(tinted_tile, (rect_x0, rect_y0))
+
+    return img

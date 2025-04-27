@@ -1,0 +1,320 @@
+# engine/main_loop.py
+import polars as pl
+import math
+import numpy as np
+
+from game.game_state import GameState
+from game.world.game_map import TILE_TYPES
+from engine.console import Console
+
+from typing import TYPE_CHECKING, Any, Self
+
+try:
+    from numba import njit
+
+    _NUMBA_AVAILABLE = True
+except ImportError:
+    print("Warning: Numba not installed. Lighting calculation might be slower.")
+
+    def njit(func=None, **options):
+        if func:
+            return func
+        else:
+
+            def decorator(f):
+                return f
+
+            return decorator
+
+    _NUMBA_AVAILABLE = False
+
+
+if TYPE_CHECKING:
+    from engine.window_manager import WindowManager
+    from engine.console import Console
+
+# --- Tunable Lighting Parameters ---
+AMBIENT_LIGHT_LEVEL = 0.05
+MIN_FOV_LIGHT_LEVEL = 0.15
+LIGHT_FALLOFF_POWER = 1.5
+# ---------------------------------
+
+
+@njit(cache=True, fastmath=True, nogil=True)
+def _calculate_light_intensity(
+    dist_sq: float, radius_sq: float, falloff_power: float, min_light_level: float
+) -> float:
+    """Calculates light intensity based on squared distance and radius."""
+    if radius_sq <= 0:
+        return 1.0
+    dist = math.sqrt(dist_sq)
+    radius = math.sqrt(radius_sq)
+    falloff_ratio = min(1.0, dist / radius if radius > 0 else 1.0)
+    light_value = (1.0 - falloff_ratio) ** falloff_power
+    intensity = max(min_light_level, light_value)
+    return max(0.0, min(1.0, intensity))
+
+
+@njit(cache=True, fastmath=True, nogil=True)
+def _interpolate_color_numba(
+    base_color_r: int, base_color_g: int, base_color_b: int, intensity: float
+) -> tuple[int, int, int]:
+    """Interpolates a color towards black based on intensity. Numba version."""
+    r = max(0, int(base_color_r * intensity))
+    g = max(0, int(base_color_g * intensity))
+    b = max(0, int(base_color_b * intensity))
+    return (r, g, b)
+
+
+def interpolate_color(
+    base_color: tuple[int, int, int], intensity: float
+) -> tuple[int, int, int]:
+    """Interpolates a color towards black based on intensity."""
+    intensity = max(0.0, min(1.0, intensity))
+    r, g, b = base_color
+    return (
+        max(0, int(r * intensity)),
+        max(0, int(g * intensity)),
+        max(0, int(b * intensity)),
+    )
+
+
+class MainLoop:
+    def __init__(self: Self, game_state: GameState, window: "WindowManager"):
+        self.game_state: GameState = game_state
+        self.window: "WindowManager" = window
+        self.changed_tiles: set[tuple[int, int]] = set()
+        print("MainLoop initialized successfully")
+
+    def handle_action(self: Self, action: dict[str, Any]) -> bool:
+        action_type = action.get("type")
+        player_acted = False
+
+        match action_type:
+            case "move":
+                dx, dy = action.get("dx", 0), action.get("dy", 0)
+                if dx != 0 or dy != 0:
+                    player_acted = self.move_player(dx, dy)
+            case "wait":
+                player_acted = True
+                self.game_state.add_message("You wait.", (128, 128, 128))
+            case _:
+                return False
+
+        if player_acted:
+            self.game_state.advance_turn()
+            player_pos = self.game_state.player_position
+            if player_pos:
+                # update_fov now handles FOV calculation internally
+                self.game_state.update_fov()
+                # TODO: Get changed tiles from FOV update if needed for partial redraws
+                # self.changed_tiles = self.game_state.game_map.update_fov_with_tracking(...)
+            else:
+                self.changed_tiles = set()
+            return True
+        return False
+
+    def move_player(self: Self, dx: int, dy: int) -> bool:
+        player_id = self.game_state.player_id
+        current_pos = self.game_state.entity_registry.get_position(player_id)
+        if current_pos is None:
+            return False
+        new_x, new_y = current_pos[0] + dx, current_pos[1] + dy
+
+        if not self.game_state.game_map.in_bounds(new_x, new_y):
+            self.game_state.add_message("You can't move there.", (255, 127, 0))
+            return False
+
+        # is_walkable now uses correct indexing internally
+        if not self.game_state.game_map.is_walkable(new_x, new_y):
+            self.game_state.add_message("That way is blocked.", (255, 127, 0))
+            return False
+
+        blocking_id = self.game_state.entity_registry.get_blocking_entity_at(
+            new_x, new_y
+        )
+        if blocking_id is not None and blocking_id != player_id:
+            blocker_name = (
+                self.game_state.entity_registry.get_entity_component(
+                    blocking_id, "name"
+                )
+                or "something"
+            )
+            self.game_state.add_message(
+                f"The {blocker_name} blocks your way.", (255, 255, 0)
+            )
+            return False
+
+        success = self.game_state.entity_registry.set_position(player_id, new_x, new_y)
+        if not success:
+            return False
+        return True
+
+    def update_console(
+        self: Self,
+        viewport_x: int,
+        viewport_y: int,
+        viewport_width: int,
+        viewport_height: int,
+    ) -> None:
+        """Updates the viewport console using FOV and Numba-accelerated lighting."""
+        console_to_update: "Console" | None = getattr(self.window, "console", None)
+        if console_to_update is None:
+            return
+
+        if (
+            console_to_update.width != viewport_width
+            or console_to_update.height != viewport_height
+        ):
+            console_to_update = Console(viewport_width, viewport_height)
+            self.window.console = console_to_update
+
+        visible_count, explored_count, total_drawn = 0, 0, 0
+
+        # Pre-fetch game state data (arrays are now height, width)
+        map_visible = self.game_state.game_map.visible  # Shape (height, width)
+        map_explored = self.game_state.game_map.explored  # Shape (height, width)
+        map_tiles = self.game_state.game_map.tiles  # Shape (height, width)
+        player_pos = self.game_state.player_position
+        fov_radius = float(self.game_state.fov_radius)
+        fov_radius_sq = fov_radius * fov_radius if fov_radius > 0 else -1.0
+
+        player_x, player_y = player_pos
+
+        # Clear console
+        console_to_update.clear()
+
+        # 1. Draw Map Tiles
+        # Iterate viewport rows (cons_y) then columns (cons_x)
+        for cons_y in range(viewport_height):
+            map_y = viewport_y + cons_y  # Map ROW index
+            for cons_x in range(viewport_width):
+                map_x = viewport_x + cons_x  # Map COLUMN index
+
+                if not self.game_state.game_map.in_bounds(map_x, map_y):
+                    continue
+
+                # CORRECTED INDEXING: [map_y, map_x]
+                is_visible = map_visible[map_y, map_x]
+                is_explored = map_explored[map_y, map_x]
+
+                if not is_visible and not is_explored:
+                    continue
+
+                if is_visible:
+                    visible_count += 1
+                elif is_explored:
+                    explored_count += 1
+                total_drawn += 1
+
+                # CORRECTED INDEXING: [map_y, map_x]
+                tile_id = map_tiles[map_y, map_x]
+                tile_type = TILE_TYPES.get(tile_id)
+                if not tile_type:
+                    continue
+
+                intensity = 0.0
+                if is_visible:
+                    dist_sq = float((map_x - player_x) ** 2 + (map_y - player_y) ** 2)
+                    intensity = _calculate_light_intensity(
+                        dist_sq, fov_radius_sq, LIGHT_FALLOFF_POWER, MIN_FOV_LIGHT_LEVEL
+                    )
+                elif is_explored:
+                    intensity = AMBIENT_LIGHT_LEVEL
+
+                base_bg_r, base_bg_g, base_bg_b = tile_type.color_bg
+                base_fg_r, base_fg_g, base_fg_b = tile_type.color_fg
+                bg = _interpolate_color_numba(
+                    base_bg_r, base_bg_g, base_bg_b, intensity
+                )
+                fg = _interpolate_color_numba(
+                    base_fg_r, base_fg_g, base_fg_b, intensity
+                )
+
+                # Set tile on console using (console_x, console_y)
+                console_to_update.set_tile(cons_x, cons_y, tile_type.tile_index, fg, bg)
+
+        if visible_count == 0 and explored_count == 0:
+            print("WARNING: No visible or explored tiles were drawn!")
+            # Emergency debug tile
+            debug_x, debug_y = viewport_width // 2, viewport_height // 2
+            console_to_update.set_tile(debug_x, debug_y, 2, (255, 0, 0), (0, 0, 255))
+
+        # 2. Draw Entities
+        entities_df = self.game_state.entity_registry.get_active_entities()
+        viewport_entities = entities_df.filter(
+            (pl.col("x") >= viewport_x)
+            & (pl.col("x") < viewport_x + viewport_width)
+            & (pl.col("y") >= viewport_y)
+            & (pl.col("y") < viewport_y + viewport_height)
+        )
+
+        player_id = self.game_state.player_id
+        sorted_entities = viewport_entities.sort(
+            by=(pl.col("entity_id") == player_id), descending=False
+        )
+
+        entities_drawn = 0
+        for entity_row in sorted_entities.iter_rows(named=True):
+            map_ex, map_ey = (
+                entity_row["x"],
+                entity_row["y"],
+            )  # Entity map coords (x=col, y=row)
+            entity_id = entity_row["entity_id"]
+            is_player = entity_id == player_id
+
+            # Check visibility using CORRECTED INDEXING: [map_ey, map_ex]
+            if map_visible[map_ey, map_ex] or is_player:
+                cons_ex = map_ex - viewport_x  # Console column index
+                cons_ey = map_ey - viewport_y  # Console row index
+
+                if not (
+                    0 <= cons_ex < viewport_width and 0 <= cons_ey < viewport_height
+                ):
+                    continue
+
+                dist_sq = float((map_ex - player_x) ** 2 + (map_ey - player_y) ** 2)
+                intensity = _calculate_light_intensity(
+                    dist_sq, fov_radius_sq, LIGHT_FALLOFF_POWER, MIN_FOV_LIGHT_LEVEL
+                )
+
+                glyph = entity_row["glyph"]
+                base_fg_r, base_fg_g, base_fg_b = (
+                    entity_row["color_fg_r"],
+                    entity_row["color_fg_g"],
+                    entity_row["color_fg_b"],
+                )
+                lit_fg_col = _interpolate_color_numba(
+                    base_fg_r, base_fg_g, base_fg_b, intensity
+                )
+
+                # Get current BG from console (uses [y, x] internally, so use cons_ey, cons_ex)
+                _, _, current_bg_color = console_to_update.tiles[cons_ey, cons_ex]
+
+                if is_player:
+                    # print(
+                    #     f"DEBUG: Drawing player at console ({cons_ex},{cons_ey}), map ({map_ex},{map_ey})"
+                    # )
+                    if intensity < 0.5:  # Force visibility for debug
+                        lit_fg_col = (255, 255, 0)
+                    # lit_fg_col = (255, 255, 0)  # Always bright yellow for player
+
+                # Set tile using console coordinates (x, y)
+                console_to_update.set_tile(
+                    cons_ex, cons_ey, glyph, lit_fg_col, current_bg_color
+                )
+                entities_drawn += 1
+
+        if entities_drawn == 0 and player_pos:  # Draw emergency player if needed
+            player_cons_x = player_x - viewport_x
+            player_cons_y = player_y - viewport_y
+            if (
+                0 <= player_cons_x < viewport_width
+                and 0 <= player_cons_y < viewport_height
+            ):
+                print(
+                    f"WARNING: No entities drawn! Forcing player at console ({player_cons_x},{player_cons_y})"
+                )
+                console_to_update.set_tile(
+                    player_cons_x, player_cons_y, 113, (255, 255, 0), (255, 0, 0)
+                )

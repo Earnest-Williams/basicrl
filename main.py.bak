@@ -1,0 +1,70 @@
+# main.py
+import sys
+from PySide6.QtWidgets import QApplication
+
+from engine.tileset_loader import load_tiles
+from engine.main_loop import MainLoop
+from engine.window_manager import WindowManager  # Remove size constants import
+from game.world.game_map import GameMap
+from game.game_state import GameState
+from game.world.procgen import generate_dungeon
+
+# --- Configuration ---
+INITIAL_TILESET_FOLDER: str = "fonts/classic_roguelike_sliced"
+# Define the tile size used for the *initial* loading/rendering
+# User can change this later via zoom
+INITIAL_TILE_WIDTH: int = 8
+INITIAL_TILE_HEIGHT: int = 8
+MAP_WIDTH: int = 80  # Full map dimensions
+MAP_HEIGHT: int = 50
+
+
+def main() -> None:
+    """Main entry point for the application."""
+    app = QApplication(sys.argv)
+
+    try:
+        print(f"Loading initial tileset: {INITIAL_TILESET_FOLDER}")
+        initial_tiles, _ = load_tiles(
+            INITIAL_TILESET_FOLDER, INITIAL_TILE_WIDTH, INITIAL_TILE_HEIGHT
+        )
+
+        print("Creating game map...")
+        game_map = GameMap(width=MAP_WIDTH, height=MAP_HEIGHT)
+        print("Generating dungeon layout...")
+        generate_dungeon(game_map)
+
+        print("Initializing game state...")
+        game_state = GameState(existing_map=game_map)
+
+        print("Creating main window...")
+        window = WindowManager(
+            initial_tileset_path=INITIAL_TILESET_FOLDER,
+            initial_tiles=initial_tiles,
+            # Pass the tile dimensions used for initial setup
+            initial_tile_width=INITIAL_TILE_WIDTH,
+            initial_tile_height=INITIAL_TILE_HEIGHT,
+            # Pass the full map dimensions
+            console_width=game_state.map_width,
+            console_height=game_state.map_height,
+        )
+
+        print("Initializing main loop...")
+        main_loop = MainLoop(game_state=game_state, window=window)
+        window.set_main_loop(main_loop)
+
+    except Exception as e:
+        print(f"\n--- FATAL INITIALIZATION ERROR ---")
+        print(f"Error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(f"Initialization failed: {e}")
+
+    print("Showing window and starting application loop...")
+    window.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
