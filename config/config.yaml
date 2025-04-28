@@ -9,21 +9,39 @@ minimum_tile_size: 4 # Smallest allowed tile size during runtime changes
 scroll_scale_debounce_ms: 200 # Delay for applying zoom changes
 
 # -- Map Dimensions --
-map_width: 320
-map_height: 200
+map_width: 80
+map_height: 50
 
 # -- Procedural Generation --
 # Seed for dungeon generation (integer or null for random based on time)
-# Example: use 22222 for the specific layout seen in console logs
-dungeon_seed: 22222
-# dungeon_seed: null # Use null (which becomes None in Python) for time-based seed
+dungeon_seed: null
 
 # -- Player Settings --
-player_glyph: 113 # '@' symbol in the classic set
+player_glyph: 113 # User specified
 player_start_hp: 30
+# CORRECTED value to 4 per user instruction.
 player_fov_radius: 4
 
 # -- Engine Settings --
 resize_debounce_ms: 100 # Delay for redrawing after window resize
 
-# Add other game parameters here as needed (e.g., enemy stats, item properties)
+# -- Lighting Parameters (NEW) --
+lighting:
+  ambient_level: 0.15     # Base light level for explored, non-visible tiles (0.0 to 1.0)
+  min_fov_level: 0.25     # Minimum light level for tiles just inside FOV radius (0.0 to 1.0)
+  falloff_power: 1.5      # Controls how quickly light dims with distance (higher = faster falloff)
+
+# -- Height Visualization --
+height_visualization:
+  enabled_by_default: false
+  max_relative_difference: 10 # +/- 5 meters (at 0.5m per unit)
+  color_high: [255, 255, 0]   # Yellowish (RGB)
+  color_mid:  [0, 255, 0]     # Greenish - NOTE: Likely unused if blend=0 at diff=0
+  color_low:  [0, 128, 255]   # Bluish
+  blend_factor: 0.3           # 30% blend intensity
+
+# -- Gameplay Rules --
+gameplay_rules:
+  max_traversable_step: 2  # 2 units = 1 meter step limit
+
+# Add other game parameters here as needed

@@ -1,16 +1,31 @@
 # basicrl/game/world/procgen.py
 import numpy as np
 from typing import Iterator, Tuple, List, Union, NamedTuple
+import structlog  # Added
 
-# Assuming GameRNG is importable like this based on your structure
-from utils.game_rng import GameRNG
-from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
+# Assuming GameRNG is importable
+try:
+    from utils.game_rng import GameRNG
+except ImportError:
+    from basicrl.utils.game_rng import GameRNG
+
+# Assuming GameMap is importable
+try:
+    from game.world.game_map import GameMap, TILE_ID_FLOOR
+except ImportError:
+    from basicrl.game.world.game_map import GameMap, TILE_ID_FLOOR
+
+log = structlog.get_logger()  # Added
 
 # --- Configuration ---
-MIN_LEAF_SIZE = 6  # Minimum size (width or height) of a BSP leaf node
-ROOM_MAX_SIZE_RATIO = 0.8  # Max room size relative to its leaf node size
-ROOM_MIN_SIZE = 4  # Min absolute room size
-MAX_BSP_DEPTH = 10  # Maximum recursion depth for splitting
+MIN_LEAF_SIZE = 6
+ROOM_MAX_SIZE_RATIO = 0.8
+ROOM_MIN_SIZE = 4
+MAX_BSP_DEPTH = 10
+# --- Added Default Heights (in 0.5m units) ---
+DEFAULT_ROOM_CEILING_OFFSET = 6  # 3.0 meters
+DEFAULT_CORRIDOR_CEILING_OFFSET = 4  # 2.0 meters
+# --- End Added Defaults ---
 
 
 class Rect(NamedTuple):
@@ -23,7 +38,6 @@ class Rect(NamedTuple):
 
     @property
     def center(self) -> Tuple[int, int]:
-        print("x1: ", self.x1, "y1: ", self.y1, "x2: ", self.x2, "y2: ", self.y2)
         """Center coordinates of the rectangle."""
         center_x = (self.x1 + self.x2) // 2
         center_y = (self.y1 + self.y2) // 2
@@ -46,35 +60,59 @@ class Rect(NamedTuple):
             and self.y2 >= other.y1
         )
 
-    def carve(self, game_map: GameMap) -> None:
-        """Carves this rectangle as floor tiles onto the game map."""
-        # Use NumPy slicing for efficiency, ensuring bounds
+    # --- Modified carve signature ---
+    def carve(self, game_map: GameMap, floor_height: int, ceiling_height: int) -> None:
+        """Carves this rectangle as floor tiles onto the game map with specified heights."""
         y_start = max(0, self.y1)
-        y_end = min(game_map.height, self.y2 + 1)  # Slice end is exclusive
+        y_end = min(game_map.height, self.y2 + 1)
         x_start = max(0, self.x1)
-        x_end = min(game_map.width, self.x2 + 1)  # Slice end is exclusive
+        x_end = min(game_map.width, self.x2 + 1)
+
+        log_context = {
+            "rect": self,
+            "floor_h": floor_height,
+            "ceil_h": ceiling_height,
+            "y_slice": f"{y_start}:{y_end}",
+            "x_slice": f"{x_start}:{x_end}",
+        }
 
         if y_start < y_end and x_start < x_end:
-            # CORRECTED INDEXING: [y_slice, x_slice]
-            game_map.tiles[y_start:y_end, x_start:x_end] = TILE_ID_FLOOR
+            try:
+                # Set tile type
+                game_map.tiles[y_start:y_end, x_start:x_end] = TILE_ID_FLOOR
+                # --- Assign Height/Ceiling ---
+                game_map.height_map[y_start:y_end, x_start:x_end] = floor_height
+                game_map.ceiling_map[y_start:y_end, x_start:x_end] = ceiling_height
+                # --- End Assignment ---
+                log.debug("Carved rectangle area", **log_context)
+            except IndexError:
+                log.error("IndexError during carving", **log_context)
+            except Exception as e:
+                log.error(
+                    "Error during carving", error=str(e), exc_info=True, **log_context
+                )
+        else:
+            log.warning("Attempted to carve zero-size area", **log_context)
 
 
 class BSPNode:
     """Represents a node in the BSP tree."""
 
-    def __init__(self, rect: Rect):
+    def __init__(
+        self, rect: Rect, base_height: int = 0
+    ):  # base_height represents floor height
         self.rect: Rect = rect
         self.left: Union[BSPNode, None] = None
         self.right: Union[BSPNode, None] = None
-        self.room: Union[Rect, None] = None  # Room associated with this node (if leaf)
-        self.corridors: List[Rect] = []  # Corridors created from this node's split
+        self.room: Union[Rect, None] = None
+        self.corridors: List[Rect] = []
+        self.base_height: int = base_height  # Floor height for this node's region
 
     @property
     def is_leaf(self) -> bool:
         return self.left is None and self.right is None
 
     def get_leaves(self) -> Iterator["BSPNode"]:
-        """Generator to yield all leaf nodes in this subtree."""
         if self.is_leaf:
             yield self
         else:
@@ -84,7 +122,6 @@ class BSPNode:
                 yield from self.right.get_leaves()
 
     def get_room(self) -> Union[Rect, None]:
-        """Finds the first room in this node or its descendants."""
         if self.room:
             return self.room
         room = None
@@ -96,81 +133,111 @@ class BSPNode:
 
 
 def _split_node_recursive(node: BSPNode, rng: GameRNG, depth: int) -> bool:
-    print("split node recursive")
     """Recursively splits a BSP node. Returns True if split occurred."""
-    print(
-        "depth: ", depth, "max_bsp_depth", MAX_BSP_DEPTH, "node.is_leaf: ", node.is_leaf
+    log.debug(
+        "Attempting BSP split",
+        depth=depth,
+        max_depth=MAX_BSP_DEPTH,
+        is_leaf=node.is_leaf,
+        rect=node.rect,
+        base_h=node.base_height,
     )
-    if depth >= MAX_BSP_DEPTH:  # or node.is_leaf:
-        return False  # Don't split further
 
-    # Decide split direction (horizontal or vertical)
+    if depth >= MAX_BSP_DEPTH:
+        log.debug("Split aborted: Max depth reached", depth=depth)
+        return False
+
+    # Decide split direction
     split_horizontally: bool
-    # Split wider side more often
     if (
         node.rect.width > node.rect.height
         and node.rect.width / node.rect.height >= 1.25
     ):
-        split_horizontally = False  # Split vertically
+        split_horizontally = False
     elif (
         node.rect.height > node.rect.width
         and node.rect.height / node.rect.width >= 1.25
     ):
-        split_horizontally = True  # Split horizontally
-    else:  # Roughly square, split randomly
-        split_horizontally = rng.coin_flip()[0] == "heads"  # Access first element
+        split_horizontally = True
+    else:
+        split_horizontally = rng.coin_flip()[0] == "heads"
 
-    # Check if node is large enough to split in the chosen direction
+    # Check if node is large enough
     max_size = node.rect.height if split_horizontally else node.rect.width
-    print(
-        "max size: ",
-        max_size,
-        "node.rect.height: ",
-        node.rect.height,
-        "node.rect.width: ",
-        node.rect.width,
-    )
-    if max_size <= MIN_LEAF_SIZE * 2:
-        return False  # Too small to split meaningfully
+    min_req_size = MIN_LEAF_SIZE * 2
+    if max_size <= min_req_size:
+        log.debug(
+            "Split aborted: Node too small",
+            dimension_size=max_size,
+            min_required=min_req_size,
+            split_direction="horizontal" if split_horizontally else "vertical",
+            rect=node.rect,
+        )
+        return False
 
     # Determine split position
-    split_margin = MIN_LEAF_SIZE  # Ensure sub-nodes are at least MIN_LEAF_SIZE
+    split_margin = MIN_LEAF_SIZE
+    parent_height = node.base_height  # Get parent floor height
+
+    # --- Basic Height Inheritance (No variation yet) ---
+    left_h, right_h = parent_height, parent_height
+    # --- End Basic Inheritance ---
+
     if split_horizontally:
-        # Split between y1 + margin and y2 - margin
         split_y = rng.get_int(node.rect.y1 + split_margin, node.rect.y2 - split_margin)
-        node.left = BSPNode(Rect(node.rect.x1, node.rect.y1, node.rect.x2, split_y - 1))
-        node.right = BSPNode(Rect(node.rect.x1, split_y, node.rect.x2, node.rect.y2))
-        print(
-            f"Depth {depth}: Split H at y={split_y}. Left: {node.left.rect}, Right: {node.right.rect}"
+        node.left = BSPNode(
+            Rect(node.rect.x1, node.rect.y1, node.rect.x2, split_y - 1), left_h
+        )
+        node.right = BSPNode(
+            Rect(node.rect.x1, split_y, node.rect.x2, node.rect.y2), right_h
+        )
+        log.debug(
+            "Split node horizontally",
+            depth=depth,
+            y_split=split_y,
+            left_rect=node.left.rect,
+            left_h=left_h,
+            right_rect=node.right.rect,
+            right_h=right_h,
         )
     else:  # Split vertically
-        # Split between x1 + margin and x2 - margin
         split_x = rng.get_int(node.rect.x1 + split_margin, node.rect.x2 - split_margin)
-        node.left = BSPNode(Rect(node.rect.x1, node.rect.y1, split_x - 1, node.rect.y2))
-        node.right = BSPNode(Rect(split_x, node.rect.y1, node.rect.x2, node.rect.y2))
-        print(
-            f"Depth {depth}: Split V at x={split_x}. Left: {node.left.rect}, Right: {node.right.rect}"
+        node.left = BSPNode(
+            Rect(node.rect.x1, node.rect.y1, split_x - 1, node.rect.y2), left_h
+        )
+        node.right = BSPNode(
+            Rect(split_x, node.rect.y1, node.rect.x2, node.rect.y2), right_h
+        )
+        log.debug(
+            "Split node vertically",
+            depth=depth,
+            x_split=split_x,
+            left_rect=node.left.rect,
+            left_h=left_h,
+            right_rect=node.right.rect,
+            right_h=right_h,
         )
 
     # Recursively split children
-    split_left = _split_node_recursive(node.left, rng, depth + 1)
-    split_right = _split_node_recursive(node.right, rng, depth + 1)
+    _split_node_recursive(node.left, rng, depth + 1)
+    _split_node_recursive(node.right, rng, depth + 1)
 
     return True  # This node was split
 
 
 def _create_rooms_in_leaves(root_node: BSPNode, rng: GameRNG):
-    print("create rooms in leaves")
     """Creates rooms within the leaf nodes of the BSP tree."""
+    log.debug("Creating rooms in leaves...")
+    room_count = 0
+    skipped_count = 0
     for leaf in root_node.get_leaves():
-        # Add padding / margin inside the leaf node for the room
+        # Room size calculation
         max_w = int(leaf.rect.width * ROOM_MAX_SIZE_RATIO)
         max_h = int(leaf.rect.height * ROOM_MAX_SIZE_RATIO)
         room_w = rng.get_int(ROOM_MIN_SIZE, max(ROOM_MIN_SIZE, max_w))
         room_h = rng.get_int(ROOM_MIN_SIZE, max(ROOM_MIN_SIZE, max_h))
 
-        # Place room randomly within the leaf node boundaries, respecting its own size
-        # Ensure room fits within the leaf node
+        # Room position calculation
         room_x1 = rng.get_int(
             leaf.rect.x1, max(leaf.rect.x1, leaf.rect.x2 - room_w + 1)
         )
@@ -180,56 +247,133 @@ def _create_rooms_in_leaves(root_node: BSPNode, rng: GameRNG):
         room_x2 = room_x1 + room_w - 1
         room_y2 = room_y1 + room_h - 1
 
-        # Clamp room coords just in case calculation pushed them out slightly
+        # Clamp coordinates
         room_x1 = max(leaf.rect.x1, room_x1)
         room_y1 = max(leaf.rect.y1, room_y1)
         room_x2 = min(leaf.rect.x2, room_x2)
         room_y2 = min(leaf.rect.y2, room_y2)
 
-        # Ensure room is still valid size after potential clamping
+        # Check final size and create room
         if (
             room_x2 >= room_x1 + ROOM_MIN_SIZE - 1
             and room_y2 >= room_y1 + ROOM_MIN_SIZE - 1
         ):
             leaf.room = Rect(room_x1, room_y1, room_x2, room_y2)
-            # print(f"  Created room: {leaf.room} inside leaf {leaf.rect}")
+            room_count += 1
+            log.debug(
+                "Defined room",
+                room_rect=leaf.room,
+                leaf_rect=leaf.rect,
+                base_floor_h=leaf.base_height,
+            )
         else:
-            # print(f"  Skipped room creation in leaf {leaf.rect} (too small after padding/random placement)")
-            pass
+            skipped_count += 1
+            log.debug(
+                "Skipped room creation (too small)",
+                leaf_rect=leaf.rect,
+                final_w=(room_x2 - room_x1 + 1),
+                final_h=(room_y2 - room_y1 + 1),
+            )
+    log.info("Room definition finished", created=room_count, skipped=skipped_count)
 
 
+# --- Modified _carve_tunnel signature and logic ---
 def _carve_tunnel(
-    x1: int, y1: int, x2: int, y2: int, game_map: GameMap, rng: GameRNG
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    start_floor_h: int,
+    end_floor_h: int,  # Use floor heights
+    game_map: GameMap,
+    rng: GameRNG,
 ) -> List[Rect]:
-    """Carves an L-shaped tunnel between two points. Returns list of Rects carved."""
-    print("carve tunnel")
+    """
+    Carves an L-shaped tunnel between two points, assigning simple heights.
+    Returns list of Rects carved.
+    """
+    log_context = {
+        "start_pos": (x1, y1),
+        "end_pos": (x2, y2),
+        "start_floor_h": start_floor_h,
+        "end_floor_h": end_floor_h,
+    }
+    log.debug("Carving tunnel", **log_context)
     carved_rects = []
+
+    # Simple height assignment: use start height for first segment, end height for second.
+    # Define ceiling based on floor height.
+    corridor_ceil_h1 = start_floor_h + DEFAULT_CORRIDOR_CEILING_OFFSET
+    corridor_ceil_h2 = end_floor_h + DEFAULT_CORRIDOR_CEILING_OFFSET
+
     if rng.coin_flip()[0] == "heads":  # Horizontal first, then vertical
+        # Carve horizontal segment (use start_floor_h)
         cx1, cy1, cx2, cy2 = min(x1, x2), y1, max(x1, x2), y1
         h_tunnel = Rect(cx1, cy1, cx2, cy2)
-        h_tunnel.carve(game_map)
+        h_tunnel.carve(game_map, start_floor_h, corridor_ceil_h1)
         carved_rects.append(h_tunnel)
+        log.debug(
+            "Carved horizontal tunnel segment",
+            rect=h_tunnel,
+            floor_h=start_floor_h,
+            ceil_h=corridor_ceil_h1,
+        )
 
+        # Carve vertical segment (use end_floor_h)
         vx1, vy1, vx2, vy2 = x2, min(y1, y2), x2, max(y1, y2)
-        v_tunnel = Rect(vx1, vy1, vx2, vy2)
-        v_tunnel.carve(game_map)
-        carved_rects.append(v_tunnel)
+        # Ensure correct range for vertical segment (don't overlap corners)
+        if y1 < y2:
+            vy1 = y1 + 1  # Start one step down if moving down
+        if y1 > y2:
+            vy2 = y1 - 1  # Start one step up if moving up
+        if vy1 <= vy2:  # Only carve if valid range
+            v_tunnel = Rect(vx1, vy1, vx2, vy2)
+            v_tunnel.carve(game_map, end_floor_h, corridor_ceil_h2)
+            carved_rects.append(v_tunnel)
+            log.debug(
+                "Carved vertical tunnel segment",
+                rect=v_tunnel,
+                floor_h=end_floor_h,
+                ceil_h=corridor_ceil_h2,
+            )
+
     else:  # Vertical first, then horizontal
+        # Carve vertical segment (use start_floor_h)
         vx1, vy1, vx2, vy2 = x1, min(y1, y2), x1, max(y1, y2)
         v_tunnel = Rect(vx1, vy1, vx2, vy2)
-        v_tunnel.carve(game_map)
+        v_tunnel.carve(game_map, start_floor_h, corridor_ceil_h1)
         carved_rects.append(v_tunnel)
+        log.debug(
+            "Carved vertical tunnel segment",
+            rect=v_tunnel,
+            floor_h=start_floor_h,
+            ceil_h=corridor_ceil_h1,
+        )
 
+        # Carve horizontal segment (use end_floor_h)
         cx1, cy1, cx2, cy2 = min(x1, x2), y2, max(x1, x2), y2
-        h_tunnel = Rect(cx1, cy1, cx2, cy2)
-        h_tunnel.carve(game_map)
-        carved_rects.append(h_tunnel)
+        # Ensure correct range for horizontal segment
+        if x1 < x2:
+            cx1 = x1 + 1
+        if x1 > x2:
+            cx2 = x1 - 1
+        if cx1 <= cx2:  # Only carve if valid range
+            h_tunnel = Rect(cx1, cy1, cx2, cy2)
+            h_tunnel.carve(game_map, end_floor_h, corridor_ceil_h2)
+            carved_rects.append(h_tunnel)
+            log.debug(
+                "Carved horizontal tunnel segment",
+                rect=h_tunnel,
+                floor_h=end_floor_h,
+                ceil_h=corridor_ceil_h2,
+            )
+
     return carved_rects
 
 
 def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
-    print("connect rooms")
     """Recursively connects rooms in sibling nodes."""
+    log.debug("Connecting rooms for node", rect=node.rect, is_leaf=node.is_leaf)
     if node.is_leaf:
         return
 
@@ -251,66 +395,92 @@ def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
         rx, ry = rng.get_int(right_room.x1, right_room.x2), rng.get_int(
             right_room.y1, right_room.y2
         )
-        # print(f"  Connecting room {left_room.center} to {right_room.center} via ({lx},{ly}) and ({rx},{ry})")
-        node.corridors = _carve_tunnel(lx, ly, rx, ry, game_map, rng)
+
+        # --- Get Base Floor Heights ---
+        # Use the base_height stored in the leaf nodes containing the rooms
+        # We assume get_room() could potentially traverse down, so get base_height from node
+        start_h = (
+            node.left.base_height if node.left else 0
+        )  # Default if something went wrong
+        end_h = node.right.base_height if node.right else 0
+        # --- End Get Heights ---
+
+        log_context = {
+            "left_center": left_room.center,
+            "right_center": right_room.center,
+            "connect_left": (lx, ly),
+            "connect_right": (rx, ry),
+            "start_floor_h": start_h,
+            "end_floor_h": end_h,
+        }
+        log.debug("Connecting sibling rooms", **log_context)
+
+        # Pass floor heights to carve_tunnel
+        node.corridors = _carve_tunnel(lx, ly, rx, ry, start_h, end_h, game_map, rng)
+    # Logging for skipped connections remains the same...
 
 
 def generate_dungeon(
     game_map: GameMap, map_width: int, map_height: int, seed: Union[int, None] = None
 ) -> Tuple[int, int]:
     """
-    Generates a dungeon layout using BSP trees.
-
-    Args:
-        game_map: The GameMap object to modify.
-        map_width: Width of the map.
-        map_height: Height of the map.
-        seed: Optional seed for the random number generator.
-
-    Returns:
-        A tuple (player_start_x, player_start_y) for the player's initial position.
+    Generates a dungeon layout using BSP trees, populating height maps.
     """
-    print("Generating dungeon layout using BSP...")
-    rng = GameRNG(seed=seed)  # Use the dedicated RNG
+    log.info(
+        "Starting dungeon generation", width=map_width, height=map_height, seed=seed
+    )
+    rng = GameRNG(seed=seed)
 
-    # 1. Initialize map with walls
-    # Assume GameMap constructor already does this, or uncomment:
-    # game_map.tiles[:] = TILE_ID_WALL
+    # 1. Initialize map (done by GameMap constructor)
 
-    # 2. Create root BSP node covering the whole map (with a 1-tile border)
-    root_node = BSPNode(Rect(1, 1, map_width - 2, map_height - 2))
+    # 2. Create root BSP node with initial height 0
+    initial_base_height = 0
+    root_node = BSPNode(Rect(1, 1, map_width - 2, map_height - 2), initial_base_height)
+    log.debug(
+        "Created root BSP node", rect=root_node.rect, base_height=initial_base_height
+    )
 
     # 3. Recursively split the map
-    print("  Splitting BSP tree...")
-    _split_node_recursive(root_node, rng, 0)
+    log.info("Splitting BSP tree...")
+    _split_node_recursive(root_node, rng, 0)  # Populates base_height in children
 
-    # 4. Create rooms in the leaf nodes
-    print("  Creating rooms...")
+    # 4. Create rooms in the leaf nodes (defines leaf.room Rects)
+    log.info("Defining rooms...")
     _create_rooms_in_leaves(root_node, rng)
 
-    # 5. Carve rooms onto the map
+    # 5. Carve rooms onto the map (uses leaf.base_height and default ceiling offset)
     all_rooms: List[Rect] = []
+    log.info("Carving rooms onto map...")
     for leaf in root_node.get_leaves():
         if leaf.room:
-            leaf.room.carve(game_map)
+            room_floor_h = leaf.base_height
+            room_ceil_h = room_floor_h + DEFAULT_ROOM_CEILING_OFFSET
+            leaf.room.carve(game_map, room_floor_h, room_ceil_h)
             all_rooms.append(leaf.room)
+    log.info("Rooms carved", count=len(all_rooms))
 
     if not all_rooms:
+        log.error("BSP generation failed to create any rooms!")
         raise RuntimeError("BSP generation failed to create any rooms!")
-    print("all rooms", all_rooms)
-    # 6. Connect rooms
-    print("  Connecting rooms...")
+
+    # 6. Connect rooms (passes node base_heights to _carve_tunnel)
+    log.info("Connecting rooms...")
     _connect_rooms(root_node, game_map, rng)
 
-    # 7. Determine player start position (e.g., center of the first room)
+    # 7. Determine player start position
     first_room = all_rooms[0]
     player_start_x, player_start_y = first_room.center
+    log.info(
+        "Determined player start position",
+        pos=(player_start_x, player_start_y),
+        room_center=first_room.center,
+    )
 
-    # 8. Update map transparency (crucial for FOV)
-    print("  Updating transparency map...")
+    # 8. Update map transparency
+    log.info("Updating transparency map...")
     game_map.update_tile_transparency()
 
-    print(
-        f"Dungeon generation complete. Player start: ({player_start_x}, {player_start_y})"
+    log.info(
+        "Dungeon generation complete", player_start=(player_start_x, player_start_y)
     )
     return player_start_x, player_start_y

@@ -1,0 +1,211 @@
+{
+    "format_version": 2,
+    "grid_width": 80,
+    "grid_height": 50,
+    "tile_size": 16,
+    "min_tile_size": 4,
+    "max_tile_size": 64,
+    "zoom_step": 1.2,
+    "pan_step": 50,
+    "default_tile": ".",
+    "wall_tile": "#",
+    "door_tile": "+",
+    "window_title": "PySide6 Tile Map Editor (Configurable)",
+    "preview_line_color": [
+        255,
+        0,
+        0
+    ],
+    "preview_line_thickness": 2,
+    "controls": {
+        "place_tile_click": {
+            "modifier": "None",
+            "trigger": "LeftClick",
+            "description": "Place selected tile (single click)"
+        },
+        "draw_line": {
+            "modifier": "None",
+            "trigger": "LeftDrag",
+            "description": "Draw line of selected tile"
+        },
+        "erase_tile": {
+            "modifier": "None",
+            "trigger": "RightClick",
+            "description": "Erase tile (set to default)"
+        },
+        "draw_rect": {
+            "modifier": "Shift",
+            "trigger": "LeftDrag",
+            "description": "Draw rectangle of selected tile"
+        },
+        "fill_perimeter": {
+            "modifier": "Ctrl",
+            "trigger": "LeftClick",
+            "description": "Fill perimeter of non-default area"
+        },
+        "wall_perimeter": {
+            "modifier": "Ctrl+Shift",
+            "trigger": "LeftClick",
+            "description": "Wall perimeter of same-tile area (respects walls)"
+        },
+        "zoom_in": {
+            "modifier": "Ctrl",
+            "trigger": "ScrollUp",
+            "description": "Zoom In"
+        },
+        "zoom_out": {
+            "modifier": "Ctrl",
+            "trigger": "ScrollDown",
+            "description": "Zoom Out"
+        },
+        "pan_right": {
+            "modifier": "Shift",
+            "trigger": "ScrollUp",
+            "description": "Pan Right"
+        },
+        "pan_left": {
+            "modifier": "Shift",
+            "trigger": "ScrollDown",
+            "description": "Pan Left"
+        },
+        "show_help": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "F1",
+            "description": "Show this help message"
+        },
+        "select_tile_1": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "1",
+            "description": "Select Tile 1"
+        },
+        "select_tile_2": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "2",
+            "description": "Select Tile 2"
+        },
+        "select_tile_3": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "3",
+            "description": "Select Tile 3"
+        },
+        "select_tile_4": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "4",
+            "description": "Select Tile 4"
+        },
+        "select_tile_5": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "5",
+            "description": "Select Tile 5"
+        },
+        "select_tile_6": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "6",
+            "description": "Select Tile 6"
+        },
+        "select_tile_7": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "7",
+            "description": "Select Tile 7"
+        },
+        "select_tile_8": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "8",
+            "description": "Select Tile 8"
+        },
+        "select_tile_9": {
+            "modifier": "None",
+            "trigger": "KeyPress",
+            "key": "9",
+            "description": "Select Tile 9"
+        },
+        "flood_fill": {
+            "modifier": "Alt",
+            "trigger": "LeftClick",
+            "description": "Flood fill area with selected tile"
+        }
+    },
+    "tiles": {
+        ".": {
+            "color": [
+                220,
+                220,
+                220
+            ],
+            "description": "Empty Floor"
+        },
+        "#": {
+            "color": [
+                100,
+                100,
+                100
+            ],
+            "description": "Wall"
+        },
+        "+": {
+            "color": [
+                200,
+                150,
+                100
+            ],
+            "description": "Door"
+        },
+        "k": {
+            "color": [
+                255,
+                215,
+                0
+            ],
+            "description": "Kitchen"
+        },
+        "b": {
+            "color": [
+                0,
+                0,
+                200
+            ],
+            "description": "Bedroom"
+        },
+        "l": {
+            "color": [
+                0,
+                150,
+                0
+            ],
+            "description": "Living Space"
+        },
+        "t": {
+            "color": [
+                150,
+                150,
+                255
+            ],
+            "description": "Toilet"
+        },
+        "s": {
+            "color": [
+                255,
+                0,
+                255
+            ],
+            "description": "Undefined Tile 's' (from map)"
+        },
+        "w": {
+            "color": [
+                145,
+                65,
+                172
+            ],
+            "description": "Workshop"
+        }
+    }
+}

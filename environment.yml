@@ -12,8 +12,15 @@ dependencies:
   - numpy>=1.23
   - polars>=0.19
   - numba>=0.57
+  # ADDED structlog
+  - structlog>=23.0
   - orjson>=3.9
   - pyyaml>=6.0
+  # ADDED PySide6 and Pillow for GUI and image handling
+  - pyside6>=6.5
+  - pillow>=9.0
+  # ADDED cairosvg for SVG rendering
+  - cairosvg>=2.7
   - pip
 #  - pip:
       # Add pip-installed packages below as needed

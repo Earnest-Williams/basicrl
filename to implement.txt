@@ -402,7 +402,15 @@ DIRECTIONS_8: np.ndarray = np.array([
 # Cost for moving diagonally (sqrt(2)) - use approximation or exact
 DIAGONAL_MOVE_COST: float = np.sqrt(2.0) # Or 1.414
 
+
+
+
+
+
 # --- Core Pathfinding Logic ---
+
+Remember to Integrate Height Cost into Pathfinding
+
 
 @njit(cache=True, fastmath=True)
 def _dijkstra_integration_numba(
@@ -787,3 +795,48 @@ if __name__ == "__main__":
         if success_new:
              flow_dx_new, flow_dy_new = pathfinder.get_flow_vector(agent_pos_y, agent_pos_x)
              print(f"Agent at ({agent_pos_y}, {agent_pos_x}) should now move by: ({flow_dx_new}, {flow_dy_new})")
+
+
+This is the to-implement for physics/pathfinding/map gen
+
+# Deferred Features & Complexity: Height System (Initial Implementation Focus)
+
+This document outlines features related to the height/ceiling map system that are intentionally **deferred** from the initial implementation phase. The focus is first on establishing the core data structures (`height_map`, `ceiling_map`) and integrating them into basic movement, FOV, and pathfinding cost.
+
+## 1. Wall Representation
+
+* **Variable Wall Heights (Option B):** Deferring the implementation where wall tiles (`TILE_ID_WALL`) have distinct `height_map` (bottom) and `ceiling_map` (top) values.
+    * *Initial approach:* Wall tiles block implicitly; adjacent floor/ceiling heights are used.
+
+## 2. Traversal & Movement Costs
+
+* **Complex Movement Cost Calculation:** Deferring combined cost calculations involving both terrain type (e.g., mud) *and* slope (`delta_h`).
+    * *Initial approach:* Basic `max_traversable_step` check. Pathfinding cost will use base terrain cost + diagonal penalty initially; height cost added separately later.
+* **Falling Mechanics:** Deferring the implementation of allowing movement down steep drops (`abs(delta_h) > max_traversable_step`) and applying falling damage.
+    * *Initial approach:* Drops exceeding `max_traversable_step` block movement.
+* **Skill/Item-Based Traversal:** Deferring modifications to `max_traversable_step` based on player/NPC skills (Climbing) or items (Rope, Pitons).
+
+## 3. Entity Variations
+
+* **Entity-Specific `max_traversable_step`:** Deferring storing and using traversal limits per entity type via a component in the `EntityRegistry`.
+    * *Initial approach:* All entities use the global default from `config.yaml`.
+* **Entity-Specific Height & Headroom:** While standard entity height (e.g., 4 units / 2m) will be assumed for headroom checks *if* implemented, detailed per-entity height components and rigorous headroom logic are deferred.
+    * *Initial approach:* Implement basic headroom check later if needed, assuming a standard height first.
+* **Special Movement Rules (Flying, Phasing, Climbing):** Deferring the detailed rules and implementation for entities that don't adhere to standard ground-based movement and height constraints.
+
+## 4. Advanced Physics & Environment Interaction
+
+* **Projectile Trajectories:** Deferring calculations for projectile arcs affected by height differences and ceiling obstructions.
+* **Fluid Dynamics:** Deferring simulation of water flow based on `height_map` gradients.
+* **Gas/Temperature Propagation:** Deferring effects of height/ceilings on atmospheric simulations.
+* **Other Physics:** Any physics simulation directly interacting with the height/ceiling data beyond basic blocking.
+
+## 5. Generation Refinements
+
+* **Complex Height Heuristics:** While basic room/corridor heights will be implemented, advanced heuristics (e.g., multi-level rooms, complex cavern ceilings, detailed erosion) are deferred.
+* **Post-Generation Smoothing:** Optional smoothing passes on the `height_map` are deferred unless initial results are visually jarring.
+
+## 6. Visualization Refinements
+
+* **Advanced Blending Modes:** Deferring experimentation with blend modes beyond simple linear interpolation for the height visualization.
+* **Non-Color Indicators:** Deferring alternative height indicators (e.g., glyph modification) for accessibility.

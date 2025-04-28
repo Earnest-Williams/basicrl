@@ -1,443 +1,576 @@
-# game/world/fov.py
-"""
-Field of View (FOV) calculation using a Numba-accelerated
-recursive shadowcasting algorithm adapted from C# source.
-"""
-import numpy as np
+# fov.py
+# PEP 8 Compliant, PEP 604 Type Hints, structlog Logging
+# Numba-accelerated Iterative Shadowcasting FOV with Height Checks
+# Now updates explored map as well.
+
+import time
 import math
-from typing import TYPE_CHECKING, NamedTuple
+from collections import deque
+from typing import TypeAlias
 
-try:
-    from numba import njit
+import numba
+import numpy as np
+import structlog
+from numba.typed import List as NumbaList  # Explicitly typed list for Numba
 
-    _NUMBA_AVAILABLE = True
-except ImportError:
-    print("Warning: Numba not installed. FOV calculation will be significantly slower.")
+# --- Type Aliases (PEP 604) ---
+Point: TypeAlias = tuple[int, int]
+Slope: TypeAlias = tuple[int, int]  # (y, x) representation
+sector_type = numba.types.Tuple(
+    (
+        numba.int64,  # octant
+        numba.int64,  # x
+        numba.types.Tuple((numba.int64, numba.int64)),  # top slope (y, x)
+        numba.types.Tuple((numba.int64, numba.int64)),  # bottom slope (y, x)
+    )
+)
 
-    # Define a dummy decorator if Numba is not available
-    def njit(func=None, **options):
-        if func:
-            return func
-        else:
+# --- Structlog Configuration ---
+log = structlog.get_logger()
 
-            def decorator(f):
-                return f
-
-            return decorator
-
-    _NUMBA_AVAILABLE = False
-
-
-if TYPE_CHECKING:
-    from game.world.game_map import GameMap
-
-
-# Using NamedTuple for slopes - Numba generally handles these well.
-# Keep the class definition outside Numba contexts.
-class Slope(NamedTuple):
-    """Represents the slope Y/X as a rational number."""
-
-    y: int  # Using int, assuming coordinates fit
-    x: int
+# --- Height Check Heuristic Parameters ---
+BASE_THRESHOLD: int = 1
+CLOSE_RANGE_SQ_THRESHOLD: int = 16
+CLOSE_RANGE_DIVISOR: int = 8
+FAR_RANGE_DIVISOR: int = 16
+_THRESHOLD_AT_CUTOFF: int = CLOSE_RANGE_SQ_THRESHOLD // CLOSE_RANGE_DIVISOR
+# --- End Heuristic Parameters ---
 
 
-# --- Slope Comparison Logic (moved outside class for easier Numba use) ---
-@njit(cache=True, fastmath=True, nogil=True)
-def slope_greater(s_y: int, s_x: int, y_comp: int, x_comp: int) -> bool:
-    """Returns True if slope s_y/s_x > y_comp / x_comp"""
-    return s_y * x_comp > s_x * y_comp
+# --- Numba Helper Functions ---
+# (Slope functions unchanged)
+@numba.njit(cache=True, inline="always")
+def slope_greater(slope1_yx: Slope, y: int, x: int) -> bool:
+    slope_y, slope_x = slope1_yx
+    if slope_x == 0 and x == 0:
+        return slope_y > y
+    if slope_x == 0:
+        return True if x > 0 else False
+    if x == 0:
+        return False if slope_x > 0 else True
+    return slope_y * x > slope_x * y
 
 
-@njit(cache=True, fastmath=True, nogil=True)
-def slope_greater_or_equal(s_y: int, s_x: int, y_comp: int, x_comp: int) -> bool:
-    """Returns True if slope s_y/s_x >= y_comp / x_comp"""
-    return s_y * x_comp >= s_x * y_comp
+@numba.njit(cache=True, inline="always")
+def slope_greater_or_equal(slope1_yx: Slope, y: int, x: int) -> bool:
+    slope_y, slope_x = slope1_yx
+    if slope_x == 0 and x == 0:
+        return slope_y >= y
+    if slope_x == 0:
+        return True if x >= 0 else False
+    if x == 0:
+        return False if slope_x >= 0 else True
+    return slope_y * x >= slope_x * y
 
 
-@njit(cache=True, fastmath=True, nogil=True)
-def slope_less(s_y: int, s_x: int, y_comp: int, x_comp: int) -> bool:
-    """Returns True if slope s_y/s_x < y_comp / x_comp"""
-    return s_y * x_comp < s_x * y_comp
+@numba.njit(cache=True, inline="always")
+def slope_less(slope1_yx: Slope, y: int, x: int) -> bool:
+    slope_y, slope_x = slope1_yx
+    if slope_x == 0 and x == 0:
+        return slope_y < y
+    if slope_x == 0:
+        return False if x > 0 else True
+    if x == 0:
+        return True if slope_x > 0 else False
+    return slope_y * x < slope_x * y
 
 
-# Uncomment if needed for symmetrical visibility option
-# @njit(cache=True, fastmath=True, nogil=True)
-# def slope_less_or_equal(s_y: int, s_x: int, y_comp: int, x_comp: int) -> bool:
-#     """Returns True if slope s_y/s_x <= y_comp / x_comp"""
-#     return s_y * x_comp <= s_x * y_comp
-# ---------------------------------------------------------------------
+@numba.njit(cache=True, inline="always")
+def slope_less_or_equal(slope1_yx: Slope, y: int, x: int) -> bool:
+    slope_y, slope_x = slope1_yx
+    if slope_x == 0 and x == 0:
+        return slope_y <= y
+    if slope_x == 0:
+        return False if x > 0 else True
+    if x == 0:
+        return True if slope_x > 0 else False
+    return slope_y * x <= slope_x * y
 
 
-@njit(cache=True, fastmath=True, nogil=True)
-def _transform_octant(x_in: int, y_in: int, octant: int) -> tuple[int, int]:
-    """Transforms relative octant coordinates (x, y) to absolute map offsets (dx, dy)."""
+@numba.njit(cache=True)
+def _transform_coords(
+    octant_x: int, octant_y: int, octant: int, origin_xy: Point
+) -> Point:
+    # (Unchanged)
+    ox, oy = origin_xy
+    nx, ny = ox, oy
     if octant == 0:
-        return x_in, -y_in
-    if octant == 1:
-        return y_in, -x_in
-    if octant == 2:
-        return -y_in, -x_in
-    if octant == 3:
-        return -x_in, -y_in
-    if octant == 4:
-        return -x_in, y_in
-    if octant == 5:
-        return -y_in, x_in
-    if octant == 6:
-        return y_in, x_in
-    if octant == 7:
-        return x_in, y_in
-    return 0, 0  # Should be unreachable
+        nx += octant_x
+        ny -= octant_y
+    elif octant == 1:
+        nx += octant_y
+        ny -= octant_x
+    elif octant == 2:
+        nx -= octant_y
+        ny -= octant_x
+    elif octant == 3:
+        nx -= octant_x
+        ny -= octant_y
+    elif octant == 4:
+        nx -= octant_x
+        ny += octant_y
+    elif octant == 5:
+        nx -= octant_y
+        ny += octant_x
+    elif octant == 6:
+        nx += octant_y
+        ny += octant_x
+    elif octant == 7:
+        nx += octant_x
+        ny += octant_y
+    return nx, ny
 
 
-@njit(cache=True, fastmath=True, nogil=True)
-def _distance_sq(x: int, y: int) -> int:
-    """Calculate squared Euclidean distance."""
-    return x * x + y * y
-
-
-@njit(cache=True, fastmath=True, nogil=True)
-def _blocks_light_octant(
-    x_oct: int,
-    y_oct: int,
+@numba.njit(cache=True)
+def blocks_light_at(
+    octant_x: int,
+    octant_y: int,
     octant: int,
-    origin_x: int,
-    origin_y: int,
-    transparent_map: np.ndarray,  # Shape (height, width)
+    origin_xy: Point,
+    grid_shape: tuple[int, int],
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
 ) -> bool:
-    """Checks if the transformed tile blocks light."""
-    # Array shape is (height, width)
-    map_height, map_width = transparent_map.shape
-    dx, dy = _transform_octant(x_oct, y_oct, octant)
-    map_x, map_y = origin_x + dx, origin_y + dy
-
-    # Check bounds first (using width/height derived from array shape)
-    if 0 <= map_x < map_width and 0 <= map_y < map_height:
-        # Return True if it blocks light (i.e., is NOT transparent)
-        # CORRECTED INDEXING: [map_y, map_x]
-        return not transparent_map[map_y, map_x]
-    else:
-        # Out of bounds always blocks light
+    # (Unchanged - includes height check)
+    nx, ny = _transform_coords(octant_x, octant_y, octant, origin_xy)
+    width, height = grid_shape
+    if not (0 <= nx < width and 0 <= ny < height):
         return True
-
-
-@njit(cache=True, fastmath=True, nogil=True)
-def _set_visible_octant(
-    x_oct: int,
-    y_oct: int,
-    octant: int,
-    origin_x: int,
-    origin_y: int,
-    visible_map: np.ndarray,  # Shape (height, width)
-    explored_map: np.ndarray,  # Shape (height, width)
-) -> None:
-    """Sets the transformed tile to visible and explored."""
-    # Array shape is (height, width)
-    map_height, map_width = visible_map.shape
-    dx, dy = _transform_octant(x_oct, y_oct, octant)
-    map_x, map_y = origin_x + dx, origin_y + dy
-
-    # Set visible only if within bounds
-    if 0 <= map_x < map_width and 0 <= map_y < map_height:
-        # CORRECTED INDEXING: [map_y, map_x]
-        visible_map[map_y, map_x] = True
-        explored_map[map_y, map_x] = True
-
-
-@njit(cache=True, fastmath=True, nogil=True)
-def _compute_octant(
-    octant: int,
-    origin_x: int,
-    origin_y: int,
-    range_limit_sq: int,
-    x_start: int,
-    # Pass slope components directly for Numba compatibility
-    top_y_slope: int,
-    top_x_slope: int,
-    bottom_y_slope: int,
-    bottom_x_slope: int,
-    transparent_map: np.ndarray,  # Shape (height, width)
-    visible_map: np.ndarray,  # Shape (height, width)
-    explored_map: np.ndarray,  # Shape (height, width)
-) -> None:
-    """
-    Numba-accelerated recursive shadowcasting computation for a single octant.
-    Directly modifies visible_map and explored_map. Assumes arrays are (height, width).
-    """
-    # Need mutable slope values within the function scope for updates
-    current_top_y, current_top_x = top_y_slope, top_x_slope
-    current_bottom_y, current_bottom_x = bottom_y_slope, bottom_x_slope
-
-    # Calculate maximum relevant x based on range limit
-    max_x = (
-        int(math.sqrt(max(0, range_limit_sq))) + 2 if range_limit_sq >= 0 else 2**16
-    )
-
-    for x in range(x_start, max_x):
-        # --- Calculate Top Y ---
-        top_y: int
-        if current_top_x == 1:
-            top_y = x
-        else:
-            top_y = ((x * 2 - 1) * current_top_y + current_top_x) // (current_top_x * 2)
-            # Pass arrays with correct indexing expectations to helper
-            if _blocks_light_octant(
-                x, top_y, octant, origin_x, origin_y, transparent_map
-            ):
-                if slope_greater_or_equal(
-                    current_top_y, current_top_x, top_y * 2 + 1, x * 2
-                ) and not _blocks_light_octant(
-                    x, top_y + 1, octant, origin_x, origin_y, transparent_map
-                ):
-                    top_y += 1
-            else:
-                ax = x * 2
-                if _blocks_light_octant(
-                    x + 1, top_y + 1, octant, origin_x, origin_y, transparent_map
-                ):
-                    ax += 1
-                if slope_greater(current_top_y, current_top_x, top_y * 2 + 1, ax):
-                    top_y += 1
-
-        # --- Calculate Bottom Y ---
-        bottom_y: int
-        if current_bottom_y == 0:
-            bottom_y = 0
-        else:
-            bottom_y = ((x * 2 - 1) * current_bottom_y + current_bottom_x) // (
-                current_bottom_x * 2
-            )
-            # Pass arrays with correct indexing expectations to helper
-            if (
-                slope_greater_or_equal(
-                    current_bottom_y, current_bottom_x, bottom_y * 2 + 1, x * 2
-                )
-                and _blocks_light_octant(
-                    x, bottom_y, octant, origin_x, origin_y, transparent_map
-                )
-                and not _blocks_light_octant(
-                    x, bottom_y + 1, octant, origin_x, origin_y, transparent_map
-                )
-            ):
-                bottom_y += 1
-
-        # --- Process Tiles in Column ---
-        was_opaque: int = -1
-        for y in range(top_y, bottom_y - 1, -1):
-            current_dist_sq = _distance_sq(x, y)
-            if range_limit_sq >= 0 and current_dist_sq > range_limit_sq:
-                continue
-
-            # Pass arrays with correct indexing expectations to helper
-            is_opaque = _blocks_light_octant(
-                x, y, octant, origin_x, origin_y, transparent_map
-            )
-
-            is_visible = is_opaque or (
-                (
-                    y != top_y
-                    or slope_greater(current_top_y, current_top_x, y * 4 - 1, x * 4 + 1)
-                )
-                and (
-                    y != bottom_y
-                    or slope_less(
-                        current_bottom_y, current_bottom_x, y * 4 + 1, x * 4 - 1
-                    )
-                )
-            )
-
-            if is_visible:
-                # Pass arrays with correct indexing expectations to helper
-                _set_visible_octant(
-                    x, y, octant, origin_x, origin_y, visible_map, explored_map
-                )
-
-            if range_limit_sq < 0 or x * x < range_limit_sq:
-                if is_opaque:
-                    if was_opaque == 0:
-                        nx, ny = x * 2, y * 2 + 1
-                        # Pass arrays with correct indexing expectations to helper
-                        if _blocks_light_octant(
-                            x, y + 1, octant, origin_x, origin_y, transparent_map
-                        ):
-                            nx -= 1
-                        if slope_greater(current_top_y, current_top_x, ny, nx):
-                            if y == bottom_y:
-                                current_bottom_y, current_bottom_x = ny, nx
-                                break
-                            else:
-                                # RECURSIVE CALL: Pass arrays through
-                                _compute_octant(
-                                    octant,
-                                    origin_x,
-                                    origin_y,
-                                    range_limit_sq,
-                                    x + 1,
-                                    current_top_y,
-                                    current_top_x,
-                                    ny,
-                                    nx,
-                                    transparent_map,
-                                    visible_map,
-                                    explored_map,
-                                )
-                        elif y == bottom_y:
-                            return
-                    was_opaque = 1
-                else:  # Tile is clear
-                    if was_opaque > 0:
-                        nx, ny = x * 2, y * 2 + 1
-                        # Pass arrays with correct indexing expectations to helper
-                        if _blocks_light_octant(
-                            x + 1, y + 1, octant, origin_x, origin_y, transparent_map
-                        ):
-                            nx += 1
-                        if slope_greater_or_equal(
-                            current_bottom_y, current_bottom_x, ny, nx
-                        ):
-                            return
-                        current_top_y, current_top_x = ny, nx
-                    was_opaque = 0
-        # --- End of Column Processing ---
-        if was_opaque != 0:
-            break
-
-
-# --- Fallback Simple FOV (Corrected Indexing) ---
-def simple_circle_fov(game_map, center_x, center_y, radius):
-    """
-    A very simple circular FOV algorithm that just shows all tiles within radius.
-    Used as an emergency fallback to ensure visibility. Assumes map arrays are (height, width).
-    """
-    print(
-        f"Using simple_circle_fov with center ({center_x}, {center_y}) and radius {radius}"
-    )
-
-    # Reset visibility (shape height, width)
-    game_map.visible[:] = False
-
-    radius_sq = radius * radius
-    # Iterate rows (y) then columns (x)
-    for y in range(
-        max(0, center_y - radius), min(game_map.height, center_y + radius + 1)
-    ):
-        for x in range(
-            max(0, center_x - radius), min(game_map.width, center_x + radius + 1)
-        ):
-            dist_sq = (x - center_x) ** 2 + (y - center_y) ** 2
-            if dist_sq <= radius_sq:
-                # Always mark origin visible
-                if x == center_x and y == center_y:
-                    # CORRECTED INDEXING: [y, x]
-                    game_map.visible[y, x] = True
-                    game_map.explored[y, x] = True
-                # Use the map's is_transparent method which has correct indexing
-                elif game_map.is_transparent(x, y):
-                    # Simple raycast check (also needs correct indexing)
-                    line_is_clear = True
-                    dx = x - center_x
-                    dy = y - center_y
-                    distance = max(abs(dx), abs(dy))
-                    if distance > 1:
-                        for step in range(1, distance):
-                            step_ratio = step / distance
-                            check_x = int(center_x + dx * step_ratio)
-                            check_y = int(center_y + dy * step_ratio)
-                            # Use map's method for check
-                            if not game_map.is_transparent(check_x, check_y):
-                                line_is_clear = False
-                                break
-                    if line_is_clear:
-                        # CORRECTED INDEXING: [y, x]
-                        game_map.visible[y, x] = True
-                        game_map.explored[y, x] = True
-
-
-# --- Main FOV Function (Corrected Array Passing) ---
-def compute_fov(game_map: "GameMap", x: int, y: int, radius: int) -> None:
-    """
-    Calculate Field of View from point (x, y) with a given radius.
-    Updates the game_map.visible and game_map.explored arrays in place
-    using Numba-accelerated recursive shadowcasting. Assumes map arrays are (height, width).
-
-    Args:
-        game_map: The GameMap object containing map data arrays (shape height, width).
-        x: The x-coordinate of the FOV origin (column index).
-        y: The y-coordinate of the FOV origin (row index).
-        radius: The maximum visibility radius. Use negative value (e.g., -1) for infinite range.
-    """
-    if not _NUMBA_AVAILABLE:
-        print("WARNING: Numba not found, FOV will be very slow. Falling back.")
-        simple_circle_fov(game_map, x, y, radius)  # Use fallback immediately
-        return
-
-    if not game_map.in_bounds(x, y):
-        print(
-            f"Warning: FOV origin ({x},{y}) is out of map bounds ({game_map.width}x{game_map.height})."
+    if opaque_grid[ny, nx]:
+        return True
+    distance_squared = octant_x * octant_x + octant_y * octant_y
+    vertical_threshold: int
+    if distance_squared <= CLOSE_RANGE_SQ_THRESHOLD:
+        vertical_threshold = BASE_THRESHOLD + (distance_squared // CLOSE_RANGE_DIVISOR)
+    else:
+        additional_distance_sq = distance_squared - CLOSE_RANGE_SQ_THRESHOLD
+        vertical_threshold = (
+            BASE_THRESHOLD
+            + _THRESHOLD_AT_CUTOFF
+            + (additional_distance_sq // FAR_RANGE_DIVISOR)
         )
-        game_map.visible[:] = False
-        return
+    target_floor_h = height_map[ny, nx]
+    target_ceil_h = ceiling_map[ny, nx]
+    if target_floor_h > origin_height + vertical_threshold:
+        return True
+    if target_ceil_h < origin_height - vertical_threshold:
+        return True
+    return False
 
+
+# --- MODIFIED set_visible_at signature ---
+@numba.njit(cache=True)
+def set_visible_at(
+    octant_x: int,
+    octant_y: int,
+    octant: int,
+    origin_xy: Point,
+    grid_shape: tuple[int, int],
+    visible_grid: np.ndarray,  # Output grid 1
+    explored_grid: np.ndarray,  # Output grid 2 (ADDED)
+):
+    # --- END MODIFIED signature ---
+    """Numba-optimized version modifying visibility and explored grids."""
+    nx, ny = _transform_coords(octant_x, octant_y, octant, origin_xy)
+    width, height = grid_shape
+    if 0 <= nx < width and 0 <= ny < height:
+        # --- ADDED explored_grid update ---
+        visible_grid[ny, nx] = True
+        explored_grid[ny, nx] = True  # Mark as explored when visible
+        # --- END ADDED update ---
+
+
+# --- END MODIFIED set_visible_at ---
+
+
+@numba.njit(cache=True)
+def is_in_range(octant_x: int, octant_y: int, range_limit_sq: int | float) -> bool:
+    # (Unchanged)
+    return (octant_x * octant_x + octant_y * octant_y) <= range_limit_sq
+
+
+# --- MODIFIED Numba Core Logic signature ---
+@numba.njit(cache=True)
+def _compute_fov_iterative_numba(
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,  # ADDED explored_grid parameter
+):
+    # --- END MODIFIED signature ---
+    """
+    Core iterative FOV calculation. Now passes explored_grid.
+    """
+    height, width = opaque_grid.shape
+    grid_shape = (width, height)
+    range_limit_sq = range_limit * range_limit
+    active_sectors = NumbaList.empty_list(sector_type)
+    initial_top: Slope = (1, 1)
+    initial_bottom: Slope = (0, 1)
+    for octant in range(8):
+        active_sectors.append((octant, 1, initial_top, initial_bottom))
+
+    while len(active_sectors) > 0:
+        current_octant, current_x, current_top, current_bottom = active_sectors.pop()
+        for x in range(current_x, range_limit + 1):
+            # Calculate top_y and bottom_y (unchanged logic)
+            top_y: int
+            top_slope_y, top_slope_x = current_top
+            # ... (top_y calculation unchanged) ...
+            if top_slope_x == 1:
+                top_y = x
+            elif top_slope_x == 0:
+                top_y = 0
+            else:
+                top_y = ((x * 2 - 1) * top_slope_y + top_slope_x) // (top_slope_x * 2)
+                if blocks_light_at(
+                    x,
+                    top_y,
+                    current_octant,
+                    origin_xy,
+                    grid_shape,
+                    opaque_grid,
+                    height_map,
+                    ceiling_map,
+                    origin_height,
+                ):
+                    if slope_greater_or_equal(
+                        current_top, top_y * 2 + 1, x * 2
+                    ) and not blocks_light_at(
+                        x,
+                        top_y + 1,
+                        current_octant,
+                        origin_xy,
+                        grid_shape,
+                        opaque_grid,
+                        height_map,
+                        ceiling_map,
+                        origin_height,
+                    ):
+                        top_y += 1
+                else:
+                    ax = x * 2
+                    if blocks_light_at(
+                        x + 1,
+                        top_y + 1,
+                        current_octant,
+                        origin_xy,
+                        grid_shape,
+                        opaque_grid,
+                        height_map,
+                        ceiling_map,
+                        origin_height,
+                    ):
+                        ax += 1
+                    if slope_greater(current_top, top_y * 2 + 1, ax):
+                        top_y += 1
+            bottom_y: int
+            bottom_slope_y, bottom_slope_x = current_bottom
+            if bottom_slope_y == 0:
+                bottom_y = 0
+            elif bottom_slope_x == 0:
+                bottom_y = 0
+            else:
+                bottom_y = ((x * 2 - 1) * bottom_slope_y + bottom_slope_x) // (
+                    bottom_slope_x * 2
+                )  # Corrected formula
+                if (
+                    slope_greater_or_equal(current_bottom, bottom_y * 2 + 1, x * 2)
+                    and blocks_light_at(
+                        x,
+                        bottom_y,
+                        current_octant,
+                        origin_xy,
+                        grid_shape,
+                        opaque_grid,
+                        height_map,
+                        ceiling_map,
+                        origin_height,
+                    )
+                    and not blocks_light_at(
+                        x,
+                        bottom_y + 1,
+                        current_octant,
+                        origin_xy,
+                        grid_shape,
+                        opaque_grid,
+                        height_map,
+                        ceiling_map,
+                        origin_height,
+                    )
+                ):
+                    bottom_y += 1
+
+            # Process column y range
+            was_opaque = -1
+            for y in range(top_y, bottom_y - 1, -1):
+                if is_in_range(x, y, range_limit_sq):
+                    is_tile_opaque = blocks_light_at(
+                        x,
+                        y,
+                        current_octant,
+                        origin_xy,
+                        grid_shape,
+                        opaque_grid,
+                        height_map,
+                        ceiling_map,
+                        origin_height,
+                    )
+                    top_vis_check = y != top_y or slope_greater(
+                        current_top, y * 4 - 1, x * 4 + 1
+                    )
+                    bottom_vis_check = y != bottom_y or slope_less(
+                        current_bottom, y * 4 + 1, x * 4 - 1
+                    )
+                    is_visible = is_tile_opaque or (top_vis_check and bottom_vis_check)
+
+                    if is_visible:
+                        # --- Pass explored_grid to set_visible_at ---
+                        set_visible_at(
+                            x,
+                            y,
+                            current_octant,
+                            origin_xy,
+                            grid_shape,
+                            visible_grid,
+                            explored_grid,
+                        )
+                        # --- End Pass ---
+
+                    # Transition Logic (with correct beveling, unchanged logic)
+                    if x < range_limit:
+                        if is_tile_opaque:
+                            if was_opaque == 0:  # Clear -> Opaque
+                                nx = x * 2
+                                ny = y * 2 + 1
+                                if blocks_light_at(
+                                    x,
+                                    y + 1,
+                                    current_octant,
+                                    origin_xy,
+                                    grid_shape,
+                                    opaque_grid,
+                                    height_map,
+                                    ceiling_map,
+                                    origin_height,
+                                ):
+                                    nx -= 1
+                                new_bottom_slope: Slope = (ny, nx)
+                                if slope_greater(current_top, ny, nx):
+                                    active_sectors.append(
+                                        (
+                                            current_octant,
+                                            x + 1,
+                                            current_top,
+                                            new_bottom_slope,
+                                        )
+                                    )
+                                current_bottom = new_bottom_slope
+                                break
+                            was_opaque = 1
+                        else:  # Clear tile
+                            if was_opaque > 0:  # Opaque -> Clear
+                                nx = x * 2
+                                ny = y * 2 + 1
+                                if blocks_light_at(
+                                    x + 1,
+                                    y + 1,
+                                    current_octant,
+                                    origin_xy,
+                                    grid_shape,
+                                    opaque_grid,
+                                    height_map,
+                                    ceiling_map,
+                                    origin_height,
+                                ):
+                                    nx += 1
+                                new_top_slope: Slope = (ny, nx)
+                                if slope_greater_or_equal(current_bottom, ny, nx):
+                                    was_opaque = -2
+                                    break
+                                current_top = new_top_slope
+                            was_opaque = 0
+            # End of y loop
+            if was_opaque == 1 or was_opaque == -2:
+                break  # Exit x loop
+        # End of x loop
+    # End of while loop
+
+
+# --- END MODIFIED _compute_fov_iterative_numba ---
+
+
+# --- MODIFIED Public Interface Function Signature ---
+def compute_fov(
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    # Accept BOTH output arrays
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,  # ADDED explored_grid parameter
+) -> None:  # Returns None, modifies arrays in-place
+    # --- END MODIFIED signature ---
+    """
+    Computes Field of View using the iterative shadowcasting algorithm.
+    Modifies visible_grid and explored_grid in-place.
+    """
+    func_log = log.bind(
+        origin=origin_xy, range_limit=range_limit, grid_shape=opaque_grid.shape
+    )
+    func_log.info("Starting FOV computation (Iterative w/ Explored)")
+    start_time = time.perf_counter()
+
+    # Input validation
+    if not isinstance(opaque_grid, np.ndarray) or opaque_grid.ndim != 2:
+        raise TypeError("opaque_grid must be a 2D NumPy array.")
+    if height_map.shape != opaque_grid.shape:
+        raise ValueError("height_map must have same shape.")
+    if ceiling_map.shape != opaque_grid.shape:
+        raise ValueError("ceiling_map must have same shape.")
+    if visible_grid.shape != opaque_grid.shape:
+        raise ValueError("visible_grid must have same shape.")
+    if explored_grid.shape != opaque_grid.shape:
+        raise ValueError("explored_grid must have same shape.")
+    if visible_grid.dtype != np.bool_:
+        raise TypeError("visible_grid must be boolean.")
+    if explored_grid.dtype != np.bool_:
+        raise TypeError("explored_grid must be boolean.")
+    if range_limit < 0:
+        raise ValueError("range_limit must be non-negative.")
+
+    height, width = opaque_grid.shape
+    ox, oy = origin_xy
+    if not (0 <= ox < width and 0 <= oy < height):
+        raise ValueError("Origin coordinates are outside grid bounds.")
+
+    # Clear *only* the visible grid, leave explored grid intact
+    visible_grid.fill(False)
+    visible_grid[oy, ox] = True
+    explored_grid[oy, ox] = True  # Also ensure origin is explored
+
+    # Origin height fetch (already validated origin bounds)
+    # Removed internal _origin_height variable, use parameter directly
+    # origin_height = int(height_map[oy, ox])
+
+    # Call the Numba core logic
     try:
-        # Reset visibility grid (shape height, width)
-        game_map.visible[:] = False
-
-        # Mark origin as visible and explored
-        # CORRECTED INDEXING: [y, x]
-        game_map.visible[y, x] = True
-        game_map.explored[y, x] = True
-
-        radius_squared = radius * radius if radius >= 0 else -1
-
-        # Pre-fetch arrays (already correct shape: height, width)
-        transparent_map = game_map.transparent
-        visible_map = game_map.visible
-        explored_map = game_map.explored
-
-        # Debugging transparency
-        transparent_count = np.sum(transparent_map)
-        # Corrected index
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                nx, ny = x + dx, y + dy
-
-        # Iterate through octants, calling the Numba-accelerated function
-        for octant in range(8):
-            _compute_octant(
-                octant=octant,
-                origin_x=x,
-                origin_y=y,
-                range_limit_sq=radius_squared,
-                x_start=1,
-                top_y_slope=1,
-                top_x_slope=1,
-                bottom_y_slope=0,
-                bottom_x_slope=1,
-                transparent_map=transparent_map,  # Pass (height, width) array
-                visible_map=visible_map,  # Pass (height, width) array
-                explored_map=explored_map,  # Pass (height, width) array
-            )
-
-        visible_count = np.sum(visible_map)
-
-        if visible_count <= 1:
-            print(
-                "WARNING: Shadowcasting FOV failed (<=1 visible), using simple FOV fallback"
-            )
-            simple_circle_fov(game_map, x, y, radius)
-            visible_count = np.sum(visible_map)
-            print(f"Simple FOV fallback generated {visible_count} visible tiles")
-
+        _compute_fov_iterative_numba(
+            origin_xy,
+            range_limit,
+            opaque_grid.astype(np.bool_),
+            height_map,
+            ceiling_map,
+            origin_height,
+            visible_grid,
+            explored_grid,  # Pass both output arrays
+        )
     except Exception as e:
-        print(f"ERROR in FOV calculation: {e}")
-        import traceback
+        log.error("Error during Numba FOV calculation", error=str(e), exc_info=True)
+        # Consider fallback or re-raising depending on desired robustness
 
-        traceback.print_exc()
-        print("Using simple FOV fallback due to error")
-        try:
-            simple_circle_fov(game_map, x, y, radius)
-        except Exception as e2:
-            print(f"ERROR in simple FOV fallback: {e2}")
-            if game_map.in_bounds(x, y):  # Check bounds before fallback assignment
-                game_map.visible[y, x] = True  # Corrected index
-                game_map.explored[y, x] = True  # Corrected index
+    end_time = time.perf_counter()
+    duration_ms = (end_time - start_time) * 1000
+    # Log visible count from the grid that was modified
+    func_log.info(
+        "FOV computation finished",
+        duration_ms=f"{duration_ms:.2f}",
+        visible_count=np.sum(visible_grid),
+    )
+    # No return value needed as arrays are modified in-place
+
+
+# --- END MODIFIED Public Interface ---
+
+
+# --- Example Usage (Updated call) ---
+if __name__ == "__main__":
+    MAP_WIDTH = 30
+    MAP_HEIGHT = 20
+    map_opaque = np.zeros((MAP_HEIGHT, MAP_WIDTH), dtype=np.bool_)
+    map_height = np.zeros((MAP_HEIGHT, MAP_WIDTH), dtype=np.int16)
+    map_ceiling = np.full((MAP_HEIGHT, MAP_WIDTH), 10, dtype=np.int16)
+    map_opaque[0, :] = True
+    map_opaque[MAP_HEIGHT - 1, :] = True
+    map_opaque[:, 0] = True
+    map_opaque[:, MAP_WIDTH - 1] = True
+    map_height[0, :] = 1
+    map_height[MAP_HEIGHT - 1, :] = 1
+    map_height[:, 0] = 1
+    map_height[:, MAP_WIDTH - 1] = 1
+    map_opaque[MAP_HEIGHT // 2, 5 : MAP_WIDTH - 5] = True
+    map_height[MAP_HEIGHT // 2, 5 : MAP_WIDTH - 5] = 4
+    map_ceiling[MAP_HEIGHT // 2, 5 : MAP_WIDTH - 5] = 8
+    map_opaque[5 : MAP_HEIGHT - 5, MAP_WIDTH // 2] = True
+    map_height[5 : MAP_HEIGHT - 5, MAP_WIDTH // 2] = 0
+    map_ceiling[5 : MAP_HEIGHT - 5, MAP_WIDTH // 2] = 10
+    map_height[MAP_HEIGHT // 2 + 3 : MAP_HEIGHT // 2 + 6, 5:10] = 4
+    map_ceiling[MAP_HEIGHT // 2 + 3 : MAP_HEIGHT // 2 + 6, 5:10] = 14
+    map_ceiling[2:5, MAP_WIDTH - 10 : MAP_WIDTH - 5] = 2
+    map_height[2:5, MAP_WIDTH - 10 : MAP_WIDTH - 5] = 0
+    player_origin: Point = (MAP_WIDTH // 4, MAP_HEIGHT // 4)
+    map_height[player_origin[1], player_origin[0]] = 0
+    map_ceiling[player_origin[1], player_origin[0]] = 10
+    view_radius = 12
+
+    # --- Create both output arrays ---
+    visibility_map = np.zeros_like(map_opaque, dtype=np.bool_)
+    explored_map = np.zeros_like(map_opaque, dtype=np.bool_)  # Create explored map
+
+    print("Running Optimized Iterative FOV with Height & Explored...")
+    example_origin_height = int(map_height[player_origin[1], player_origin[0]])
+    # --- Pass explored_map to compute_fov ---
+    compute_fov(
+        player_origin,
+        view_radius,
+        map_opaque,
+        map_height,
+        map_ceiling,
+        example_origin_height,
+        visible_grid=visibility_map,  # Pass visible grid
+        explored_grid=explored_map,  # Pass explored grid
+    )
+    print("Done.")
+
+    # --- Print Output (show explored) ---
+    print(f"\nMap Legend: @=Player (H=0), #=Wall, .=Visible Floor, '=Explored Floor")
+    print(f"            ^=Vis Raised Floor, ~=Vis Low Ceiling, X=Explored Wall")
+    output_str = ""
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            is_visible = visibility_map[y, x]
+            is_explored = explored_map[y, x]
+            is_opaque_tile = map_opaque[y, x]
+            h = map_height[y, x]
+            c = map_ceiling[y, x]
+
+            if (x, y) == player_origin:
+                char = "@"
+            elif is_visible:
+                if is_opaque_tile:
+                    char = "#"  # Visible wall (should be rare unless inside wall?)
+                elif h >= 4:
+                    char = "^"
+                elif c <= 2:
+                    char = "~"
+                else:
+                    char = "."
+            elif is_explored:
+                if is_opaque_tile:
+                    char = "X"  # Explored wall
+                else:
+                    char = "'"  # Explored floor
+            else:
+                char = " "  # Unseen
+            output_str += char
+        output_str += "\n"
+    print(output_str)
+    # --- End Print ---
