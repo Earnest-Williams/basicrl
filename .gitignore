@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Compiled Numba files
+*.nbi
+*.nbc
+
+# Environment files
+.env
+.env.*
+.envrc
+.envrc.bak
+
+# Python environments
+.venv/
+venv/
+ENV/
+env/
+*.conda
+
+# Git metadata
+.git/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Backup and cache files
+*.bak
+*.swp
+*.swo
+*~
+
+# Fonts and large assets if built/generated elsewhere (optional)
+# Comment this out if you want fonts committed.
+fonts/
+
+# Console log, color map artifacts
+console.txt
+color_map.txt
+color_test.py
+
+# VSCode settings (optional)
+.vscode/
+
+# Output and temp directories (if you generate builds or artifacts)
+build/
+dist/
+out/
+tmp/
+.cache/
