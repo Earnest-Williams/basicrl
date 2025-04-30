@@ -3,12 +3,19 @@ import sys
 import time
 import yaml
 import logging
+import tomllib  # Ensure this is imported (standard in Python 3.11+)
+
+# --- MODIFIED: Add pathlib ---
 from pathlib import Path
+
+# --- End MODIFIED ---
+from typing import Any
 
 import structlog
 from structlog.stdlib import add_logger_name, add_log_level
 from PySide6.QtWidgets import QApplication
 
+# Absolute imports are generally preferred when the module execution context is clear
 from engine.tileset_loader import load_tiles
 from engine.main_loop import MainLoop
 from engine.window_manager import WindowManager
@@ -16,12 +23,22 @@ from game.world.game_map import GameMap
 from game.game_state import GameState
 from game.world.procgen import generate_dungeon
 
-CONFIG_FILE = Path("config/config.yaml")
+# --- MODIFIED: Define paths relative to this script's location ---
+SCRIPT_DIR = Path(__file__).parent.resolve()  # Gets the directory containing main.py
+CONFIG_DIR = SCRIPT_DIR / "config"
+FONTS_DIR = SCRIPT_DIR / "fonts"  # Example for assets
+
+CONFIG_FILE = CONFIG_DIR / "config.yaml"
+ITEMS_CONFIG_FILE = CONFIG_DIR / "items.yaml"
+EFFECTS_CONFIG_FILE = CONFIG_DIR / "effects.yaml"
+KEYBINDINGS_FILE = CONFIG_DIR / "keybindings.toml"  # Define path for keybindings
+SETTINGS_FILE = CONFIG_DIR / "settings.toml"  # Define path for settings
+# --- End MODIFIED ---
 
 
 # --- Structlog Setup ---
 def setup_logging():
-    """Configures structlog for console output."""
+    # ... (logging setup unchanged) ...
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -41,22 +58,63 @@ log = structlog.get_logger()
 # --- End Structlog Setup ---
 
 
-def load_config(config_path: Path) -> dict:
-    """Loads the YAML configuration file."""
+# --- ADDED HELPER FUNCTION FOR TOML ---
+def load_toml_config(config_path: Path, config_name: str) -> dict[str, Any]:
+    """Loads a TOML configuration file."""
     if not config_path.is_file():
-        log.error("Config file not found", path=str(config_path))
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        log.error(f"{config_name} config file not found", path=str(config_path))
+        # Return empty dict or raise error? Empty dict seems safer for optional configs.
+        return {}
     try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-        if config is None:
-            log.warning("Config file is empty, using defaults.", path=str(config_path))
+        with config_path.open("rb") as f:  # tomllib reads bytes
+            config_data = tomllib.load(f)
+        log.info(
+            f"{config_name} configuration loaded successfully", path=str(config_path)
+        )
+        return config_data
+    except tomllib.TOMLDecodeError as e:
+        log.error(
+            f"Error parsing TOML for {config_name}",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
+        return {}  # Return empty on error
+    except Exception as e:
+        log.error(
+            f"Failed to load {config_name} configuration",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
+        return {}  # Return empty on error
+
+
+# --- END ADDED HELPER FUNCTION ---
+
+
+def load_yaml_config(config_path: Path, config_name: str) -> dict[str, Any]:
+    """Loads a generic YAML configuration file."""
+    # Now accepts Path object
+    if not config_path.is_file():
+        log.error(f"{config_name} config file not found", path=str(config_path))
+        raise FileNotFoundError(
+            f"{config_name} configuration file not found: {config_path}"
+        )
+    try:
+        # Use Path object directly
+        with config_path.open("r") as f:
+            config_data = yaml.safe_load(f)
+        if config_data is None:
+            log.warning(f"{config_name} config file is empty.", path=str(config_path))
             return {}
-        log.info("Configuration loaded successfully", path=str(config_path))
-        return config
+        log.info(
+            f"{config_name} configuration loaded successfully", path=str(config_path)
+        )
+        return config_data
     except yaml.YAMLError as e:
         log.error(
-            "Error parsing YAML configuration",
+            f"Error parsing YAML for {config_name}",
             path=str(config_path),
             error=str(e),
             exc_info=True,
@@ -64,7 +122,7 @@ def load_config(config_path: Path) -> dict:
         raise
     except Exception as e:
         log.error(
-            "Failed to load configuration",
+            f"Failed to load {config_name} configuration",
             path=str(config_path),
             error=str(e),
             exc_info=True,
@@ -76,44 +134,58 @@ def main() -> None:
     """Main entry point for the application."""
     setup_logging()
     log.info("Application starting...")
+    log.info(f"Script directory: {SCRIPT_DIR}")
+    log.info(f"Config directory: {CONFIG_DIR}")
+    log.info(f"Fonts directory: {FONTS_DIR}")
 
     app = QApplication(sys.argv)
 
     try:
-        # --- Load Configuration ---
-        config = load_config(CONFIG_FILE)
+        # --- Load Configurations ---
+        config = load_yaml_config(CONFIG_FILE, "Main")
+        item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get(
+            "templates", {}
+        )
+        effect_definitions = load_yaml_config(EFFECTS_CONFIG_FILE, "Effects").get(
+            "effects", {}
+        )
+        # --- LOAD KEYBINDINGS ---
+        keybindings_config = load_toml_config(KEYBINDINGS_FILE, "Keybindings")
+        # --- LOAD SETTINGS (Example, not used yet) ---
+        settings_config = load_toml_config(SETTINGS_FILE, "Settings")  # Load settings
+        log.info("Item templates loaded", count=len(item_templates))
+        log.info("Effect definitions loaded", count=len(effect_definitions))
+        log.info(
+            "Keybindings loaded", count=len(keybindings_config.get("bindings", {}))
+        )
+        log.info("Settings loaded", count=len(settings_config))
 
-        # --- Extract values from config safely with defaults ---
-        # Display & Tileset
-        initial_tileset_folder: str = config.get(
+        # --- Extract values from main config safely ---
+        initial_tileset_folder_rel: str = config.get(
             "initial_tileset_folder", "fonts/classic_roguelike_sliced_svgs"
         )
+        initial_tileset_folder_abs = SCRIPT_DIR / initial_tileset_folder_rel
+        log.debug(
+            "Resolved initial tileset path",
+            relative=initial_tileset_folder_rel,
+            absolute=str(initial_tileset_folder_abs),
+        )
+
         initial_tile_width: int = config.get("initial_tile_width", 16)
         initial_tile_height: int = config.get("initial_tile_height", 16)
         min_tile_size: int = config.get("minimum_tile_size", 4)
         scroll_debounce_ms: int = config.get("scroll_scale_debounce_ms", 200)
         resize_debounce_ms: int = config.get("resize_debounce_ms", 100)
-
-        # Map Dimensions
         map_width: int = config.get("map_width", 80)
         map_height: int = config.get("map_height", 50)
-
-        # Procedural Generation
         dungeon_seed_cfg = config.get("dungeon_seed")
-
-        # Player Settings
-        player_glyph: int = config.get("player_glyph", 113)  # User specified
+        player_glyph: int = config.get("player_glyph", 113)  # '@'
         player_start_hp: int = config.get("player_start_hp", 30)
         player_fov_radius: int = config.get("player_fov_radius", 8)
-
-        # --- Added Lighting Config Loading ---
         lighting_config = config.get("lighting", {})
         lighting_ambient: float = lighting_config.get("ambient_level", 0.15)
         lighting_min_fov: float = lighting_config.get("min_fov_level", 0.25)
         lighting_falloff: float = lighting_config.get("falloff_power", 1.5)
-        # --- End Lighting Config Loading ---
-
-        # Height Visualization
         hv_config = config.get("height_visualization", {})
         vis_enabled_default: bool = hv_config.get("enabled_by_default", False)
         vis_max_diff: int = hv_config.get("max_relative_difference", 10)
@@ -121,48 +193,17 @@ def main() -> None:
         vis_color_mid: list = hv_config.get("color_mid", [0, 255, 0])
         vis_color_low: list = hv_config.get("color_low", [0, 128, 255])
         vis_blend_factor: float = hv_config.get("blend_factor", 0.3)
-
-        # Gameplay Rules
         gameplay_rules = config.get("gameplay_rules", {})
         max_traversable_step: int = gameplay_rules.get("max_traversable_step", 2)
 
-        # --- Updated Logging for Config Values ---
-        log.info(
-            "Configuration values",
-            tileset=initial_tileset_folder,
-            tile_w=initial_tile_width,
-            tile_h=initial_tile_height,
-            map_w=map_width,
-            map_h=map_height,
-            seed_cfg=dungeon_seed_cfg,
-            player_glyph=player_glyph,
-            player_hp=player_start_hp,
-            player_fov=player_fov_radius,
-            light_ambient=lighting_ambient,
-            light_min_fov=lighting_min_fov,
-            light_falloff=lighting_falloff,  # Added lighting
-            vis_enabled=vis_enabled_default,
-            vis_max_diff=vis_max_diff,
-            vis_blend=vis_blend_factor,
-            max_step=max_traversable_step,
-        )
-        # --- End Updated Logging ---
+        log.info("Main configuration values loaded.")
 
-        # --- Game Initialization using Config ---
-        log.info("Loading initial tileset", path=initial_tileset_folder)
+        # --- Game Initialization ---
+        log.info("Loading initial tileset", path=str(initial_tileset_folder_abs))
         clamped_width = max(min_tile_size, initial_tile_width)
         clamped_height = max(min_tile_size, initial_tile_height)
-        if clamped_width != initial_tile_width or clamped_height != initial_tile_height:
-            log.info(
-                "Tile dimensions clamped",
-                initial_w=initial_tile_width,
-                initial_h=initial_tile_height,
-                clamped_w=clamped_width,
-                clamped_h=clamped_height,
-                min_size=min_tile_size,
-            )
         initial_tiles, _ = load_tiles(
-            initial_tileset_folder, clamped_width, clamped_height
+            str(initial_tileset_folder_abs), clamped_width, clamped_height
         )
 
         log.info("Creating game map", width=map_width, height=map_height)
@@ -174,6 +215,7 @@ def main() -> None:
             if dungeon_seed_cfg is None
             else int(dungeon_seed_cfg)
         )
+        rng_seed_to_pass = dungeon_seed  # Use same seed for RNG init
         log.info("Using dungeon seed", seed=dungeon_seed)
         player_start_pos = generate_dungeon(
             game_map, map_width, map_height, seed=dungeon_seed
@@ -187,11 +229,37 @@ def main() -> None:
             player_glyph=player_glyph,
             player_start_hp=player_start_hp,
             player_fov_radius=player_fov_radius,
+            item_templates=item_templates,
+            effect_definitions=effect_definitions,
+            rng_seed=rng_seed_to_pass,  # Pass seed to GameState for its RNG
         )
+
+        # Spawn initial items (Example)
+        if player_start_pos:
+            spawn_x, spawn_y = player_start_pos
+            if hasattr(game_state, "item_registry") and game_state.item_registry:
+                log.info("Spawning initial items near player", pos=(spawn_x, spawn_y))
+                # Add checks for item creation success if needed
+                game_state.item_registry.create_item(
+                    "simple_dagger", "ground", x=spawn_x + 1, y=spawn_y
+                )
+                game_state.item_registry.create_item(
+                    "cookies", "ground", x=spawn_x, y=spawn_y + 1
+                )
+                game_state.item_registry.create_item(
+                    "torch", "ground", x=spawn_x - 1, y=spawn_y
+                )
+            else:
+                log.warning(
+                    "ItemRegistry not found in GameState, skipping initial item spawn."
+                )
 
         log.info("Creating main window...")
         window = WindowManager(
-            initial_tileset_path=initial_tileset_folder,
+            # Pass BOTH config dictionaries
+            app_config=config,
+            keybindings_config=keybindings_config,  # Pass the loaded keybindings
+            initial_tileset_path=str(initial_tileset_folder_abs),
             initial_tiles=initial_tiles,
             initial_tile_width=clamped_width,
             initial_tile_height=clamped_height,
@@ -203,35 +271,31 @@ def main() -> None:
         )
 
         log.info("Initializing main loop...")
-        # --- UPDATED MainLoop call with lighting params ---
         main_loop = MainLoop(
             game_state=game_state,
             window=window,
-            # Visualization config
             vis_enabled_default=vis_enabled_default,
             vis_max_diff=vis_max_diff,
             vis_color_high=vis_color_high,
             vis_color_mid=vis_color_mid,
             vis_color_low=vis_color_low,
             vis_blend_factor=vis_blend_factor,
-            # Gameplay config
             max_traversable_step=max_traversable_step,
-            # Lighting config
             lighting_ambient=lighting_ambient,
             lighting_min_fov=lighting_min_fov,
             lighting_falloff=lighting_falloff,
         )
-        # --- END UPDATED MainLoop call ---
         window.set_main_loop(main_loop)
 
     except FileNotFoundError as e:
-        log.critical("Config file missing", error=str(e), exc_info=True)
-        sys.exit(f"Configuration failed: {e}")
+        log.critical("Required file not found", error=str(e), exc_info=True)
+        sys.exit(f"Initialization failed: File not found - {e}")
     except KeyError as e:
+        # This might catch errors if config structure is wrong after loading
         log.critical(
-            "Missing required key in config",
+            "Missing required key, possibly in config",
             key=str(e),
-            path=str(CONFIG_FILE),
+            # path=str(CONFIG_FILE), # Path might not be accurate if error is elsewhere
             exc_info=True,
         )
         sys.exit(f"Configuration failed: Missing key {e}")

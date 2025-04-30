@@ -1,0 +1,57 @@
+# config/keybindings.toml
+# Keybindings for the main game, grouped into sets.
+
+# This set is typically always active
+[bindings.common]
+toggle_height_vis = { key = "V", mods = [], desc = "Toggle Height Visualization", action_type="ui" }
+show_help         = { key = "F1", mods = [], desc = "Show This Help", action_type="ui" }
+quit_game_alt     = { key = "Escape", mods = [], desc = "Quit Game (Esc)", action_type="ui" }
+# Removed Shift+Q quit for now to avoid default conflict, can be added to specific sets if desired.
+pickup            = { key = "G", mods = [], desc = "Get / Pickup Item", action_type="action" }
+wait              = { key = "Period", mods = [], desc = "Wait / Skip Turn", action_type="action" }
+wait_alt          = { key = "Space", mods = [], desc = "Wait / Skip Turn", action_type="action" }
+wait_alt2         = { key = "KP_5", mods = [], desc = "Wait / Skip Turn (Numpad)", action_type="action" }
+
+# Modern WASD style bindings
+[bindings.modern]
+move_n    = { key = "W", mods = [], desc = "Move North", action_type="move", dx=0, dy=-1 }
+move_s    = { key = "S", mods = [], desc = "Move South", action_type="move", dx=0, dy=1 }
+move_w    = { key = "A", mods = [], desc = "Move West", action_type="move", dx=-1, dy=0 }
+move_e    = { key = "D", mods = [], desc = "Move East", action_type="move", dx=1, dy=0 }
+move_nw   = { key = "Q", mods = [], desc = "Move North-West", action_type="move", dx=-1, dy=-1 }
+move_ne   = { key = "E", mods = [], desc = "Move North-East", action_type="move", dx=1, dy=-1 }
+move_sw   = { key = "Z", mods = [], desc = "Move South-West", action_type="move", dx=-1, dy=1 }
+move_se   = { key = "C", mods = [], desc = "Move South-East", action_type="move", dx=1, dy=1 }
+
+# Vi HJKL style bindings
+[bindings.vi]
+move_n    = { key = "K", mods = [], desc = "Move North (Vi)", action_type="move", dx=0, dy=-1 }
+move_s    = { key = "J", mods = [], desc = "Move South (Vi)", action_type="move", dx=0, dy=1 }
+move_w    = { key = "H", mods = [], desc = "Move West (Vi)", action_type="move", dx=-1, dy=0 }
+move_e    = { key = "L", mods = [], desc = "Move East (Vi)", action_type="move", dx=1, dy=0 }
+move_nw   = { key = "Y", mods = [], desc = "Move North-West (Vi)", action_type="move", dx=-1, dy=-1 }
+move_ne   = { key = "U", mods = [], desc = "Move North-East (Vi)", action_type="move", dx=1, dy=-1 }
+move_sw   = { key = "B", mods = [], desc = "Move South-West (Vi)", action_type="move", dx=-1, dy=1 }
+move_se   = { key = "N", mods = [], desc = "Move South-East (Vi)", action_type="move", dx=1, dy=1 }
+
+# Numpad bindings (can be active alongside modern or vi)
+[bindings.numpad]
+move_n    = { key = "KP_8", mods = [], desc = "Move North (Numpad)", action_type="move", dx=0, dy=-1 }
+move_s    = { key = "KP_2", mods = [], desc = "Move South (Numpad)", action_type="move", dx=0, dy=1 }
+move_w    = { key = "KP_4", mods = [], desc = "Move West (Numpad)", action_type="move", dx=-1, dy=0 }
+move_e    = { key = "KP_6", mods = [], desc = "Move East (Numpad)", action_type="move", dx=1, dy=0 }
+move_nw   = { key = "KP_7", mods = [], desc = "Move North-West (Numpad)", action_type="move", dx=-1, dy=-1 }
+move_ne   = { key = "KP_9", mods = [], desc = "Move North-East (Numpad)", action_type="move", dx=1, dy=-1 }
+move_sw   = { key = "KP_1", mods = [], desc = "Move South-West (Numpad)", action_type="move", dx=-1, dy=1 }
+move_se   = { key = "KP_3", mods = [], desc = "Move South-East (Numpad)", action_type="move", dx=1, dy=1 }
+
+# Arrow key bindings (can be active alongside others)
+[bindings.arrows]
+move_n    = { key = "Up", mods = [], desc = "Move North (Arrow)", action_type="move", dx=0, dy=-1 }
+move_s    = { key = "Down", mods = [], desc = "Move South (Arrow)", action_type="move", dx=0, dy=1 }
+move_w    = { key = "Left", mods = [], desc = "Move West (Arrow)", action_type="move", dx=-1, dy=0 }
+move_e    = { key = "Right", mods = [], desc = "Move East (Arrow)", action_type="move", dx=1, dy=0 }
+move_nw   = { key = "Home", mods = [], desc = "Move North-West (Keypad)", action_type="move", dx=-1, dy=-1 }
+move_ne   = { key = "PageUp", mods = [], desc = "Move North-East (Keypad)", action_type="move", dx=1, dy=-1 }
+move_sw   = { key = "End", mods = [], desc = "Move South-West (Keypad)", action_type="move", dx=-1, dy=1 }
+move_se   = { key = "PageDown", mods = [], desc = "Move South-East (Keypad)", action_type="move", dx=1, dy=1 }
