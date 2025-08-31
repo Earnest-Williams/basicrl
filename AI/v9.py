@@ -29,7 +29,7 @@ class Home:
     containers: Dict[str, Any] = field(default_factory=dict)
     fields: List[Any] = field(default_factory=list)
 
-@dataclass
+@dataclass(frozen=True)
 class Behavior:
     """Atomic action that an agent can attempt to perform."""
 
