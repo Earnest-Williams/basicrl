@@ -70,6 +70,8 @@ class GameState:
         self.memory_fade_steepness: float = mf_config.get(
             "steepness", 6.0 / duration if duration else 0.0
         )
+        tile_modifiers_cfg = mf_config.get("tile_modifiers", {})
+        self.game_map.apply_memory_modifier_overrides(tile_modifiers_cfg)
         log.debug("ItemRegistry initialized", templates=len(item_templates))
         log.debug("Effect definitions stored", effects=len(effect_definitions))
 

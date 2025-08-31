@@ -52,6 +52,7 @@ def test_memory_fade_bounds():
     mask = np.zeros((1, 1), dtype=bool)
     prev_visible = np.ones((1, 1), dtype=bool)
     memory_strength = np.zeros((1, 1), dtype=np.float32)
+    tile_modifiers = np.ones((1, 1), dtype=np.float32)
 
     update_memory_fade(
         current_time,
@@ -61,6 +62,7 @@ def test_memory_fade_bounds():
         mask,
         prev_visible,
         memory_strength,
+        tile_modifiers,
         MEMORY_SIGMOID_STEEPNESS,
         MEMORY_SIGMOID_MIDPOINT,
     )
@@ -79,6 +81,7 @@ def test_memory_fade_bounds():
         mask,
         prev_visible,
         memory_strength,
+        tile_modifiers,
         MEMORY_SIGMOID_STEEPNESS,
         MEMORY_SIGMOID_MIDPOINT,
     )
@@ -99,6 +102,7 @@ def test_memory_fade_bounds():
         mask,
         prev_visible,
         memory_strength,
+        tile_modifiers,
         MEMORY_SIGMOID_STEEPNESS,
         MEMORY_SIGMOID_MIDPOINT,
     )
@@ -163,3 +167,30 @@ def test_memory_fade_skips_zero_intensity_tiles():
     )
     assert gm.memory_intensity[py, px] == 0.0
     assert not gm.memory_fade_mask[py, px]
+
+
+def test_tile_type_modifiers_affect_fade():
+    current_time = np.float32(10.0)
+    last_seen = np.zeros((1, 2), dtype=np.float32)
+    memory_intensity = np.ones((1, 2), dtype=np.float32)
+    visible = np.zeros((1, 2), dtype=bool)
+    mask = np.zeros((1, 2), dtype=bool)
+    prev_visible = np.ones((1, 2), dtype=bool)
+    memory_strength = np.zeros((1, 2), dtype=np.float32)
+    tile_modifiers = np.array([[1.0, 2.0]], dtype=np.float32)
+
+    update_memory_fade(
+        current_time,
+        last_seen,
+        memory_intensity,
+        visible,
+        mask,
+        prev_visible,
+        memory_strength,
+        tile_modifiers,
+        MEMORY_SIGMOID_STEEPNESS,
+        MEMORY_SIGMOID_MIDPOINT,
+    )
+
+    assert memory_intensity[0, 1] > memory_intensity[0, 0]
+    assert mask[0, 0] and mask[0, 1]

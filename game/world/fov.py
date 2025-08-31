@@ -344,6 +344,7 @@ def update_memory_fade(
     needs_update_mask: np.ndarray,
     prev_visible: np.ndarray,
     memory_strength: np.ndarray,
+    tile_modifiers: np.ndarray,
     steepness: float,
     midpoint: float,
 ) -> None:
@@ -374,7 +375,8 @@ def update_memory_fade(
     elapsed_time = np.maximum(elapsed_time, 0.0)
 
     strength = memory_strength[ys, xs]
-    scale = 1.0 + strength
+    modifiers = tile_modifiers[ys, xs]
+    scale = (1.0 + strength) * modifiers
     decay_rate = steepness / scale
     midpoint_scaled = midpoint * scale
     exponent = decay_rate * (elapsed_time - midpoint_scaled)

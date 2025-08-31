@@ -43,6 +43,9 @@ memory_fade:
   duration: 60.0        # Time for tiles to fully fade (in turns)
   midpoint: 30.0        # Midpoint of the fade curve
   steepness: 0.1        # Steepness of the sigmoid fade
+  tile_modifiers:       # Per-tile memory persistence multipliers
+    floor: 1.0
+    wall: 2.0
 
 # -- Height Visualization --
 height_visualization:
