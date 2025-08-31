@@ -6,7 +6,6 @@ Includes height/ceiling checks and explored tile tracking.
 """
 
 import time
-import math
 from collections import deque
 from typing import TypeAlias, List, Optional
 
@@ -389,20 +388,7 @@ def update_memory_fade(
 
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
-    for y in range(height):
-        for x in range(width):
-            intensity = memory_intensity[y, x]
-            if intensity > 0.0 and not visible[y, x]:
-                elapsed = current_time - last_seen_time[y, x]
-                if elapsed < 0:
-                    elapsed = 0
-                exponent = steepness * (float(elapsed) - midpoint)
-                if exponent < 70.0:
-                    denom = 1.0 + math.exp(exponent)
-                    new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
-                else:
-                    new_intensity = 0.0
-                memory_intensity[y, x] = max(0.0, new_intensity)
+    return
 
 
 @numba.njit(cache=True)
