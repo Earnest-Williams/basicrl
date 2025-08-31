@@ -1,39 +1,24 @@
 # basicrl/game/world/procgen.py
 from typing import Iterator, List, NamedTuple, Tuple, Union
 
-import structlog # Added
+import structlog
 
-# Assuming GameRNG is importable
 try:
-    # If game_rng.py is in utils
     from utils.game_rng import GameRNG
-except ImportError:
-    # Fallback if it's directly importable (e.g., added to path)
-    try:
-        from game_rng import GameRNG
-    except ImportError:
-        # Define a dummy if not found - error will occur at runtime if used
-        log_fallback = structlog.get_logger()
-        log_fallback.error("CRITICAL: GameRNG class not found.")
-        GameRNG = object # Dummy type
+except ImportError as e:
+    structlog.get_logger().error("CRITICAL: GameRNG class not found.", error=str(e))
+    raise
 
-
-# Assuming GameMap is importable
 try:
     from game.world.game_map import TILE_ID_FLOOR, GameMap
-except ImportError:
-    # Fallback import path if needed
-    try:
-         from basicrl.game.world.game_map import TILE_ID_FLOOR, GameMap
-    except ImportError:
-        log_fallback = structlog.get_logger()
-        log_fallback.error("CRITICAL: GameMap class or TILE_ID_FLOOR not found.")
-        # Define dummies
-        GameMap = object
-        TILE_ID_FLOOR = 0
+except ImportError as e:
+    structlog.get_logger().error(
+        "CRITICAL: GameMap class or TILE_ID_FLOOR not found.", error=str(e)
+    )
+    raise
 
 
-log = structlog.get_logger() # Added
+log = structlog.get_logger()
 
 # --- Configuration ---
 MIN_LEAF_SIZE = 6
@@ -78,9 +63,9 @@ class Rect(NamedTuple):
     def carve(self, game_map: GameMap, floor_height: int, ceiling_height: int) -> None:
         """Carves this rectangle as floor tiles onto the game map with specified heights."""
         # Ensure GameMap is the correct type before proceeding
-        if not isinstance(game_map, GameMap) or GameMap is object:
-             log.error("Carve called with invalid GameMap object")
-             return
+        if not isinstance(game_map, GameMap):
+            log.error("Carve called with invalid GameMap object")
+            return
 
         y_start = max(0, self.y1)
         y_end = min(game_map.height, self.y2 + 1)
@@ -152,9 +137,9 @@ class BSPNode:
 def _split_node_recursive(node: BSPNode, rng: GameRNG, depth: int) -> bool:
     """Recursively splits a BSP node. Returns True if split occurred."""
     # Ensure GameRNG is the correct type before proceeding
-    if not isinstance(rng, GameRNG) or GameRNG is object:
-         log.error("Split called with invalid GameRNG object")
-         return False
+    if not isinstance(rng, GameRNG):
+        log.error("Split called with invalid GameRNG object")
+        return False
 
     log.debug(
         "Attempting BSP split",
@@ -249,9 +234,9 @@ def _split_node_recursive(node: BSPNode, rng: GameRNG, depth: int) -> bool:
 def _create_rooms_in_leaves(root_node: BSPNode, rng: GameRNG):
     """Creates rooms within the leaf nodes of the BSP tree."""
     # Ensure GameRNG is the correct type before proceeding
-    if not isinstance(rng, GameRNG) or GameRNG is object:
-         log.error("Create rooms called with invalid GameRNG object")
-         return
+    if not isinstance(rng, GameRNG):
+        log.error("Create rooms called with invalid GameRNG object")
+        return
 
     log.debug("Creating rooms in leaves...")
     room_count = 0
@@ -318,12 +303,12 @@ def _carve_tunnel(
     Returns list of Rects carved.
     """
     # Ensure GameMap and GameRNG are valid
-    if not isinstance(game_map, GameMap) or GameMap is object:
-         log.error("Carve tunnel called with invalid GameMap object")
-         return []
-    if not isinstance(rng, GameRNG) or GameRNG is object:
-         log.error("Carve tunnel called with invalid GameRNG object")
-         return []
+    if not isinstance(game_map, GameMap):
+        log.error("Carve tunnel called with invalid GameMap object")
+        return []
+    if not isinstance(rng, GameRNG):
+        log.error("Carve tunnel called with invalid GameRNG object")
+        return []
 
     log_context = {
         "start_pos": (x1, y1),
@@ -406,13 +391,13 @@ def _carve_tunnel(
 
 def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
     """Recursively connects rooms in sibling nodes."""
-     # Ensure GameMap and GameRNG are valid
-    if not isinstance(game_map, GameMap) or GameMap is object:
-         log.error("Connect rooms called with invalid GameMap object")
-         return
-    if not isinstance(rng, GameRNG) or GameRNG is object:
-         log.error("Connect rooms called with invalid GameRNG object")
-         return
+    # Ensure GameMap and GameRNG are valid
+    if not isinstance(game_map, GameMap):
+        log.error("Connect rooms called with invalid GameMap object")
+        return
+    if not isinstance(rng, GameRNG):
+        log.error("Connect rooms called with invalid GameRNG object")
+        return
 
     log.debug("Connecting rooms for node", rect=node.rect, is_leaf=node.is_leaf)
     if node.is_leaf:
@@ -470,9 +455,9 @@ def generate_dungeon(
     Generates a dungeon layout using BSP trees, populating height maps.
     """
     # Ensure GameMap is valid
-    if not isinstance(game_map, GameMap) or GameMap is object:
-         log.error("Generate dungeon called with invalid GameMap object")
-         raise TypeError("Invalid GameMap object passed to generate_dungeon")
+    if not isinstance(game_map, GameMap):
+        log.error("Generate dungeon called with invalid GameMap object")
+        raise TypeError("Invalid GameMap object passed to generate_dungeon")
 
     log.info(
         "Starting dungeon generation", width=map_width, height=map_height, seed=seed
