@@ -26,6 +26,7 @@ import polars as pl
 import structlog  # Structured logging
 from joblib import Parallel, delayed
 from numba import njit
+from game.world.los import line_of_sight
 
 # --- Constants ---
 SIM_ID = str(uuid.uuid4())[:8]  # Unique ID for this simulation run
@@ -190,21 +191,6 @@ def cave_closed_door(feature_type: int) -> bool:
     )
 
 
-@njit(cache=True, fastmath=True)
-def line_of_sight(y1: int, x1: int, y2: int, x2: int, terrain_map: np.ndarray) -> bool:
-    """
-    Checks if there is line of sight between two points.
-    *** PLACEHOLDER - IMPLEMENT A REAL LOS ALGORITHM (e.g., Bresenham) ***
-    For performance, this should be heavily optimized, likely with Numba.
-    """
-    # Placeholder logic
-    if not in_bounds(
-        y1, x1, terrain_map.shape[0], terrain_map.shape[1]
-    ) or not in_bounds(y2, x2, terrain_map.shape[0], terrain_map.shape[1]):
-        return False
-    if terrain_map[y2, x2] == FeatureType.WALL:
-        return False
-    return True
 
 
 # --- Noise System ---
@@ -417,8 +403,8 @@ def _lay_scent_kernel(
             if terrain_map[y, x] == FeatureType.WALL:
                 continue
 
-            # Placeholder LOS check
-            if not line_of_sight(py, px, y, x, terrain_map):
+            # Line-of-sight check
+            if not line_of_sight(py, px, y, x, terrain_map != FeatureType.WALL):
                 continue
 
             cave_when[y, x] = current_scent_when + adjustment
