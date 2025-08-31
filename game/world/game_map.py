@@ -1,12 +1,14 @@
 # game/world/game_map.py
 from typing import Final, NamedTuple, Set, Tuple  # Ensure Set, Tuple are imported
 
+import math
 import numpy as np
 import structlog
 from dataclasses import dataclass
 
-# Ensure correct import for the FOV and memory helpers
-from game.world.fov import compute_fov, update_memory_fade
+# Ensure correct import for the memory helper and visibility class
+from game.world.fov import update_memory_fade
+from game.world.visibility import MyVisibility
 
 log = structlog.get_logger()
 
@@ -146,91 +148,34 @@ class GameMap:
 
     # --- MODIFIED compute_fov method ---
     def compute_fov(self, x: int, y: int, radius: int) -> None:
-        """
-        Calculates FOV from (x, y) by calling the updated FOV function,
-        passing all necessary map data correctly (including explored map).
-        """
+        """Calculate field of view from ``(x, y)`` with the given ``radius``."""
         log_context = {"origin": (x, y), "radius": radius}
         if not self.in_bounds(x, y):
             log.warning(
                 "FOV origin out of bounds in GameMap.compute_fov", **log_context
             )
-            self.visible.fill(False) # Clear visibility if origin invalid
+            self.visible.fill(False)
             return
 
-        # Prepare arguments for the imported compute_fov function
-        origin_xy = (x, y)
-        range_limit = radius
-        opaque_grid = ~self.transparent # Invert transparency map
-        height_map = self.height_map
-        ceiling_map = self.ceiling_map
-        visible_grid = self.visible # Pass visible grid to be modified
-        explored_grid = self.explored # Pass explored grid to be modified
+        def blocks_light(tx: int, ty: int) -> bool:
+            return not self.in_bounds(tx, ty) or not self.transparent[ty, tx]
 
-        try:
-            # Ensure origin height is integer
-            origin_height = int(height_map[y, x])
+        def set_visible(tx: int, ty: int) -> None:
+            if self.in_bounds(tx, ty):
+                self.visible[ty, tx] = True
+                self.explored[ty, tx] = True
 
-            # *** ADDED LOGGING ***
-            log.debug(
-                "Calling fov.compute_fov",
-                **log_context,
-                origin_h=origin_height,
-                opaque_sum=np.sum(opaque_grid),
-                visible_in_sum=np.sum(visible_grid),
-                explored_in_sum=np.sum(explored_grid),
-            )
-            visible_grid.fill(False) # Clear visibility before calculation
+        def get_distance(dx: int, dy: int) -> float:
+            return math.hypot(dx, dy)
 
-            # Call the imported FOV function with all arguments
-            compute_fov(
-                origin_xy=origin_xy,
-                range_limit=range_limit,
-                opaque_grid=opaque_grid,
-                height_map=height_map,
-                ceiling_map=ceiling_map,
-                origin_height=origin_height,
-                visible_grid=visible_grid, # Pass visible grid
-                explored_grid=explored_grid, # Pass explored grid
-            )
+        visibility = MyVisibility(
+            blocks_light=blocks_light,
+            set_visible=set_visible,
+            get_distance=get_distance,
+        )
 
-            # Ensure origin is visible post-calculation
-            if self.in_bounds(x,y) and not visible_grid[y, x]:
-                 log.warning("Origin not visible after FOV, forcing.", **log_context)
-                 visible_grid[y, x] = True
-                 explored_grid[y, x] = True # Ensure explored too
-
-            # *** ADDED LOGGING ***
-            visible_count = np.sum(visible_grid)
-            explored_count = np.sum(explored_grid)
-            log.debug(
-                "fov.compute_fov call finished",
-                **log_context,
-                visible_out_sum=visible_count,
-                explored_out_sum=explored_count,
-            )
-            # Add a warning if FOV calculation results in nothing visible
-            if visible_count == 0 and radius > 0:
-                 log.warning("FOV calculation resulted in zero visible tiles (excluding origin forced visibility).", **log_context)
-
-        except IndexError:
-            log.error(
-                "IndexError getting origin height in GameMap.compute_fov", **log_context
-            )
-            self.visible.fill(False)
-            if self.in_bounds(x, y):
-                self.visible[y, x] = True # Ensure player tile is visible on error
-        except Exception as e:
-            log.error(
-                "Unexpected error during compute_fov call",
-                error=str(e),
-                exc_info=True,
-                **log_context
-            )
-            # Fallback: Ensure at least the player's tile is visible
-            self.visible.fill(False)
-            if self.in_bounds(x, y):
-                self.visible[y, x] = True
+        self.visible.fill(False)
+        visibility.compute(x, y, radius)
 
     # --- END MODIFIED compute_fov method ---
 
