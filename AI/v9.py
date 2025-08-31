@@ -42,7 +42,7 @@ class Behavior:
     primary_skill: str = ""
 
 
-@dataclass
+@dataclass(frozen=True)
 class Habit:
     """A learned sequence of behaviors executed under triggers."""
 
