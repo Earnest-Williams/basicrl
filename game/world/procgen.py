@@ -1,6 +1,7 @@
 # basicrl/game/world/procgen.py
-from typing import Iterator, List, NamedTuple, Tuple, Union
+from typing import Dict, Iterator, List, NamedTuple, Tuple, Union
 
+import numpy as np
 import structlog
 
 try:
@@ -10,7 +11,7 @@ except ImportError as e:
     raise
 
 try:
-    from game.world.game_map import TILE_ID_FLOOR, GameMap
+    from game.world.game_map import TILE_ID_FLOOR, TILE_ID_WALL, GameMap
 except ImportError as e:
     structlog.get_logger().error(
         "CRITICAL: GameMap class or TILE_ID_FLOOR not found.", error=str(e)
@@ -448,45 +449,22 @@ def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
          log.debug("Skipping connection: Neither child has a room.")
 
 
-def generate_dungeon(
-    game_map: GameMap, map_width: int, map_height: int, seed: Union[int, None] = None
+def _generate_bsp_dungeon(
+    game_map: GameMap, map_width: int, map_height: int, rng: GameRNG
 ) -> Tuple[int, int]:
-    """
-    Generates a dungeon layout using BSP trees, populating height maps.
-    """
-    # Ensure GameMap is valid
-    if not isinstance(game_map, GameMap):
-        log.error("Generate dungeon called with invalid GameMap object")
-        raise TypeError("Invalid GameMap object passed to generate_dungeon")
-
-    log.info(
-        "Starting dungeon generation", width=map_width, height=map_height, seed=seed
-    )
-    try:
-        rng = GameRNG(seed=seed)
-    except NameError:
-        log.critical("GameRNG class not available for dungeon generation.")
-        raise RuntimeError("GameRNG unavailable.")
-
-
-    # 1. Initialize map (done by GameMap constructor)
-
-    # 2. Create root BSP node with initial height 0
+    """Generate a classic rooms-and-corridors layout using BSP."""
     initial_base_height = 0
     root_node = BSPNode(Rect(1, 1, map_width - 2, map_height - 2), initial_base_height)
     log.debug(
         "Created root BSP node", rect=root_node.rect, base_height=initial_base_height
     )
 
-    # 3. Recursively split the map
     log.info("Splitting BSP tree...")
-    _split_node_recursive(root_node, rng, 0) # Populates base_height in children
+    _split_node_recursive(root_node, rng, 0)
 
-    # 4. Create rooms in the leaf nodes (defines leaf.room Rects)
     log.info("Defining rooms...")
     _create_rooms_in_leaves(root_node, rng)
 
-    # 5. Carve rooms onto the map (uses leaf.base_height and default ceiling offset)
     all_rooms: List[Rect] = []
     log.info("Carving rooms onto map...")
     for leaf in root_node.get_leaves():
@@ -501,29 +479,185 @@ def generate_dungeon(
         log.error("BSP generation failed to create any rooms!")
         raise RuntimeError("BSP generation failed to create any rooms!")
 
-    # 6. Connect rooms (passes node base_heights to _carve_tunnel)
     log.info("Connecting rooms...")
     _connect_rooms(root_node, game_map, rng)
 
-    # 7. Determine player start position
     first_room = all_rooms[0]
     player_start_x, player_start_y = first_room.center
-
-    # *** ADDED LOGGING ***
     log.info(
         "Determined player start position",
         pos=(player_start_x, player_start_y),
-        first_room_rect=first_room, # Log the room rect too
+        first_room_rect=first_room,
         room_center=first_room.center,
     )
-    # *** END LOGGING ***
+
+    return player_start_x, player_start_y
 
 
-    # 8. Update map transparency
-    log.info("Updating transparency map...")
-    game_map.update_tile_transparency()
+def _generate_cavern_level(
+    game_map: GameMap, map_width: int, map_height: int, rng: GameRNG
+) -> Tuple[int, int]:
+    """Generate a cave layout using cellular automata."""
+    fill_prob = 0.45
+    for y in range(1, map_height - 1):
+        for x in range(1, map_width - 1):
+            if rng.get_float() < fill_prob:
+                game_map.tiles[y, x] = TILE_ID_FLOOR
+            else:
+                game_map.tiles[y, x] = TILE_ID_WALL
+    for _ in range(4):
+        new_tiles = game_map.tiles.copy()
+        for y in range(1, map_height - 1):
+            for x in range(1, map_width - 1):
+                wall_count = 0
+                for ny in range(y - 1, y + 2):
+                    for nx in range(x - 1, x + 2):
+                        if nx == x and ny == y:
+                            continue
+                        if game_map.tiles[ny, nx] == TILE_ID_WALL:
+                            wall_count += 1
+                if wall_count > 4:
+                    new_tiles[y, x] = TILE_ID_WALL
+                else:
+                    new_tiles[y, x] = TILE_ID_FLOOR
+        game_map.tiles[1 : map_height - 1, 1 : map_width - 1] = new_tiles[
+            1 : map_height - 1, 1 : map_width - 1
+        ]
+    floor_positions = np.argwhere(game_map.tiles == TILE_ID_FLOOR)
+    for (y, x) in floor_positions:
+        game_map.height_map[y, x] = 0
+        game_map.ceiling_map[y, x] = DEFAULT_ROOM_CEILING_OFFSET
+    if floor_positions.size == 0:
+        raise RuntimeError("Cavern generation produced no walkable tiles")
+    start_y, start_x = floor_positions[0]
+    return int(start_x), int(start_y)
+
+
+def _apply_prefab(game_map: GameMap, x: int, y: int, prefab: List[str]) -> Tuple[int, int]:
+    """Carve a prefab module onto the map and return its center."""
+    for dy, row in enumerate(prefab):
+        for dx, char in enumerate(row):
+            tx, ty = x + dx, y + dy
+            if not game_map.in_bounds(tx, ty):
+                continue
+            if char == ".":
+                game_map.tiles[ty, tx] = TILE_ID_FLOOR
+                game_map.height_map[ty, tx] = 0
+                game_map.ceiling_map[ty, tx] = DEFAULT_ROOM_CEILING_OFFSET
+    w, h = len(prefab[0]), len(prefab)
+    return x + w // 2, y + h // 2
+
+
+PREFABS = [
+    ["#####", "#...#", "#...#", "#...#", "#####"],
+    ["#######", "#.....#", "#.....#", "#.....#", "#######"],
+]
+
+
+def _generate_surface_level(
+    game_map: GameMap, map_width: int, map_height: int, rng: GameRNG
+) -> Tuple[int, int]:
+    """Place prefab surface structures."""
+    centers: List[Tuple[int, int]] = []
+    for prefab in PREFABS:
+        h = len(prefab)
+        w = len(prefab[0])
+        x = rng.get_int(1, max(1, map_width - w - 1))
+        y = rng.get_int(1, max(1, map_height - h - 1))
+        centers.append(_apply_prefab(game_map, x, y, prefab))
+    if not centers:
+        raise RuntimeError("No prefabs placed")
+    return centers[0]
+
+
+def _place_vertical_transitions(
+    game_map: GameMap, rng: GameRNG, floor_positions: np.ndarray
+) -> None:
+    floor_list = [tuple(p) for p in floor_positions]
+    transitions: List[Dict[str, Union[int, str]]] = []
+    if floor_list:
+        choices = rng.sample(floor_list, k=min(2, len(floor_list)))
+        if len(choices) >= 1:
+            y, x = choices[0]
+            transitions.append({"type": "stairs_up", "x": int(x), "y": int(y)})
+        if len(choices) >= 2:
+            y, x = choices[1]
+            transitions.append({"type": "stairs_down", "x": int(x), "y": int(y)})
+    game_map.vertical_transitions = transitions
+
+
+def _add_story_hooks(
+    game_map: GameMap,
+    rng: GameRNG,
+    floor_positions: np.ndarray,
+    count: int = 2,
+) -> None:
+    descriptions = [
+        "bones litter the ground",
+        "a campfire long extinguished",
+        "scratches on the wall",
+        "a mysterious rune etched into stone",
+    ]
+    floor_list = [tuple(p) for p in floor_positions]
+    hooks: List[Dict[str, Union[int, str]]] = []
+    if floor_list:
+        count = min(count, len(floor_list))
+        positions = rng.sample(floor_list, k=count)
+        for y, x in positions:
+            hooks.append(
+                {
+                    "x": int(x),
+                    "y": int(y),
+                    "description": rng.choice(descriptions),
+                }
+            )
+    game_map.story_hooks = hooks
+
+
+def generate_dungeon(
+    game_map: GameMap,
+    map_width: int,
+    map_height: int,
+    seed: int | None = None,
+    algorithm: str = "bsp",
+) -> Tuple[int, int]:
+    """Entry point for dungeon generation selecting different algorithms."""
+    if not isinstance(game_map, GameMap):
+        log.error("Generate dungeon called with invalid GameMap object")
+        raise TypeError("Invalid GameMap object passed to generate_dungeon")
 
     log.info(
-        "Dungeon generation complete", player_start=(player_start_x, player_start_y)
+        "Starting dungeon generation",
+        width=map_width,
+        height=map_height,
+        seed=seed,
+        algorithm=algorithm,
+    )
+
+    rng = GameRNG(seed=seed)
+
+    if algorithm == "cellular":
+        player_start_x, player_start_y = _generate_cavern_level(
+            game_map, map_width, map_height, rng
+        )
+    elif algorithm == "prefab":
+        player_start_x, player_start_y = _generate_surface_level(
+            game_map, map_width, map_height, rng
+        )
+    else:
+        player_start_x, player_start_y = _generate_bsp_dungeon(
+            game_map, map_width, map_height, rng
+        )
+
+    floor_positions = np.argwhere(game_map.tiles == TILE_ID_FLOOR)
+    _place_vertical_transitions(game_map, rng, floor_positions)
+    _add_story_hooks(game_map, rng, floor_positions)
+
+    log.info("Updating transparency map...")
+    game_map.update_tile_transparency()
+    log.info(
+        "Dungeon generation complete",
+        player_start=(player_start_x, player_start_y),
+        algorithm=algorithm,
     )
     return player_start_x, player_start_y

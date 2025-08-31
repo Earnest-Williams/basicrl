@@ -185,6 +185,10 @@ def main() -> None:
         map_width: int = config.get("map_width", 80)
         map_height: int = config.get("map_height", 50)
         dungeon_seed_cfg = config.get("dungeon_seed")
+        procgen_cfg = config.get("procgen", {})
+        region_algorithms = procgen_cfg.get("regions", {})
+        current_region = "dungeon"
+        generation_algorithm = region_algorithms.get(current_region, "bsp")
         player_glyph: int = config.get("player_glyph", 113)
         player_start_hp: int = config.get("player_start_hp", 30)
         player_fov_radius: int = config.get("player_fov_radius", 8)
@@ -214,7 +218,13 @@ def main() -> None:
         dungeon_seed = ( int(time.time() * 1000) if dungeon_seed_cfg is None else int(dungeon_seed_cfg) )
         rng_seed_to_pass = dungeon_seed
         log.info("Using dungeon seed", seed=dungeon_seed)
-        player_start_pos = generate_dungeon( game_map, map_width, map_height, seed=dungeon_seed )
+        player_start_pos = generate_dungeon(
+            game_map,
+            map_width,
+            map_height,
+            seed=dungeon_seed,
+            algorithm=generation_algorithm,
+        )
         log.info("Dungeon generated", player_start=player_start_pos)
 
         # Print map section after generation
