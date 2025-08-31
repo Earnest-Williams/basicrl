@@ -40,16 +40,19 @@ try:
     from game.game_state import GameState
     from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
     from game.world.fov import compute_light_color_array
+    from game_rng import GameRNG
 except ImportError:
      # Attempt fallback imports if needed
      try:
           from basicrl.game.game_state import GameState
-          from basicrl.game.world.game_map import GameMap
+          from basicrl.game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
           from basicrl.game.world.fov import compute_light_color_array
+          from basicrl.game_rng import GameRNG
      except ImportError:
           GameState = object # Define dummies if import fails
           GameMap = object
           compute_light_color_array = lambda *args, **kwargs: None
+          GameRNG = object
           structlog.get_logger().error("CRITICAL: Failed to import GameState or GameMap in renderer.")
 
 
@@ -442,8 +445,11 @@ def _apply_memory_fade(
     drawn_mask: np.ndarray,
     visible_mask: np.ndarray,
     fade_color_np: np.ndarray,
+    rng: GameRNG,
     fade_color_variance: float = 0.0,
     noise_level: float = 0.0,
+    viewport_x: int = 0,
+    viewport_y: int = 0,
 ) -> None:
     """Blend colors and swap glyphs for tiles remembered in the fog."""
     memory_mask = drawn_mask & (~visible_mask)
@@ -451,16 +457,22 @@ def _apply_memory_fade(
         return
 
     fade_vals = map_memory_vp[memory_mask][:, None]
-    rng = np.random.default_rng(0)
+    coords_y, coords_x = np.nonzero(memory_mask)
+    world_x = coords_x + viewport_x
+    world_y = coords_y + viewport_y
 
     # Calculate per-tile fade colours with optional variance in hue and saturation
     if fade_color_variance > 0.0:
         count = fade_vals.shape[0]
-        base_h, base_s, base_v = colorsys.rgb_to_hsv(
-            *(fade_color_np / 255.0)
-        )
-        hue_offsets = rng.uniform(-fade_color_variance, fade_color_variance, count)
-        sat_offsets = rng.uniform(0.0, fade_color_variance, count)
+        base_h, base_s, base_v = colorsys.rgb_to_hsv(*(fade_color_np / 255.0))
+        hue_offsets = np.array(
+            [rng.noise_2d(x, y, seed_offset=1) for x, y in zip(world_x, world_y)]
+        ) * fade_color_variance
+        sat_offsets = np.abs(
+            np.array(
+                [rng.noise_2d(x, y, seed_offset=2) for x, y in zip(world_x, world_y)]
+            )
+        ) * fade_color_variance
         hues = (base_h + hue_offsets) % 1.0
         sats = np.clip(base_s * (1.0 - sat_offsets), 0.0, 1.0)
         vals = np.full(count, base_v)
@@ -493,9 +505,13 @@ def _apply_memory_fade(
     ).astype(np.intp)
 
     new_glyphs = glyph_indices[memory_mask].copy()
-    noise_mask = (
-        rng.random(levels.shape[0]) < noise_level if noise_level > 0.0 else np.zeros(levels.shape[0], dtype=bool)
-    )
+    if noise_level > 0.0:
+        noise_vals = np.array(
+            [rng.noise_2d(x, y, seed_offset=3) for x, y in zip(world_x, world_y)]
+        )
+        noise_mask = ((noise_vals + 1.0) * 0.5) < noise_level
+    else:
+        noise_mask = np.zeros(levels.shape[0], dtype=bool)
 
     wall_mask = tile_ids == TILE_ID_WALL
     if np.any(wall_mask):
@@ -993,8 +1009,11 @@ def render_viewport(
             drawn_mask,
             visible_mask,
             render_config.memory_fade_color_np,
+            gs.rng_instance,
             float(render_config.memory_fade_variance),
             float(render_config.memory_noise_level),
+            viewport_x,
+            viewport_y,
         )
 
     # --- Prepare Output Buffer (NumPy array for PIL Image) ---

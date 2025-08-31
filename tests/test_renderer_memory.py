@@ -13,13 +13,22 @@ module = types.ModuleType("game_rng")
 class DummyRNG:
     def __init__(self, seed=None):
         self.initial_seed = seed
+        self.noise_seed = seed or 0
 
     def randint(self, a, b):
         return a
 
+    def noise_2d(self, x, y, scale=1.0, seed_offset=0):
+        val = (x * 73856093 ^ y * 19349663 ^ seed_offset * 83492791 ^ self.noise_seed) & 0xFFFFFFFF
+        return (val / 0xFFFFFFFF) * 2.0 - 1.0
+
 
 module.GameRNG = DummyRNG
 sys.modules["game_rng"] = module
+
+# Ensure dependent modules use this DummyRNG
+for _mod in ["game.game_state", "engine.renderer", "game.world.game_map", "engine"]:
+    sys.modules.pop(_mod, None)
 
 # Provide a minimal ai_system module for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")
@@ -113,6 +122,9 @@ def test_memory_fade_blend_and_glyph_substitution():
         drawn_mask,
         visible_mask,
         fade_color,
+        gs.rng_instance,
+        viewport_x=0,
+        viewport_y=0,
     )
 
     assert (final_fg[py, px] == np.array([150, 150, 150], dtype=np.uint8)).all()
@@ -177,6 +189,9 @@ def test_memory_fade_variance_and_noise_deterministic():
         drawn_mask,
         visible_mask,
         fade_color,
+        gs.rng_instance,
+        viewport_x=0,
+        viewport_y=0,
     )
 
     # With variance and noise
@@ -192,8 +207,11 @@ def test_memory_fade_variance_and_noise_deterministic():
         drawn_mask,
         visible_mask,
         fade_color,
+        gs.rng_instance,
         fade_color_variance=0.25,
         noise_level=1.0,
+        viewport_x=0,
+        viewport_y=0,
     )
 
     final_fg2 = base_fg.copy()
@@ -208,8 +226,11 @@ def test_memory_fade_variance_and_noise_deterministic():
         drawn_mask,
         visible_mask,
         fade_color,
+        gs.rng_instance,
         fade_color_variance=0.25,
         noise_level=1.0,
+        viewport_x=0,
+        viewport_y=0,
     )
 
     # Deterministic across runs
