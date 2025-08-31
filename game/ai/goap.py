@@ -35,14 +35,40 @@ def take_turn(
 
     # Random step in one of the four cardinal directions
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-    if hasattr(rng, "randint"):
-        idx = rng.randint(0, len(directions) - 1)
-        dx, dy = directions[idx]
-    else:  # Fallback to Python's random module
-        import random
 
-        dx, dy = random.choice(directions)
+    # React to noise first
+    current_noise = noise_map[y, x]
+    best_noise = current_noise
+    move = None
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < noise_map.shape[1] and 0 <= ny < noise_map.shape[0]:
+            if noise_map[ny, nx] > best_noise:
+                best_noise = noise_map[ny, nx]
+                move = (dx, dy)
 
+    # If no noisy direction, follow scent
+    if move is None:
+        current_scent = scent_map[y, x]
+        best_scent = current_scent
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < scent_map.shape[1] and 0 <= ny < scent_map.shape[0]:
+                if scent_map[ny, nx] > best_scent:
+                    best_scent = scent_map[ny, nx]
+                    move = (dx, dy)
+
+    # Default to random movement
+    if move is None:
+        if hasattr(rng, "randint"):
+            idx = rng.randint(0, len(directions) - 1)
+            move = directions[idx]
+        else:
+            import random
+
+            move = random.choice(directions)
+
+    dx, dy = move
     moved = movement_system.try_move(entity_id, dx, dy, game_state)
 
     log.debug(
