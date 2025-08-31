@@ -9,6 +9,9 @@ permissions:
 
 jobs:
   test:
+    strategy:
+      matrix:
+        python: ["3.10", "3.11"]
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -19,7 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
           cache: 'pip'
           cache-dependency-path: |
             requirements.txt
