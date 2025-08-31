@@ -1,0 +1,191 @@
+Okay, here is a combined document detailing the current status of the `basicrl` project, the envisioned final game, and the outstanding TODO list, incorporating the information from our recent discussion.
+
+---
+
+**BasicRL Project Status and Roadmap (As of 2025-05-01)**
+
+This document provides a snapshot of the `basicrl` project, outlining its current implementation state, the envisioned final product, and a detailed list of tasks yet to be completed.
+
+**Part 1: Current State of `basicrl`**
+
+`basicrl` is currently a foundational engine and framework for a tile-based roguelike game, built with a strong emphasis on performance and data management using Python, PySide6, Polars, and NumPy.
+
+**Key Implemented Components:**
+
+1.  **Core Engine:**
+    * **Window Management (`WindowManager`):** PySide6-based window managing display, input, resizing, and zooming. Integrates with `keybindings.toml`.
+    * **Main Loop (`MainLoop`):** Coordinates game turns, rendering, and action processing.
+    * **Rendering (`Renderer`):** Renders the game viewport (map, items, entities) using PIL, including Numba-accelerated lighting and optional height visualization.
+    * **Action Handling (`ActionHandler`):** Processes player input actions (move, wait, pickup, drop, equip, unequip, use, etc.) via standardized dictionaries, calling appropriate systems.
+    * **Tileset Loading (`TilesetLoader`):** Loads PNG/SVG tilesets.
+    * **Configuration:** Loads settings from YAML (`config.yaml`, `items.yaml`, `effects.yaml`) and TOML (`keybindings.toml`, `settings.toml`).
+
+2.  **Game World & State:**
+    * **Game State (`GameState`):** Central state manager holding map, registries, RNG, logs, turn count, and UI state (`PLAYER_TURN`, `INVENTORY_VIEW`).
+    * **Map (`GameMap`):** NumPy-based representation of the world including tiles, height, ceilings, visibility, and explored status.
+    * **Field of View (`fov.py`):** Numba-accelerated shadowcasting considering transparency and basic height differences. Updates both `visible` and `explored` maps.
+    * **Procedural Generation (`procgen.py`):** BSP-based dungeon generator creating rooms and corridors with basic height assignments.
+
+3.  **Entities (`EntityRegistry`):**
+    * Manages entities via a Polars DataFrame (`ENTITY_SCHEMA`).
+    * Tracks core components (position, stats, status effects) and specialized equipment fields (`body_plan`, `equipped_item_ids`).
+    * Provides CRUD and component access functions. Recent fixes resolved Polars casting and list retrieval issues.
+
+4.  **Items & Equipment (`ItemRegistry`, `EquipmentSystem`):**
+    * **Item Registry:** Polars DataFrame (`ITEM_SCHEMA`) managing item instances, locations (`ground`, `inventory`, `equipped`, `attached`), ownership, mount points, attachable info, and dynamic components (fuel, durability, etc.). Loads templates from `items.yaml`.
+    * **Equipment System:** Dedicated module handling equip/unequip/attach/detach logic, respecting entity `body_plan` and item `mount_points`/`attachable_info`.
+
+5.  **Effects (`EffectExecutor`, `handlers.py`):**
+    * Executes effects defined in `effects.yaml`, handling targeting, costs, and conditions.
+    * Implemented handlers include heal, damage (single/AOE), resource modification, status application (single/AOE), dig, recall ammo. Placeholders exist for spawning.
+
+6.  **Input & UI (`WindowManager`):**
+    * Handles keyboard input, largely driven by `keybindings.toml`.
+    * Manages UI state transitions.
+    * Renders an inventory overlay with equipped/inventory items and supports basic interaction (navigation, E/U/D keys).
+    * Displays debug text and height visualization key overlays.
+
+7.  **Utilities:**
+    * **RNG (`GameRNG`):** Deterministic, seeded RNG with save/load capabilities and Perlin noise.
+
+**Current Limitations / What's Missing:**
+
+* **Combat:** Minimal implementation; lacks detailed mechanics (attacks, defense, etc.).
+* **AI:** Placeholder structure; no active decision-making or pathfinding integration.
+* **Player Progression:** No skills, XP, or leveling.
+* **World Interaction:** No functional doors, containers, traps, etc.
+* **Advanced Systems:** Stealth, magic, factions, detailed physics are absent.
+* **UI Polish:** Inventory is basic; lacks targeting, character screen, look mode.
+* **Saving/Loading:** Not yet implemented.
+
+---
+
+**Part 2: Envisioned Final Game**
+
+The completed `basicrl` aims to be a **deeply systemic and emergent roguelike/RPG**, emphasizing simulation over scripting to create a dynamic and interactive world.
+
+**Key Pillars & Experience:**
+
+1.  **High-Fidelity Simulation:** Gameplay will emerge from interacting systems:
+    * **Environment:** Height, ceilings, light, sound, heat, and potentially fluids/gases will tangibly affect gameplay, visibility, stealth, and environmental interactions.
+    * **Entities:** AI-driven entities (using parallel processing via Ray) will exhibit complex behaviors based on needs, goals, factions, and environmental stimuli, navigating via sophisticated flow-field pathfinding.
+    * **Physics/Magic:** Actions will follow consistent physical rules or well-defined magical effects managed by the robust effect system.
+
+2.  **Complex Itemization & Equipment:** Items and gear are central:
+    * **Meaningful Anatomy:** The `body_plan` allows diverse creatures and potential dynamic changes (like limb loss), making equipment choices crucial and slot-dependent.
+    * **Modular Gear:** The attachment system allows combining items (scopes on weapons, gems on rings, pouches on belts) to modify functionality or grant new effects.
+    * **Resource Management:** Items will have depletable resources (durability, fuel, charges), requiring player management.
+
+3.  **Emergent Gameplay:** The game will provide a toolbox of interacting systems, encouraging creative problem-solving:
+    * Exploiting simulated elements like light, sound, and environment for stealth, combat, or traversal.
+    * Engaging in complex combat scenarios influenced by AI tactics and environmental factors.
+    * Managing a detailed inventory where function, slots, and attachments matter.
+
+4.  **Performance & Scale:** The technical foundation (Polars, Numba, Ray) is designed to support a large-scale, persistent world with numerous interacting entities and detailed environmental states without sacrificing performance.
+
+**In essence, the finished game aims to be:**
+
+* A challenging, thinking player's game rewarding observation and systemic understanding.
+* Highly replayable due to procedural generation and emergent possibilities.
+* Grounded in a data-driven simulation, minimizing brittle scripting for dynamic, believable behavior.
+
+---
+
+**Part 3: Project TODO List**
+
+**(Grouped by Area)**
+
+**I. Core Engine & Infrastructure**
+
+* **Saving/Loading:**
+    * Implement robust game state saving/loading (`GameState`, registries, map, RNG).
+    * Implement save file versioning.
+* **Configuration:**
+    * Load active keybinding sets from config.
+    * Define schema/loader for entity templates.
+* **Performance:**
+    * Profile and optimize critical loops.
+    * Investigate memory-mapping for large states.
+* **Testing:**
+    * Implement unit and integration tests.
+
+**II. Game Systems**
+
+* **AI System:**
+    * Implement parallel AI processing loop (Ray).
+    * Implement specific AI type handlers (Charge, Home, SmartKobold, etc.).
+    * Implement `find_visible_enemies` with LOS.
+    * Implement `StrategyState` machine and dispatch.
+    * Implement target selection logic.
+    * Implement flee logic (using flee flow field).
+    * Implement social AI (yelling, reactions).
+    * Implement faction/allegiance system.
+* **Combat System (`game/systems/combat_system.py`):**
+    * Implement melee/ranged attack actions.
+    * Implement detailed damage calculation (armor, resistance).
+    * Integrate status effect application from combat.
+    * Implement full entity death handling (drops, XP, etc.).
+* **Equipment & Inventory System:**
+    * Implement inventory capacity checks (considering stacks/weight) [ref source 57-59].
+    * Implement Attach/Detach UI keybindings/actions [ref source 306].
+    * Implement `handle_limb_loss` [ref source 697].
+    * Apply passive effects on equip/unequip/attach/detach [ref source 659, 670, 685, 697].
+    * Implement item durability.
+    * Implement item identification/curses.
+* **Player Progression:**
+    * Design and implement skills, XP, leveling, attributes.
+* **Magic/Abilities System:**
+    * Define spell/ability data structures and logic.
+    * Implement casting, costs, cooldowns.
+* **Stealth System:**
+    * Implement light/noise based detection.
+    * Implement entity stealth states.
+* **Time & Turn Management:**
+    * Implement status effect duration updates [ref source 523].
+    * Implement resource consumption (hunger, fuel) [ref source 524].
+    * Implement timed event scheduling.
+
+**III. World & Environment**
+
+* **Map Generation (`procgen.py`):**
+    * Add more feature variety.
+    * Implement multi-level generation.
+    * Refine corridor generation.
+    * Implement complex height heuristics [ref source 1397].
+* **World Interaction:**
+    * Implement doors, containers, traps.
+    * Implement environmental interactions (pushing, climbing).
+* **Height System Enhancements (Deferred):**
+    * Complex movement cost (slope) [ref source 1384].
+    * Falling mechanics [ref source 1386].
+    * Skill/item-based traversal [ref source 1387].
+    * Entity-specific height/traversal [ref source 1388-1391].
+    * Advanced physics (projectiles, fluids, gas) [ref source 1393-1396].
+* **Pathfinding (`FlowFieldPathfinder`):**
+    * Integrate height cost into pathfinding.
+    * Implement home/faction-specific flow fields [ref source 1285, 1304].
+* **Effect System (`effects/`):**
+    * Implement visibility checks for messages [ref source 379, 405, 413, 417].
+    * Refine effect targeting logic.
+    * Implement entity template loading/spawning [ref source 434].
+    * Implement portal logic [ref source 430, 432].
+
+**IV. UI & Rendering**
+
+* **Inventory UI (`WindowManager`):**
+    * Add Attach/Detach keybindings/logic.
+    * Implement scrolling for large lists.
+    * Add item sorting/filtering/comparison.
+* **Targeting UI (`WindowManager`):**
+    * Implement targeting mode [ref source 305].
+* **Message Log:**
+    * Implement scrolling/history view.
+* **Other UI Screens:**
+    * Character information screen.
+    * Look/Examine mode.
+* **Rendering (`renderer.py`):**
+    * Consider alternative height indicators [ref source 1400].
+
+---
+
+This provides a unified view of where the project stands and where it's headed.

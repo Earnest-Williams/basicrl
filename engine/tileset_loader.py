@@ -1,10 +1,11 @@
 # === engine/tileset_loader.py ===
-from pathlib import Path
-from PIL import Image
 import io
+from pathlib import Path
+
 import numpy as np
 import structlog  # Added
 from cairosvg import svg2png  # For SVG rasterization
+from PIL import Image
 
 log = structlog.get_logger()  # Added
 

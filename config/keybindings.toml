@@ -6,11 +6,11 @@
 toggle_height_vis = { key = "V", mods = [], desc = "Toggle Height Visualization", action_type="ui" }
 show_help         = { key = "F1", mods = [], desc = "Show This Help", action_type="ui" }
 quit_game_alt     = { key = "Escape", mods = [], desc = "Quit Game (Esc)", action_type="ui" }
-# Removed Shift+Q quit for now to avoid default conflict, can be added to specific sets if desired.
 pickup            = { key = "G", mods = [], desc = "Get / Pickup Item", action_type="action" }
 wait              = { key = "Period", mods = [], desc = "Wait / Skip Turn", action_type="action" }
 wait_alt          = { key = "Space", mods = [], desc = "Wait / Skip Turn", action_type="action" }
 wait_alt2         = { key = "KP_5", mods = [], desc = "Wait / Skip Turn (Numpad)", action_type="action" }
+inventory         = { key = "I", mods = [], desc = "Open/Close Inventory", action_type="ui" }
 
 # Modern WASD style bindings
 [bindings.modern]

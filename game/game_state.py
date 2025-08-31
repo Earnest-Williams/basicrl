@@ -1,26 +1,14 @@
 # game/game_state.py
-import numpy as np
-import structlog
-from typing import Tuple, Union, Dict, Any
-import time
-from game.world.game_map import GameMap
+from typing import Any, Dict, Literal, Tuple, Union  # Added Literal
 
-print(
-    f">>> [{time.time():.4f}] Attempting import: game.entities.registry.EntityRegistry"
-)  # <-- Add this line
+import structlog
+from game_rng import GameRNG  # Assuming this path is correct
 
 from game.entities.registry import EntityRegistry
-
-print(
-    f"<<< [{time.time():.4f}] Successfully imported EntityRegistry"
-)  # <-- Add this line
-
 from game.items.registry import ItemRegistry
 
-# --- NEW: Import GameRNG ---
-from utils.game_rng import GameRNG
-
-# --- End NEW ---
+# Assuming these imports are correct relative to game_state.py
+from game.world.game_map import GameMap
 
 log = structlog.get_logger()
 
@@ -36,16 +24,13 @@ class GameState:
         player_fov_radius: int,
         item_templates: Dict[str, Any],
         effect_definitions: Dict[str, Any],
-        # --- NEW: Add RNG seed parameter ---
         rng_seed: int | None,
-        # --- End NEW ---
     ):
         log.info("Initializing GameState...")
 
-        # (Input validation remains the same)
-        if not isinstance(existing_map, GameMap):  # ...
+        if not isinstance(existing_map, GameMap):
             raise TypeError("GameState requires a valid GameMap instance.")
-        if not player_start_pos or len(player_start_pos) != 2:  # ...
+        if not player_start_pos or len(player_start_pos) != 2:
             raise ValueError(
                 "GameState requires a valid player_start_pos tuple (x, y)."
             )
@@ -54,11 +39,8 @@ class GameState:
         self._map_width: int = existing_map.width
         self._map_height: int = existing_map.height
 
-        # --- NEW: Initialize GameRNG ---
-        # Use provided seed, or generate one if None
         self.rng_instance: GameRNG = GameRNG(seed=rng_seed)
         log.debug("GameRNG initialized", seed=self.rng_instance.initial_seed)
-        # --- End NEW ---
 
         self.entity_registry: EntityRegistry = EntityRegistry()
         log.debug("EntityRegistry initialized")
@@ -68,9 +50,9 @@ class GameState:
         log.debug("ItemRegistry initialized", templates=len(item_templates))
         log.debug("Effect definitions stored", effects=len(effect_definitions))
 
-        # (Player entity creation remains the same)
         player_start_x, player_start_y = player_start_pos
-        self.player_id: int = self.entity_registry.create_entity(  # ...
+        # Ensure all necessary components are passed during creation if defaults changed
+        self.player_id: int = self.entity_registry.create_entity(
             x=player_start_x,
             y=player_start_y,
             glyph=player_glyph,
@@ -79,10 +61,11 @@ class GameState:
             blocks_movement=True,
             hp=player_start_hp,
             max_hp=player_start_hp,
+            # Add defaults for mana/fullness etc. if needed by registry init
         )
         log.debug(
             "Player entity created",
-            player_id=self.player_id,  # ...
+            player_id=self.player_id,
             pos=(player_start_x, player_start_y),
             hp=player_start_hp,
             glyph=player_glyph,
@@ -91,36 +74,52 @@ class GameState:
         self.fov_radius = player_fov_radius
         self.message_log: list[tuple[str, tuple[int, int, int]]] = []
         self.turn_count: int = 0
+
+        # --- NEW: UI State ---
+        self.ui_state: Literal["PLAYER_TURN", "INVENTORY_VIEW", "TARGETING"] = (
+            "PLAYER_TURN"
+        )
+        # --- End NEW ---
+
         self.add_message("Welcome to BasicRL!", (0, 255, 0))
 
         log.info(
             "Game state initialized",
             map_size=f"{self._map_width}x{self._map_height}",
             player_id=self.player_id,
-            # ... (rest of log info) ...
             item_templates_loaded=len(item_templates),
             effect_definitions_loaded=len(effect_definitions),
-            rng_seed=self.rng_instance.initial_seed,  # Log the actual seed used
+            rng_seed=self.rng_instance.initial_seed,
         )
 
         self.update_fov()  # Initial FOV calculation
 
-    # (update_fov method remains the same)
-    def update_fov(self) -> None:  # ...
+    def update_fov(self) -> None:
+        """Calculates Field of View based on player position."""
         player_pos = self.player_position
         if player_pos:
             px, py = player_pos
-            if not self.game_map.in_bounds(px, py):  # ... handle out of bounds ...
-                self.game_map.visible[:] = False
+            if not self.game_map.in_bounds(px, py):
+                log.warning("Player out of bounds, cannot compute FOV.", pos=(px, py))
+                self.game_map.visible[:] = False  # Clear visibility if player is OOB
                 return
-            self.game_map.compute_fov(px, py, self.fov_radius)
-            if np.sum(self.game_map.visible) == 0:  # ... handle zero visible ...
+            # Ensure origin height is passed correctly
+            origin_height = int(self.game_map.height_map[py, px])
+            self.game_map.compute_fov(
+                px, py, self.fov_radius
+            )  # compute_fov now handles explored
+            # Post-check: Ensure origin is always visible if FOV somehow clears it
+            if not self.game_map.visible[py, px]:
+                log.warning(
+                    "Origin tile became non-visible after FOV calculation, forcing visible.",
+                    pos=(px, py),
+                )
                 self.game_map.visible[py, px] = True
-                self.game_map.explored[py, px] = True
-        else:  # ... handle no player pos ...
-            self.game_map.visible[:] = False
+                self.game_map.explored[py, px] = True  # Ensure explored too
+        else:
+            log.warning("Cannot update FOV: Player position not found.")
+            self.game_map.visible[:] = False  # Clear visibility if no player
 
-    # (Properties map_width, map_height, player_position remain the same)
     @property
     def map_width(self) -> int:
         return self._map_width
@@ -130,31 +129,46 @@ class GameState:
         return self._map_height
 
     @property
-    def player_position(self) -> Union[Tuple[int, int], None]:  # ...
+    def player_position(self) -> Union[Tuple[int, int], None]:
+        """Gets the current player position from the EntityRegistry."""
         return self.entity_registry.get_position(self.player_id)
 
-    # (add_message method remains the same)
     def add_message(
         self, text: str, color: tuple[int, int, int] = (255, 255, 255)
-    ) -> None:  # ...
+    ) -> None:
+        """Adds a message to the game log."""
         self.message_log.append((text, color))
         log.debug("Message added", message=text, color=color)
+        # Optional: Trim log length if it gets too long
+        # MAX_LOG_LENGTH = 100
+        # if len(self.message_log) > MAX_LOG_LENGTH:
+        #     self.message_log = self.message_log[-MAX_LOG_LENGTH:]
 
-    # (advance_turn method remains the same conceptually, but needs additions)
     def advance_turn(self) -> None:
         """Advances the game turn counter and performs turn-based updates."""
         self.turn_count += 1
         log.debug("Turn advanced", turn=self.turn_count)
 
         # --- TODO: Status Effect Duration Update ---
-        # 1. Get all active entities.
-        # 2. For each entity:
-        #    a. Get current status_effects list.
-        #    b. Create a new list, decrementing duration for non-permanent effects.
-        #    c. Filter out effects where duration <= 0.
-        #    d. Use set_entity_component to update the status_effects list.
-        #    (Consider performance implications for many entities/statuses).
-        # -----------------------------------------
+        # Iterate through active entities, get status_effects list, decrement durations,
+        # filter expired effects, update component using set_entity_component.
 
-        # TODO: Implement AI processing call here (e.g., call process_all_mob_ai)
-        # TODO: Implement interaction system processing (for emergent effects)
+        # --- TODO: AI processing call ---
+        # e.g., process_all_mob_ai(self.entity_registry.entities_df, world_map_data, global_state)
+        # This requires defining what constitutes world_map_data and global_state.
+
+        # --- TODO: Other turn-based updates ---
+        # (e.g., hunger increase, light source fuel consumption)
+
+    # --- NEW: State transition helper ---
+    def change_ui_state(
+        self, new_state: Literal["PLAYER_TURN", "INVENTORY_VIEW", "TARGETING"]
+    ):
+        # Basic state change, could add validation or hooks later
+        if self.ui_state != new_state:
+            log.debug(f"Changing UI state from {self.ui_state} to {new_state}")
+            self.ui_state = new_state
+        else:
+            log.debug(f"UI state already {new_state}, no change.")
+
+    # --- End NEW ---

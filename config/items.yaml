@@ -1,0 +1,245 @@
+# config/items.yaml
+# Defines base item templates for the basic roguelike (Updated for new equip system)
+
+templates:
+
+  # --- Weapons ---
+  simple_dagger:
+    name: "Simple Dagger"
+    glyph: 84 # '/'
+    color_fg: [192, 192, 192]
+    item_type: "Weapon"
+    equip_slot: "main_hand" # Specific slot
+    flags: ["WEAPON", "MELEE", "COMMON", "EQUIPPABLE"]
+    attributes:
+      weight: 1.0
+      cost: 5
+      damage_dice: "1d4"
+      # Daggers usually don't have mount points unless magical
+    effects: {}
+
+  recall_crossbow:
+    name: "Recall Crossbow"
+    glyph: 89 # '}'
+    color_fg: [148, 0, 211]
+    item_type: "Launcher"
+    equip_slot: "main_hand" # Assumes two-handed for now, could be off_hand if smaller
+    flags: ["WEAPON", "RANGED", "RARE", "MAGICAL", "EQUIPPABLE"]
+    attributes:
+      weight: 4.0
+      cost: 500
+      damage_dice: "1d8"
+      ammo_type: "bolt"
+      # Could potentially have a mount point for a scope?
+      # mount_points:
+      #   - id: "scope_rail"
+      #     compatible_types: ["CrossbowScope"]
+    effects:
+      triggered: ["recall_projectile_on_miss"]
+
+  # --- Armor ---
+  leather_armor:
+    name: "Leather Armor"
+    glyph: 92 # '['
+    color_fg: [139, 69, 19]
+    item_type: "Armor"
+    equip_slot: "upper_body_outer" # Use new specific slot
+    flags: ["ARMOR", "COMMON", "EQUIPPABLE"]
+    attributes:
+      weight: 5.0
+      cost: 50
+      armor_class: 2
+      # max_durability: 100
+    effects: {}
+
+  padded_trousers:
+    name: "Padded Trousers"
+    glyph: 92 # 'h' - Placeholder
+    color_fg: [160, 82, 45] # Sienna
+    item_type: "Legwear"
+    equip_slot: "lower_body_outer" # Specific slot
+    flags: ["ARMOR", "COMMON", "EQUIPPABLE"]
+    attributes:
+      weight: 2.0
+      cost: 25
+      armor_class: 1
+    effects: {}
+
+  leather_boots:
+    name: "Leather Boots"
+    glyph: 93 # 'b' - Placeholder
+    color_fg: [139, 69, 19]
+    item_type: "Footwear"
+    equip_slot: "feet" # Specific slot
+    flags: ["ARMOR", "COMMON", "EQUIPPABLE"]
+    attributes:
+      weight: 1.5
+      cost: 20
+      armor_class: 0 # Minimal AC, maybe stealth bonus/penalty?
+    effects: {}
+
+  safety_goggles: # NEW Example
+    name: "Safety Goggles"
+    glyph: 59 # ';'
+    color_fg: [100, 100, 140]
+    item_type: "Eyewear"
+    equip_slot: "eyes" # New specific slot
+    flags: ["EQUIPPABLE", "PROTECTION"]
+    attributes:
+      weight: 0.3
+      cost: 40
+      # Could add resistance effect here
+    effects: {}
+
+
+  # --- Consumables / Usables ---
+  cookies:
+    name: "Cookies"
+    glyph: 37 # '%'
+    color_fg: [160, 82, 45]
+    item_type: "Food"
+    flags: ["EDIBLE", "CONSUMABLE", "COMMON"] # Not equippable
+    attributes:
+      weight: 1
+      cost: 10
+      max_stack: 20
+    effects:
+      active_consumable: ["heal_hp_1d4", "restore_fullness_5"]
+
+  health_crystal:
+    name: "Health Crystal"
+    glyph: 42 # '*'
+    color_fg: [0, 255, 0]
+    item_type: "Crystal"
+    flags: ["USABLE", "CONSUMABLE", "COMMON", "MAGICAL"] # Not equippable
+    attributes:
+      weight: 2
+      cost: 100
+      max_stack: 10
+    effects:
+      active_consumable: ["heal_hp_10d5"]
+    messages:
+      use: "The crystal dissolves in your hand, filling you with vitality."
+
+  flask_of_oil: # NEW Example (Consumable targeting Item)
+    name: "Flask of Oil"
+    glyph: 33 # '!'
+    color_fg: [255, 223, 0]
+    item_type: "Consumable"
+    flags: ["CONSUMABLE", "FLAMMABLE", "LIQUID"]
+    attributes:
+      weight: 0.8
+      cost: 10
+      max_stack: 5
+    effects:
+      active_consumable: ["refuel_lantern_500"] # Needs corresponding effect handler
+    messages:
+      use: "You carefully pour the oil." # Use action should target the lantern
+
+
+  # --- Host Equipment (Belts, Backpacks, Rings) ---
+  sturdy_belt: # NEW Example
+    name: "Sturdy Belt"
+    glyph: 45 # '-'
+    color_fg: [139, 69, 19]
+    item_type: "Belt"
+    equip_slot: "belt" # Specific slot
+    flags: ["EQUIPPABLE", "CONTAINER_HOST"]
+    attributes:
+      weight: 1.0
+      cost: 30
+      mount_points: # List of mount point definitions
+        - id: "belt_loop_front"
+          compatible_types: ["small_pouch", "dagger_sheath"]
+          description: "Front loop"
+        - id: "belt_loop_left"
+          compatible_types: ["small_pouch", "tool_holster", "lantern_hook_compatible"]
+        - id: "belt_loop_right"
+          compatible_types: ["small_pouch", "tool_holster"]
+    effects: {}
+
+  simple_ring: # NEW Example
+    name: "Simple Band"
+    glyph: 61 # '='
+    color_fg: [218, 165, 32] # Gold
+    item_type: "Ring"
+    # equip_slot: "finger_any" # Use a general type indicator if desired
+    # Alternative: List specific slots it CAN go into
+    compatible_equip_slots: ["finger_0", "finger_1", "finger_2", "finger_3", "finger_4", "finger_5", "finger_6", "finger_7", "finger_8", "finger_9"]
+    flags: ["EQUIPPABLE", "JEWELRY"]
+    attributes:
+      weight: 0.1
+      cost: 20
+      mount_points:
+        - id: "center_setting"
+          compatible_types: ["small_gem", "medium_gem"]
+    effects: {}
+
+  # --- Attachable Items ---
+  small_leather_pouch: # NEW Example
+    name: "Small Leather Pouch"
+    glyph: 40 # '('
+    color_fg: [160, 82, 45]
+    item_type: "SmallPouch" # Used in compatible_types checks
+    flags: ["CONTAINER", "ATTACHABLE"] # Not directly equippable to entity
+    attributes:
+      weight: 0.5
+      cost: 15
+      pouch_capacity: 5 # Assumes separate inventory logic for containers
+      attachable_info:
+        compatible_mount_types: ["belt_loop_front", "belt_loop_left", "belt_loop_right"] # Matches belt IDs
+    effects: {}
+
+  faceted_ruby: # NEW Example
+    name: "Faceted Ruby"
+    glyph: 42 # '*'
+    color_fg: [255, 0, 0]
+    item_type: "SmallGem" # Used in compatible_types checks
+    flags: ["GEM", "ATTACHABLE", "VALUABLE"]
+    attributes:
+      weight: 0.05
+      cost: 250
+      attachable_info:
+        compatible_mount_types: ["small_gem_setting", "center_setting"] # Matches ring/amulet IDs
+    effects: {} # Attaching might grant effects
+
+  # --- Items that can be Held OR Attached ---
+  torch: # UPDATED
+    name: "Torch"
+    glyph: 126 # '~'
+    color_fg: [255, 165, 0]
+    item_type: "LightSource"
+    equip_slot: "off_hand" # Now held in a hand slot
+    flags: ["LIGHT", "EQUIPPABLE", "WOOD", "FLAMMABLE"] # Only equippable, not attachable
+    attributes:
+      weight: 0.5
+      cost: 10
+      max_charge: 1000 # Fuel/duration
+      light_radius: 6
+      light_color_r: 255
+      light_color_g: 165
+      light_color_b: 0
+    effects: {}
+
+  hooded_lantern: # NEW Example
+    name: "Hooded Lantern"
+    glyph: 157 # '¥'
+    color_fg: [180, 180, 180]
+    item_type: "LightSource"
+    equip_slot: "off_hand" # Option 1: Held
+    flags: ["LIGHT", "EQUIPPABLE", "ATTACHABLE", "REQUIRES_FUEL", "METAL"]
+    attributes:
+      weight: 1.5
+      cost: 50
+      max_fuel: 2000 # Requires current_fuel component in ITEM_SCHEMA
+      # current_fuel initialized to max_fuel? Or 0? Assume starts full.
+      light_radius: 7
+      light_color_r: 230
+      light_color_g: 200
+      light_color_b: 150
+      attachable_info: # Option 2: Attached
+        # Define the type of hook this lantern uses/needs
+        compatible_mount_types: ["lantern_hook_compatible"]
+    effects: {}
+
+  # --- Add more item templates as needed ---

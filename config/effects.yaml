@@ -1,0 +1,40 @@
+# config/effects.yaml
+# Defines reusable effect mechanics
+
+effects:
+
+  # --- Healing / Restoration ---
+  heal_hp_1d4:
+    type: "active"
+    target_category: "user"
+    logic_handler: "heal_target" # Link to function in game/effects/handlers.py
+    params: { base_heal: 0, dice: "1d4", variance: 0 }
+    description: "Heals a small amount of HP (1d4)."
+
+  heal_hp_10d5:
+    type: "active"
+    target_category: "user"
+    logic_handler: "heal_target"
+    params: { base_heal: 0, dice: "10d5", variance: 0 }
+    description: "Heals a significant amount of HP (10d5)."
+
+  # --- Resource Effects ---
+  restore_fullness_5:
+    type: "active"
+    target_category: "user"
+    logic_handler: "modify_resource" # Link to function
+    params: { resource: "fullness", change: 5 }
+    description: "Restores 5 units of fullness."
+
+  # --- Item Specific Effects ---
+  recall_projectile_on_miss:
+    type: "triggered"
+    trigger_event: "on_ranged_miss"
+    target_category: "projectile" # Special target category
+    conditions:
+      - { check: "target_was_living", value: False }
+    logic_handler: "recall_ammo" # Link to function
+    params: {} # Ammo type determined contextually from weapon
+    description: "Returns projectile if it misses a living target."
+
+  # --- Add more effect definitions as needed ---
