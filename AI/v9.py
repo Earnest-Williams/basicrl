@@ -6,122 +6,83 @@ Agent-based simulation core featuring farming, resource management,
 and a learning habit system with adaptive impact estimation for planning,
 feature triggers, and contextual outcome evaluation.
 Optimized with NumPy and deterministic RNG.
-Version: 9.0 (Merged Traits & Habits) - Requires review for duplicates
+Version: 9.0 (Merged Traits & Habits)
 """
 
-# NOTE: This file appears to contain duplicated or partially merged code blocks.
-# Specifically, there seems to be a second, incomplete AgentF class definition
-# starting around line 443 which should likely be removed or merged carefully
-# with the first definition. The indentation fixes below assume the FIRST
-# AgentF class definition is the intended one.
-
 from collections import defaultdict, deque
-from typing import Callable  # Removed Optional per PEP 604 preference
-from typing import Any, Dict, List, Set, Tuple, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Set, Tuple, Union, Callable
 
 import numpy as np
+from game_rng import GameRNG
 
-# Assume these are defined elsewhere (constants, other classes)
-# Need actual definitions for GameRNG, Home, Behavior, Habit, OutcomeResult,
-# TraitProfile, FatigueSystem, IllnessSystem, ExperienceMemory, SelfConcept,
-# CROPS, WATER_CONTAINERS, Calendar, Weather, Field, PLOT_STATUS_MAP etc.
+# Concrete dependency implementations
 
-
-# === Dummy placeholders for type checking - CORRECTED SYNTAX ===
-class GameRNG:
-    def get_float(self, a=0.0, b=1.0):
-        return np.random.uniform(a, b)  # Added defaults
-
-    def get_int(self, a, b):
-        return np.random.randint(a, b + 1)
-
-    def sample(self, p, k):
-        return np.random.choice(p, k, replace=False)
-
-
+@dataclass
 class Home:
+    """Resource storage and field references for an agent's dwelling."""
+
     water_storage: float = 0.0
-    raw_inventory: Dict[str, float] = defaultdict(float)
-    cooked_food: Dict[str, float] = defaultdict(float)
-    fiber: Dict[str, float] = defaultdict(float)
-    containers: Dict[str, Any] = {}
-    fields: List[Any] = []  # Placeholder for Field objects
+    raw_inventory: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    cooked_food: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    fiber: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    containers: Dict[str, Any] = field(default_factory=dict)
+    fields: List[Any] = field(default_factory=list)
 
-
+@dataclass
 class Behavior:
-    def __init__(
-        self,
-        name: str,
-        fn: Callable | None,
-        impact: Dict = {},
-        est_energy_cost: float = 0,
-        est_time_cost: float = 0,
-        task_id: str = "",
-        primary_skill: str = "",
-    ):
-        self.name = name
-        self.fn = fn
-        self.impact = impact
-        self.est_energy_cost = est_energy_cost
-        self.est_time_cost = est_time_cost
-        self.task_id = task_id
-        self.primary_skill = primary_skill
+    """Atomic action that an agent can attempt to perform."""
+
+    name: str
+    fn: Callable[["AgentF"], bool] | None
+    impact: Dict = field(default_factory=dict)
+    est_energy_cost: float = 0.0
+    est_time_cost: float = 0.0
+    task_id: str = ""
+    primary_skill: str = ""
 
 
+@dataclass
 class Habit:
-    def __init__(
-        self,
-        name: str,
-        sequence: List[Union[Behavior, "Habit"]],
-        trigger: Union[Dict, Callable],
-        score: float,
-        created_day: int,
-    ):
-        self.name = name
-        self.sequence = sequence
-        self.trigger = trigger
-        self.score = score
-        self.created_day = created_day
-        self.last_used_day = created_day  # Initialize last used day
+    """A learned sequence of behaviors executed under triggers."""
+
+    name: str
+    sequence: List[Union[Behavior, "Habit"]]
+    trigger: Union[Dict, Callable[["AgentF"], bool]]
+    score: float
+    created_day: int
+    last_used_day: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.last_used_day = self.created_day
 
     def estimate_impact(self, agent: "AgentF") -> Dict[str, float]:
-        # Basic estimation - sum impacts of direct behaviors
-        # Needs refinement with agent task_stats for adaptive costs
         total_impact = defaultdict(float)
         for item in self.sequence:
             if isinstance(item, Behavior):
-                # Add behavior's static impact estimate
                 for k, v in item.impact.items():
                     delta_k = f"delta_{k}"
                     total_impact[delta_k] += v
-                # Add estimated costs
                 total_impact["delta_energy"] -= item.est_energy_cost
                 total_impact["delta_time"] += item.est_time_cost
-            elif isinstance(
-                item, Habit
-            ):  # Recursively estimate impact of nested habits
+            elif isinstance(item, Habit):
                 nested_impact = item.estimate_impact(agent)
                 for k, v in nested_impact.items():
-                    total_impact[
-                        k
-                    ] += v  # Assume nested impact keys are already 'delta_...'
+                    total_impact[k] += v
         return dict(total_impact)
 
     def execute(self, agent: "AgentF") -> bool:
-        # Execute sequence, log individual behaviors via agent methods
         agent.base_logger.debug("habit_execute_start", habit_name=self.name)
         all_completed = True
         for item in self.sequence:
             completed = False
             if isinstance(item, Behavior):
-                if item.fn:  # Check if function is assigned
+                if item.fn:
                     try:
-                        completed = item.fn(
-                            agent
-                        )  # Assumes behavior fn returns bool success
+                        completed = item.fn(agent)
                         agent.daily_behavior_log.append(
                             (agent._capture_state_snapshot(), item.name)
-                        )  # Log individual behavior
+                        )
                     except Exception as e:
                         agent.base_logger.error(
                             "behavior_execution_error",
@@ -133,9 +94,9 @@ class Habit:
                     agent.base_logger.warning(
                         "behavior_missing_function", behavior_name=item.name
                     )
-                    completed = False  # Cannot execute if no function
+                    completed = False
             elif isinstance(item, Habit):
-                completed = item.execute(agent)  # Recursively execute nested habit
+                completed = item.execute(agent)
 
             if not completed:
                 all_completed = False
@@ -144,18 +105,15 @@ class Habit:
                     habit_name=self.name,
                     failed_item=item.name,
                 )
-                break  # Stop habit if a step fails
+                break
 
-        self.last_used_day = agent.context.get(
-            "day", self.last_used_day
-        )  # Update last used day
+        self.last_used_day = agent.context.get("day", self.last_used_day)
         agent.base_logger.debug(
             "habit_execute_end", habit_name=self.name, completed=all_completed
         )
         return all_completed
 
     def is_triggered(self, agent: "AgentF") -> bool:
-        # Handle callable trigger
         if callable(self.trigger):
             try:
                 return self.trigger(agent)
@@ -165,76 +123,67 @@ class Habit:
                 )
                 return False
         elif isinstance(self.trigger, dict):
-            # Dictionary trigger logic handled in decide_day_plan
-            # This method might not be needed if decide_day_plan handles both
             agent.base_logger.warning(
                 "habit_trigger_dict_unhandled", habit_name=self.name
             )
-            return False  # Should be handled by planner
-        return False  # Default case
+            return False
+        return False
 
 
+@dataclass
 class OutcomeResult:
+    """Container for outcome evaluations."""
+
     evaluation: float = 0.0
 
 
+@dataclass
 class TraitProfile:
-    # Add type hints
+    """Trait modifiers influencing agent behaviour and recovery."""
+
     endurance: float = 1.0
     ingenuity: float = 1.0
     perception: float = 1.0
     will: float = 1.0
     resonance: float = 1.0
 
-    # Add __init__ for proper initialization
-    def __init__(
-        self, endurance=1.0, ingenuity=1.0, perception=1.0, will=1.0, resonance=1.0
-    ):
-        self.endurance = endurance
-        self.ingenuity = ingenuity
-        self.perception = perception
-        self.will = will
-        self.resonance = resonance
-
 
 class FatigueSystem:
+    """Tracks fatigue accumulation and recovery."""
+
     level: float = 0.0
 
-    # Add type hints and init
-    def __init__(self, endurance: float = 1.0):
+    def __init__(self, endurance: float = 1.0) -> None:
         self.level = 0.0
-        self._endurance_factor = max(0.1, 0.7 + 0.3 * endurance)  # Precompute
+        self._endurance_factor = max(0.1, 0.7 + 0.3 * endurance)
 
-    def add_fatigue(self, amount: float, activity_intensity: float):
-        # Intensity scales fatigue gain, endurance reduces it
+    def add_fatigue(self, amount: float, activity_intensity: float) -> None:
         gain = amount * max(0.1, activity_intensity) / self._endurance_factor
         self.level = min(100.0, self.level + gain)
 
-    def recover(self, quality_rest: float, nutrition_bonus: float):
-        # Base recovery modified by factors
+    def recover(self, quality_rest: float, nutrition_bonus: float) -> None:
         recovery_amount = 5.0 + nutrition_bonus + (5.0 * quality_rest)
         self.level = max(0.0, self.level - recovery_amount)
 
     def get_performance_modifier(self) -> float:
-        # Performance decreases as fatigue increases
-        return max(0.1, 1.0 - (self.level / 125.0))  # Less harsh drop-off?
+        return max(0.1, 1.0 - (self.level / 125.0))
 
 
 class IllnessSystem:
-    # Use proper types
+    """Models active illnesses and their effects on performance."""
+
     active_conditions: Dict[str, Dict[str, Any]]
     _endurance: float
     _will: float
 
-    def __init__(self, endurance: float = 1.0, will: float = 1.0):
-        self.active_conditions = {}  # {name: {'severity': float, 'duration': int}}
+    def __init__(self, endurance: float = 1.0, will: float = 1.0) -> None:
+        self.active_conditions = {}
         self._endurance = endurance
         self._will = will
 
-    def add_condition(self, name: str, severity: float, duration: int):
+    def add_condition(self, name: str, severity: float, duration: int) -> None:
         if name not in self.active_conditions:
             self.active_conditions[name] = {"severity": severity, "duration": duration}
-            # Log added condition?
 
     def has_condition(self, condition_name: str) -> bool:
         return condition_name in self.active_conditions
@@ -243,28 +192,23 @@ class IllnessSystem:
         return sum(cond.get("severity", 0) for cond in self.active_conditions.values())
 
     def get_performance_modifiers(self) -> Dict[str, float]:
-        # Example modifiers based on severity
         total_severity = self.get_total_severity()
-        severity_factor = total_severity / 10.0  # Scale severity effect
+        severity_factor = total_severity / 10.0
         return {
             "efficiency": max(0.1, 1.0 - severity_factor * 0.5),
-            "energy": max(0.5, 1.0 - severity_factor * 0.3),  # Affects energy recovery
+            "energy": max(0.5, 1.0 - severity_factor * 0.3),
         }
 
     def daily_update(self) -> List[str]:
-        resolved = []
-        # Willpower slightly increases chance to reduce duration
+        resolved: List[str] = []
         will_factor = 0.1 * (self._will - 1.0)
-        # Endurance slightly increases chance to reduce severity
         endurance_factor = 0.05 * (self._endurance - 1.0)
 
-        for name in list(self.active_conditions.keys()):  # Iterate over keys copy
+        for name in list(self.active_conditions.keys()):
             condition = self.active_conditions[name]
             condition["duration"] -= 1
-            # Chance to reduce duration faster based on will
             if np.random.rand() < will_factor:
                 condition["duration"] -= 1
-            # Chance to reduce severity based on endurance
             if np.random.rand() < endurance_factor:
                 condition["severity"] = max(0.1, condition["severity"] * 0.9)
 
@@ -275,15 +219,14 @@ class IllnessSystem:
 
 
 class ExperienceMemory:
-    # Define structure for memory entries
-    memories: Dict[
-        str, List[Tuple[Dict, Dict, float]]
-    ]  # behavior -> list of (state_before, state_after, value)
+    """Stores experiences for simple outcome prediction."""
+
+    memories: Dict[str, List[Tuple[Dict, Dict, float]]]
     _ingenuity: float
 
-    def __init__(self, ingenuity: float = 1.0):
+    def __init__(self, ingenuity: float = 1.0) -> None:
         self.memories = defaultdict(list)
-        self._ingenuity = ingenuity  # Ingenuity affects prediction quality/range
+        self._ingenuity = ingenuity
 
     def add_memory(
         self,
@@ -292,84 +235,61 @@ class ExperienceMemory:
         state_after: Dict,
         day: int,
         value: float,
-    ):
-        # Store simplified state diff? Or full states? Store full for now.
-        # Limit memory size?
+    ) -> None:
         self.memories[behavior_name].append((state_before, state_after, value))
-        # Prune old memories occasionally?
-        if len(self.memories[behavior_name]) > 50:  # Example limit
+        if len(self.memories[behavior_name]) > 50:
             self.memories[behavior_name].pop(0)
 
     def predict_outcome(self, behavior_name: str, current_state: Dict) -> Dict | None:
-        # Simple prediction: find most similar past state_before, return its state_after diff
-        # Needs a similarity metric (e.g., Euclidean distance on key features)
-        # Ingenuity could influence how many neighbors are considered or the similarity threshold
-        # Placeholder: Return None for now, needs proper implementation
         return None
 
 
 class SelfConcept:
-    # Define structure
-    identity_aspects: Dict[str, float]  # e.g., {'farmer': 0.8, 'fighter': 0.2}
-    behavior_identity_map: Dict[str, Dict[str, float]]  # behavior -> {'aspect': weight}
+    """Tracks the agent's identity and behaviour alignment."""
+
+    identity_aspects: Dict[str, float]
+    behavior_identity_map: Dict[str, Dict[str, float]]
     _resonance: float
 
-    def __init__(self, resonance: float = 1.0):
-        self.identity_aspects = defaultdict(lambda: 0.5)  # Start neutral
+    def __init__(self, resonance: float = 1.0) -> None:
+        self.identity_aspects = defaultdict(lambda: 0.5)
         self.behavior_identity_map = self._initialize_behavior_map()
-        self._resonance = (
-            resonance  # Resonance affects how strongly actions shape identity
-        )
+        self._resonance = resonance
 
     def _initialize_behavior_map(self) -> Dict[str, Dict[str, float]]:
-        # Map behaviors to identity aspects they reinforce/contradict
-        # Example:
         return {
             "tend_field": {"farmer": 0.1, "provider": 0.05},
             "harvest_field": {"farmer": 0.15, "provider": 0.1},
             "fetch_water": {"provider": 0.02},
-            "drink_tea": {"calm": 0.05},  # Example new aspect
-            "use_ipecac": {"survivor": 0.1},  # Example
-            # ... map other behaviors ...
+            "drink_tea": {"calm": 0.05},
+            "use_ipecac": {"survivor": 0.1},
         }
 
     def get_identity_affinity(self, behavior_name: str) -> float:
-        # Calculate how much the behavior aligns with current identity
         affinity = 0.0
         if behavior_name in self.behavior_identity_map:
             for aspect, weight in self.behavior_identity_map[behavior_name].items():
                 affinity += self.identity_aspects[aspect] * weight
-        return affinity  # Ranges roughly [-1, 1] if weights sum to +/-1
+        return affinity
 
     def calculate_dissonance(self, behavior_name: str) -> float:
-        # Calculate conflict: performing behavior that contradicts strong identity aspects
         dissonance = 0.0
         if behavior_name in self.behavior_identity_map:
             for aspect, weight in self.behavior_identity_map[behavior_name].items():
-                # If behavior contradicts aspect (negative weight) and aspect is strong
                 if weight < 0 and self.identity_aspects[aspect] > 0.7:
                     dissonance += abs(weight) * (self.identity_aspects[aspect] - 0.5)
-                # If behavior supports aspect (positive weight) but aspect is weak/negative
                 elif weight > 0 and self.identity_aspects[aspect] < 0.3:
                     dissonance += abs(weight) * (0.5 - self.identity_aspects[aspect])
-        return dissonance  # Higher value means more dissonance
+        return dissonance
 
     def update_from_behavior(
         self, behavior_name: str, completed: bool, perceived_value: float
-    ):
-        # Update identity based on performed action, modulated by resonance
+    ) -> None:
         if not completed:
-            return  # Don't update identity from failed actions? Or maybe negative?
-
+            return
         if behavior_name in self.behavior_identity_map:
-            update_strength = (
-                0.05 * self._resonance
-            )  # Base update rate affected by resonance
-            # Positive outcomes reinforce associated aspects more
-            value_mod = 1.0 + max(
-                -0.5, min(0.5, perceived_value * 0.1)
-            )  # Limit impact of value
-
+            update_strength = 0.05 * self._resonance
+            value_mod = 1.0 + max(-0.5, min(0.5, perceived_value * 0.1))
             for aspect, weight in self.behavior_identity_map[behavior_name].items():
                 change = update_strength * weight * value_mod
                 self.identity_aspects[aspect] = max(
@@ -449,7 +369,7 @@ def flatten_behavior_names(item: Union[Habit, Behavior]) -> Set[str]:
 class AgentF:
     """Enhanced agent with trait system integration (V9.0 Merged)."""
 
-    def __init__(self, rng: "GameRNG", home: "Home", base_logger=None):
+    def __init__(self, rng: GameRNG, home: Home, base_logger=None):
         self.rng = rng
         self.home = home
         self.energy = 16.0
@@ -510,8 +430,8 @@ class AgentF:
         self.memory = ExperienceMemory(ingenuity=self.traits.ingenuity)
         self.self_concept = SelfConcept(resonance=self.traits.resonance)
 
-        self.behaviors: Dict[str, "Behavior"] = self._initialize_behaviors()
-        self.habits: List["Habit"] = []
+        self.behaviors: Dict[str, Behavior] = self._initialize_behaviors()
+        self.habits: List[Habit] = []
         self.daily_behavior_log: List[Tuple[Dict[str, Any] | None, str]] = []
         self.behavior_memory: deque[Tuple[Dict[str, Any] | None, str]] = deque(
             maxlen=250
@@ -544,7 +464,7 @@ class AgentF:
 
         return DummyLogger()
 
-    def _initialize_behaviors(self) -> Dict[str, "Behavior"]:
+    def _initialize_behaviors(self) -> Dict[str, Behavior]:
         # Using simplified impacts from above for consistency
         return {
             "fetch_water": Behavior(
@@ -789,7 +709,7 @@ class AgentF:
             features[f"has_condition_{c_name}"] = True
         return features
 
-    def _estimate_habit_impact(self, habit: "Habit") -> Dict[str, float]:
+    def _estimate_habit_impact(self, habit: Habit) -> Dict[str, float]:
         base_impact = habit.estimate_impact(self)
         behavior_names = flatten_behavior_names(habit)
         if behavior_names and self.traits.ingenuity > 1.0:
@@ -1808,5 +1728,3 @@ class AgentF:
 
 
 # --- END OF PRIMARY AgentF CLASS ---
-
-# Ensure no duplicated code follows this point. Remove any second AgentF definition.
