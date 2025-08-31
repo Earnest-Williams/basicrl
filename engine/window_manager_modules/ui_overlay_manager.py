@@ -181,7 +181,6 @@ class UIOverlayManager:
         """Renders the height visualization key."""
         # This method remains the same as before, using ml (MainLoop ref) for config values
         try:
-            wm = self.window_manager_ref  # Needed for lerp_color helper
             ch_np = ml._cfg_height_color_high_np
             cm_np = ml._cfg_height_color_mid_np
             cl_np = ml._cfg_height_color_low_np
@@ -204,13 +203,11 @@ class UIOverlayManager:
                     if key_height > 1
                     else 0.0
                 )
-                # --- Call lerp_color through WindowManager reference ---
                 current_bar_color = (
-                    wm.lerp_color(cm, ch, t_norm)
+                    self.window_manager_ref.lerp_color(cm, ch, t_norm)
                     if t_norm >= 0
-                    else wm.lerp_color(cm, cl, -t_norm)
+                    else self.window_manager_ref.lerp_color(cm, cl, -t_norm)
                 )
-                # --- End Call ---
                 draw.line(
                     [(key_x, key_y + i), (key_x + key_width - 1, key_y + i)],
                     fill=current_bar_color + (255,),
