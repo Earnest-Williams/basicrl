@@ -217,6 +217,4 @@ class MainLoop:
         """Restore state produced by :meth:`save_state`."""
         z_data = data.get("zone_manager")
         if z_data:
-            self.game_state.zone_manager = ZoneManager.from_dict(
-                z_data, self.game_state.zone_manager.event_registry
-            )
+            self.game_state.zone_manager = ZoneManager.from_dict(z_data)

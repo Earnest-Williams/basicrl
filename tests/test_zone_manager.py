@@ -29,6 +29,13 @@ from game.game_state import GameState
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
+CALLED_SERIALIZATION: list[int] = []
+
+
+def sample_callback(gs: GameState) -> None:
+    CALLED_SERIALIZATION.append(1)
+
+
 def test_zone_manager_far_zone_delay():
     manager = ZoneManager(map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3)
     called = []
@@ -86,13 +93,12 @@ def test_zone_manager_serialization_roundtrip():
         active_radius=1,
         passive_interval=3,
     )
-    called = []
-    manager.schedule_event(50, 50, lambda gs: called.append(1))
+    CALLED_SERIALIZATION.clear()
+    manager.schedule_event(50, 50, sample_callback)
     state = manager.to_dict()
-    registry_copy = dict(manager.event_registry)
-    restored = ZoneManager.from_dict(state, registry_copy)
+    restored = ZoneManager.from_dict(state)
     for turn in range(3):
         restored.process(turn, restored.get_active_zones((5, 5)), None)
-        assert called == []
+        assert CALLED_SERIALIZATION == []
     restored.process(3, restored.get_active_zones((5, 5)), None)
-    assert called == [1]
+    assert CALLED_SERIALIZATION == [1]
