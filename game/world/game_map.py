@@ -212,6 +212,16 @@ class GameMap:
         self.visible.fill(False)
         visibility.compute(x, y, radius)
 
+        # Decrement memory strength for tiles not currently visible and
+        # ensure values stay within the valid range.
+        not_visible = ~self.visible
+        if np.any(not_visible):
+            self.memory_strength[not_visible] = np.maximum(
+                self.memory_strength[not_visible] - 1.0, 0.0
+            )
+
+        np.clip(self.memory_strength, 0.0, MAX_MEMORY_STRENGTH, out=self.memory_strength)
+
     # --- END MODIFIED compute_fov method ---
 
     def create_test_room(self) -> None:
