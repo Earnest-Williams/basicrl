@@ -615,3 +615,20 @@ class ItemRegistry:
             if template:
                 return template.get("attributes", {}).get(attribute_name, default)
         return default
+
+    # --- New Flag Helpers ---
+    def get_item_flags(self: Self, item_id: int) -> list[str]:
+        """Return the list of flags defined for an item's template."""
+        template_id = self.get_item_template_id(item_id)
+        if template_id:
+            template = self.get_template(template_id)
+            if template:
+                flags = template.get("flags", [])
+                if isinstance(flags, list):
+                    # Ensure everything is string for comparisons
+                    return [str(f) for f in flags]
+        return []
+
+    def item_has_flag(self: Self, item_id: int, flag: str) -> bool:
+        """Check whether the item's template declares a specific flag."""
+        return flag in self.get_item_flags(item_id)

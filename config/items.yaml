@@ -24,7 +24,7 @@ templates:
     color_fg: [148, 0, 211]
     item_type: "Launcher"
     equip_slot: "main_hand" # Assumes two-handed for now, could be off_hand if smaller
-    flags: ["WEAPON", "RANGED", "RARE", "MAGICAL", "EQUIPPABLE"]
+    flags: ["WEAPON", "RANGED", "RARE", "MAGICAL", "EQUIPPABLE", "TWO_HANDED"]
     attributes:
       weight: 4.0
       cost: 500
@@ -36,6 +36,19 @@ templates:
       #     compatible_types: ["CrossbowScope"]
     effects:
       triggered: ["recall_projectile_on_miss"]
+
+  parrying_dagger:
+    name: "Parrying Dagger"
+    glyph: 47 # '/' placeholder
+    color_fg: [180, 180, 180]
+    item_type: "Weapon"
+    equip_slot: "off_hand"
+    flags: ["WEAPON", "MELEE", "EQUIPPABLE", "OFF_HAND"]
+    attributes:
+      weight: 1.0
+      cost: 15
+      damage_dice: "1d4"
+    effects: {}
 
   # --- Armor ---
   leather_armor:
