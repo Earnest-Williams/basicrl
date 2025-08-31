@@ -343,6 +343,7 @@ def update_memory_fade(
     visible: np.ndarray,
     needs_update_mask: np.ndarray,
     prev_visible: np.ndarray,
+    memory_strength: np.ndarray,
     steepness: float,
     midpoint: float,
     duration: float,
@@ -371,8 +372,14 @@ def update_memory_fade(
 
     ys, xs = np.where(needs_update_mask)
     elapsed_time = current_time - last_seen_time[ys, xs]
-    elapsed_time = np.clip(elapsed_time, 0.0, duration)
-    exponent = steepness * (elapsed_time - midpoint)
+    elapsed_time = np.maximum(elapsed_time, 0.0)
+
+    strength = memory_strength[ys, xs]
+    scale = 1.0 + strength
+    decay_rate = steepness / scale
+    midpoint_scaled = midpoint * scale
+    exponent = decay_rate * (elapsed_time - midpoint_scaled)
+
 
     new_intensity = np.zeros_like(elapsed_time, dtype=np.float32)
     mask = exponent < 70.0
@@ -382,10 +389,11 @@ def update_memory_fade(
 
     memory_intensity[ys, xs] = np.maximum(0.0, new_intensity)
 
-    # Prune tiles that have faded completely or exceeded duration
-    needs_update_mask[ys, xs] = (memory_intensity[ys, xs] > 0.0) & (
-        elapsed_time < duration
-    )
+
+    # Prune tiles that have faded completely
+    needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
+
+
 
 
 @numba.njit(cache=True)
