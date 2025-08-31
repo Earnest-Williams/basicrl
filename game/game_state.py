@@ -187,8 +187,13 @@ class GameState:
             try:
                 self.light_sources[self.player_light_index].x = px
                 self.light_sources[self.player_light_index].y = py
-            except Exception:
-                pass
+            except (IndexError, AttributeError) as err:
+                log.error(
+                    "Failed to update player light source",
+                    index=self.player_light_index,
+                    light_sources=len(self.light_sources),
+                    error=str(err),
+                )
         else:
             log.warning("Cannot update FOV: Player position not found.")
             self.game_map.visible[:] = False  # Clear visibility if no player
