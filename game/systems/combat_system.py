@@ -10,6 +10,7 @@ import structlog
 # Import roll_dice from its new location
 from utils.helpers import roll_dice
 from game.entities.components import CombatStats
+from game.systems.death_system import handle_entity_death
 
 if TYPE_CHECKING:
     from game_rng import GameRNG  # Assuming this is importable for type hint
@@ -174,20 +175,11 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     # Handle Death [Source [source 53]]
     if new_hp <= 0:
         log.info(f"{defender_name} died.", defender_id=defender_id)
-        if game_map.visible[dy, dx]:
-            gs.add_message(f"The {defender_name} dies!", (255, 100, 100))
-        # Award XP to attacker
+        # Award XP to attacker before removing entity
         xp_reward = entity_reg.get_entity_component(defender_id, "xp_reward") or 0
         if xp_reward:
             current_xp = entity_reg.get_entity_component(attacker_id, "xp") or 0
             entity_reg.set_entity_component(attacker_id, "xp", current_xp + xp_reward)
             if attacker_id == gs.player_id and game_map.visible[dy, dx]:
                 gs.add_message(f"You gain {xp_reward} XP.", (0, 255, 255))
-        # Drop inventory and equipped items
-        inv_items = item_reg.get_entity_inventory(defender_id)
-        eq_items = item_reg.get_entity_equipped(defender_id)
-        for item in inv_items.iter_rows(named=True):
-            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
-        for item in eq_items.iter_rows(named=True):
-            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
-        entity_reg.delete_entity(defender_id)
+        handle_entity_death(defender_id, gs)
