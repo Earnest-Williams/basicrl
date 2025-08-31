@@ -18,7 +18,6 @@ import sys  # For console logging handler
 import time
 import uuid  # For simulation ID
 from collections import deque
-from enum import IntEnum
 from typing import Deque, Dict, List, Tuple
 
 import numpy as np
@@ -27,6 +26,9 @@ import structlog  # Structured logging
 from joblib import Parallel, delayed
 from numba import njit
 from game.world.los import line_of_sight
+
+from game.constants import FeatureType, FlowType, MAX_FLOWS
+from game_rng import GameRNG
 
 # --- Constants ---
 SIM_ID = str(uuid.uuid4())[:8]  # Unique ID for this simulation run
@@ -128,33 +130,6 @@ def setup_logging(
 
 # Initialize logger globally after setup function definition
 log = setup_logging()
-
-
-# --- Enums ---
-class FlowType(IntEnum):
-    """Flow field types for noise propagation."""
-
-    PASS_DOORS = 0  # Monsters that can open/bash doors
-    NO_DOORS = 1  # Monsters blocked by closed doors
-    REAL_NOISE = 2  # Actual noise for stealth/perception (dampened by doors)
-    MONSTER_NOISE = 3  # Noise originating from monsters
-    # Add other flow types (e.g., WANDERING) if needed
-    # FLOW_WANDERING_HEAD = 4 ...
-
-
-MAX_FLOWS: int = len(FlowType)  # Determine max flows from Enum
-
-
-class FeatureType(IntEnum):
-    """Placeholder feature types - REPLACE WITH YOUR MAP FEATURES"""
-
-    FLOOR = 0
-    WALL = 1
-    CLOSED_DOOR = 2  # Example
-    OPEN_DOOR = 3  # Example
-    SECRET_DOOR = 4  # Example
-    # Add other features (traps, stairs, water, etc.)
-
 
 # --- Data Types ---
 QueueItem = Tuple[int, int, int]  # (y, x, cost)
@@ -503,9 +478,11 @@ def initialize_monsters(num_monsters: int, height: int, width: int) -> pl.DataFr
 # --- Perception System (Parallelized) ---
 
 
-def skill_check(actor_skill: int, difficulty: int, target_skill: int) -> bool:
-    """Placeholder skill check."""
-    roll = np.random.randint(1, 101)
+def skill_check(
+    rng: GameRNG, actor_skill: int, difficulty: int, target_skill: int
+) -> bool:
+    """Deterministic skill check using :class:`GameRNG`."""
+    roll = rng.get_int(1, 100)
     threshold = 50 + actor_skill - (difficulty + target_skill)
     return roll <= threshold
 
@@ -516,6 +493,7 @@ def _process_monster_perception_chunk(
     flow_centers: np.ndarray,
     player_stealth_skill: int,
     noise_flow_type: FlowType,
+    rng: GameRNG,
 ) -> List[int]:
     """Processes perception checks for a chunk of monsters. Cannot log directly."""
     alerted_monster_ids: List[int] = []
@@ -535,6 +513,7 @@ def _process_monster_perception_chunk(
 
         difficulty_mod: int = noise_dist
         if skill_check(
+            rng,
             actor_skill=perception,
             difficulty=difficulty_mod,
             target_skill=player_stealth_skill,
@@ -552,6 +531,8 @@ def monster_perception(
     player_y: int,
     player_x: int,
     player_stealth_skill: int,
+    rng: GameRNG,
+    noise_flow_type: FlowType = FlowType.REAL_NOISE,
 ) -> List[int]:
     """Updates monster perception based on noise. Parallelized using Joblib."""
     start_time = time.monotonic()
@@ -593,7 +574,12 @@ def monster_perception(
 
     results: List[List[int]] = Parallel(n_jobs=N_JOBS, backend="loky")(
         delayed(_process_monster_perception_chunk)(
-            chunk, cave_cost, flow_centers, player_stealth_skill, FlowType.REAL_NOISE
+            chunk,
+            cave_cost,
+            flow_centers,
+            player_stealth_skill,
+            noise_flow_type,
+            rng,
         )
         for chunk in df_chunks
     )
@@ -669,6 +655,7 @@ if __name__ == "__main__":
     # --- Initialize Player and Monsters ---
     player_y, player_x = MAP_HGT // 2 + 10, MAP_WID // 2
     player_stealth_skill = 10
+    rng = GameRNG(seed=123)
     log.info(
         "player_initialized", pos=(player_y, player_x), stealth=player_stealth_skill
     )
@@ -758,6 +745,7 @@ if __name__ == "__main__":
             player_y,
             player_x,
             player_stealth_skill,
+            rng,
         )
         # monster_perception logs its own duration and results
 
