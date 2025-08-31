@@ -19,7 +19,7 @@ sys.modules["game_rng"] = module
 
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
-from game.effects.handlers import heal_target, deal_damage
+from game.effects.handlers import heal_target, deal_damage, apply_status
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
@@ -114,10 +114,44 @@ def test_deal_damage_message_only_when_visible():
     params = {"base_damage": 5}
     deal_damage(context, params)
     assert len(gs.message_log) == start_len
+    assert len(gs.message_queue) == 1
 
     context["target_entity_id"] = visible_id
     deal_damage(context, params)
     assert len(gs.message_log) == start_len + 1
+    assert len(gs.message_queue) == 1
+
+
+def test_apply_status_message_only_when_visible():
+    gs = make_game_state()
+    rng = gs.rng_instance
+    hidden_id = gs.entity_registry.create_entity(
+        x=4,
+        y=4,
+        glyph=ord("h"),
+        color_fg=(255, 0, 0),
+        name="Hidden",
+    )
+    visible_id = gs.entity_registry.create_entity(
+        x=2,
+        y=3,
+        glyph=ord("v"),
+        color_fg=(255, 0, 0),
+        name="Visible",
+    )
+    gs.update_fov()
+    start_len = len(gs.message_log)
+    start_queue = len(gs.message_queue)
+    context = {"game_state": gs, "target_entity_id": hidden_id, "rng": rng}
+    params = {"status": "burning"}
+    apply_status(context, params)
+    assert len(gs.message_log) == start_len
+    assert len(gs.message_queue) == start_queue + 1
+
+    context["target_entity_id"] = visible_id
+    apply_status(context, params)
+    assert len(gs.message_log) == start_len + 1
+    assert len(gs.message_queue) == start_queue + 1
 
 
 def test_deal_damage_resistance_and_vulnerability():
