@@ -33,6 +33,7 @@ class GameState:
         effect_definitions: Dict[str, Any] | None = None,
         rng_seed: int | None = None,
         ai_config: Dict[str, Any] | None = None,
+        memory_fade_config: Dict[str, Any] | None = None,
     ):
         log.info("Initializing GameState...")
 
@@ -61,6 +62,14 @@ class GameState:
         self.item_registry: ItemRegistry = ItemRegistry(item_templates)
         self.effect_definitions: Dict[str, Any] = effect_definitions or {}
         self.ai_config: Dict[str, Any] = ai_config or {}
+        mf_config = memory_fade_config or {}
+        duration = mf_config.get("duration", 60.0)
+        self.memory_fade_enabled: bool = mf_config.get("enabled", True)
+        self.memory_fade_duration: float = duration
+        self.memory_fade_midpoint: float = mf_config.get("midpoint", duration / 2.0)
+        self.memory_fade_steepness: float = mf_config.get(
+            "steepness", 6.0 / duration if duration else 0.0
+        )
         log.debug("ItemRegistry initialized", templates=len(item_templates))
         log.debug("Effect definitions stored", effects=len(effect_definitions))
 
@@ -146,7 +155,13 @@ class GameState:
             self.game_map.memory_intensity[self.game_map.visible] = 1.0
             self.game_map.last_seen_time[self.game_map.visible] = self.turn_count
             # Fade memory for tiles no longer visible
-            self.game_map.update_memory_fade(self.turn_count)
+            if self.memory_fade_enabled:
+                self.game_map.update_memory_fade(
+                    self.turn_count,
+                    self.memory_fade_steepness,
+                    self.memory_fade_midpoint,
+                    self.memory_fade_duration,
+                )
             # Keep player light source in sync with position
             try:
                 self.light_sources[self.player_light_index].x = px

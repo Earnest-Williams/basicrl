@@ -19,6 +19,9 @@ class DummyRNG:
     def randint(self, a, b):
         return a
 
+    def get_int(self, a, b):
+        return a
+
 module.GameRNG = DummyRNG
 sys.modules["game_rng"] = module
 
@@ -35,6 +38,8 @@ from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
 from game.ai import goap, community
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def create_game_state():
     game_map = GameMap(width=5, height=5)
@@ -49,6 +54,7 @@ def create_game_state():
         item_templates={},
         effect_definitions={},
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
     return gs
 

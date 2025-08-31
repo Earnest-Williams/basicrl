@@ -6,6 +6,7 @@ and optimized techniques.
 """
 # Standard Library Imports
 import math
+import colorsys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict as PyDict, List, cast
 
@@ -66,6 +67,14 @@ NJIT_SENTINEL_TILE_ARRAY_SHAPE = (0, 0, 4)
 # shaded characters used in the developer lighting prototype.
 MEMORY_WALL_GLYPHS = np.array([ord("▓"), ord("▒"), ord("░"), ord("⋅"), ord(" ")], dtype=np.uint16)
 MEMORY_FLOOR_GLYPHS = np.array([ord("."), ord("·"), ord("⋅"), ord(" "), ord(" ")], dtype=np.uint16)
+
+# Alternate glyphs with a noisier appearance used when memory noise is enabled.
+NOISY_MEMORY_WALL_GLYPHS = np.array(
+    [ord("█"), ord("▓"), ord("▒"), ord("░"), ord(" ")], dtype=np.uint16
+)
+NOISY_MEMORY_FLOOR_GLYPHS = np.array(
+    [ord("#"), ord("~"), ord(":"), ord("."), ord(" ")], dtype=np.uint16
+)
 MEMORY_LEVEL_COUNT = MEMORY_WALL_GLYPHS.size
 
 
@@ -141,6 +150,8 @@ class RenderConfig:
     memory_fade_color_np: np.ndarray = field(
         default_factory=lambda: np.array([128, 128, 128], dtype=np.uint8)
     )
+    memory_fade_variance: np.float32 = np.float32(0.0)
+    memory_noise_level: np.float32 = np.float32(0.0)
 
 
 def _prepare_base_layers(
@@ -431,6 +442,8 @@ def _apply_memory_fade(
     drawn_mask: np.ndarray,
     visible_mask: np.ndarray,
     fade_color_np: np.ndarray,
+    fade_color_variance: float = 0.0,
+    noise_level: float = 0.0,
 ) -> None:
     """Blend colors and swap glyphs for tiles remembered in the fog."""
     memory_mask = drawn_mask & (~visible_mask)
@@ -438,16 +451,37 @@ def _apply_memory_fade(
         return
 
     fade_vals = map_memory_vp[memory_mask][:, None]
-    fade_rgb = fade_color_np.astype(np.float32)
+    rng = np.random.default_rng(0)
 
-    # Blend foreground and background toward the fade colour
+    # Calculate per-tile fade colours with optional variance in hue and saturation
+    if fade_color_variance > 0.0:
+        count = fade_vals.shape[0]
+        base_h, base_s, base_v = colorsys.rgb_to_hsv(
+            *(fade_color_np / 255.0)
+        )
+        hue_offsets = rng.uniform(-fade_color_variance, fade_color_variance, count)
+        sat_offsets = rng.uniform(0.0, fade_color_variance, count)
+        hues = (base_h + hue_offsets) % 1.0
+        sats = np.clip(base_s * (1.0 - sat_offsets), 0.0, 1.0)
+        vals = np.full(count, base_v)
+        fade_rgbs = (
+            np.array(
+                [colorsys.hsv_to_rgb(h, s, v) for h, s, v in zip(hues, sats, vals)],
+                dtype=np.float32,
+            )
+            * 255.0
+        )
+    else:
+        fade_rgbs = np.tile(fade_color_np.astype(np.float32), (fade_vals.shape[0], 1))
+
+    # Blend foreground and background toward the per-tile fade colours
     final_fg[memory_mask] = (
         final_fg[memory_mask].astype(np.float32) * fade_vals
-        + fade_rgb * (1.0 - fade_vals)
+        + fade_rgbs * (1.0 - fade_vals)
     ).astype(np.uint8)
     final_bg[memory_mask] = (
         final_bg[memory_mask].astype(np.float32) * fade_vals
-        + fade_rgb * (1.0 - fade_vals)
+        + fade_rgbs * (1.0 - fade_vals)
     ).astype(np.uint8)
 
     # Substitute glyphs based on intensity level
@@ -459,12 +493,26 @@ def _apply_memory_fade(
     ).astype(np.intp)
 
     new_glyphs = glyph_indices[memory_mask].copy()
+    noise_mask = (
+        rng.random(levels.shape[0]) < noise_level if noise_level > 0.0 else np.zeros(levels.shape[0], dtype=bool)
+    )
+
     wall_mask = tile_ids == TILE_ID_WALL
     if np.any(wall_mask):
-        new_glyphs[wall_mask] = MEMORY_WALL_GLYPHS[levels[wall_mask]]
+        clean = wall_mask & ~noise_mask
+        noisy = wall_mask & noise_mask
+        if np.any(clean):
+            new_glyphs[clean] = MEMORY_WALL_GLYPHS[levels[clean]]
+        if np.any(noisy):
+            new_glyphs[noisy] = NOISY_MEMORY_WALL_GLYPHS[levels[noisy]]
     floor_mask = tile_ids == TILE_ID_FLOOR
     if np.any(floor_mask):
-        new_glyphs[floor_mask] = MEMORY_FLOOR_GLYPHS[levels[floor_mask]]
+        clean = floor_mask & ~noise_mask
+        noisy = floor_mask & noise_mask
+        if np.any(clean):
+            new_glyphs[clean] = MEMORY_FLOOR_GLYPHS[levels[clean]]
+        if np.any(noisy):
+            new_glyphs[noisy] = NOISY_MEMORY_FLOOR_GLYPHS[levels[noisy]]
     glyph_indices[memory_mask] = new_glyphs
 
 # Marked with cache=True for performance
@@ -945,6 +993,8 @@ def render_viewport(
             drawn_mask,
             visible_mask,
             render_config.memory_fade_color_np,
+            float(render_config.memory_fade_variance),
+            float(render_config.memory_noise_level),
         )
 
     # --- Prepare Output Buffer (NumPy array for PIL Image) ---
