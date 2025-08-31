@@ -56,6 +56,7 @@ class WindowManager(QWidget):
         min_tile_size_cfg: int = DEFAULT_MIN_TILE_SIZE,
         scroll_debounce_cfg: int = DEFAULT_SCROLL_SCALE_DEBOUNCE_MS,
         resize_debounce_cfg: int = DEFAULT_RESIZE_DEBOUNCE_MS,
+        overlay_config_path: str | Path | None = None,
     ):
         super().__init__()
         self.app_config = app_config
@@ -132,7 +133,17 @@ class WindowManager(QWidget):
 
         # Instantiate other handlers
         self.input_handler = InputHandler(self.keybindings_config, self)
-        self.ui_overlay_manager = UIOverlayManager(self)
+        # Resolve overlay config path; allow override via argument or app_config
+        default_overlay_cfg = self.app_config.get(
+            "overlay_config", "config/overlays.toml"
+        )
+        overlays_path = (
+            Path(overlay_config_path)
+            if overlay_config_path is not None
+            else Path(default_overlay_cfg)
+        ).resolve()
+
+        self.ui_overlay_manager = UIOverlayManager(self, overlays_path)
 
         log.debug("WindowManager __init__ complete")
 

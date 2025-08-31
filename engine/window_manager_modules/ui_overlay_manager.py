@@ -1,12 +1,31 @@
 # engine/window_manager_modules/ui_overlay_manager.py
 """
-Manages the rendering of UI overlays like debug text, inventory, etc.
-Also handles inventory state management (cursor position, item mapping).
+Manages the rendering of UI overlays loaded from a TOML configuration file.
+
+Overlay Config Schema (``config/overlays.toml``):
+
+```
+[[overlay]]
+id   = "debug"        # Unique identifier
+type = "debug"        # Built-in overlay types: debug, height_key, inventory, image
+
+# Image overlays can specify a path and pixel position
+# [[overlay]]
+# id       = "logo"
+# type     = "image"
+# path     = "assets/ui/logo.png"  # Relative to the config file
+# position = [5, 5]
+```
+
+Mods can add or replace overlay definitions in this file and supply their own
+tile graphics by referencing image paths.
 """
 # Standard Imports
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from typing import Dict as PyDict
 from typing import List, Tuple
+import tomllib
 
 # Third-party Imports
 import polars as pl
@@ -28,14 +47,43 @@ log = structlog.get_logger(__name__)
 class UIOverlayManager:
     """Handles rendering and state for UI overlays."""
 
-    def __init__(self, window_manager_ref: "WindowManager"):
+    def __init__(
+        self, window_manager_ref: "WindowManager", overlay_config_path: Path
+    ) -> None:
         self.window_manager_ref: "WindowManager" = window_manager_ref
+        self.overlay_config_path = overlay_config_path
+        self._overlay_base_path = self.overlay_config_path.parent
+        self.overlay_defs: List[PyDict[str, Any]] = self._load_overlay_definitions()
+        self._image_cache: PyDict[str, Image.Image] = {}
         # Inventory state
         self.inventory_cursor: int = 0
         self.inventory_scroll_offset: int = 0  # For future scrolling
         # Map from display line index to (item_id | None, is_equipped_flag)
         self._inventory_ui_map: PyDict[int, Tuple[int | None, bool]] = {}
         log.debug("UIOverlayManager initialized.")
+
+    def _load_overlay_definitions(self) -> List[PyDict[str, Any]]:
+        """Loads overlay definitions from the TOML configuration file."""
+        if not self.overlay_config_path.is_file():
+            log.warning(
+                "Overlay config file not found", path=str(self.overlay_config_path)
+            )
+            return []
+        try:
+            with self.overlay_config_path.open("rb") as f:
+                data = tomllib.load(f)
+            overlays = data.get("overlay", [])
+            if not isinstance(overlays, list):
+                log.warning("Overlay config missing 'overlay' list")
+                return []
+            return overlays
+        except Exception as e:
+            log.error(
+                "Failed to load overlay config",
+                path=str(self.overlay_config_path),
+                error=e,
+            )
+            return []
 
     def reset_inventory_state(self) -> None:
         """Resets cursor and map when inventory is opened/closed."""
@@ -59,7 +107,7 @@ class UIOverlayManager:
     
         img_copy = base_image.copy()  # Work on a copy
         draw = ImageDraw.Draw(img_copy)
-    
+
         # Font Loading (Consider centralizing or caching in WindowManager/Config)
         text_font = None
         try:
@@ -67,24 +115,32 @@ class UIOverlayManager:
             text_font = ImageFont.truetype("arial.ttf", 10)
         except IOError:
             text_font = ImageFont.load_default()
-    
-        # 1. Debug Text Overlay
-        bg_rect_debug = self._render_debug_overlay(draw, text_font, gs, main_loop_ref)
-    
-        # 2. Height Visualization Key Overlay
-        if main_loop_ref.show_height_visualization:
-            self._render_height_key_overlay(
-                draw, text_font, bg_rect_debug, main_loop_ref
-            )
-    
-        # 3. Inventory Overlay
-        if gs.ui_state == "INVENTORY_VIEW":
-            # FIXED: Pass text_font instead of undefined font variable
-            img_copy = self._render_inventory_overlay(img_copy, draw, text_font, gs)
-    
+
+        bg_rect_debug = (0, 0, 0, 0)
+        for overlay in self.overlay_defs:
+            if not overlay.get("enabled", True):
+                continue
+            otype = overlay.get("type")
+            if otype == "debug":
+                bg_rect_debug = self._render_debug_overlay(
+                    draw, text_font, gs, main_loop_ref
+                )
+            elif otype == "height_key":
+                if main_loop_ref.show_height_visualization:
+                    self._render_height_key_overlay(
+                        draw, text_font, bg_rect_debug, main_loop_ref
+                    )
+            elif otype == "inventory":
+                if gs.ui_state == "INVENTORY_VIEW":
+                    img_copy = self._render_inventory_overlay(
+                        img_copy, draw, text_font, gs
+                    )
+            elif otype == "image":
+                img_copy = self._render_image_overlay(img_copy, overlay)
+
         # 4. Message Log Overlay (Future)
         # self._render_message_log(draw, text_font, gs)
-    
+
         return img_copy
         
 
@@ -237,6 +293,29 @@ class UIOverlayManager:
             log.error(
                 "Error drawing height key overlay", error=str(e_key_draw), exc_info=True
             )
+
+    def _render_image_overlay(
+        self, base_image: Image.Image, overlay: PyDict[str, Any]
+    ) -> Image.Image:
+        """Renders a static image overlay defined in the config."""
+        path_str = overlay.get("path")
+        if not path_str:
+            return base_image
+        img_path = Path(path_str)
+        if not img_path.is_absolute():
+            img_path = self._overlay_base_path / img_path
+        try:
+            cached = self._image_cache.get(str(img_path))
+            if cached is None:
+                cached = Image.open(img_path).convert("RGBA")
+                self._image_cache[str(img_path)] = cached
+            pos = overlay.get("position", [0, 0])
+            base_image.paste(cached, tuple(pos), cached)
+        except Exception as e:
+            log.error(
+                "Failed to render image overlay", path=str(img_path), error=e
+            )
+        return base_image
 
     def _render_inventory_overlay(
         self,

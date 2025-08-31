@@ -15,6 +15,11 @@ map_height: 50
 # -- Procedural Generation --
 # Seed for dungeon generation (integer or null for random based on time)
 dungeon_seed: null
+procgen:
+  regions:
+    dungeon: bsp    # Classic rooms-and-corridors
+    caverns: cellular  # Cellular automata caves
+    surface: prefab   # Prefab-based surface structures
 
 # -- Player Settings --
 player_glyph: 113 # User specified

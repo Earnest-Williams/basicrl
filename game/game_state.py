@@ -12,8 +12,6 @@ from game.items.registry import ItemRegistry
 
 from game.world.game_map import GameMap, LightSource
 from game.systems.ai_system import dispatch_ai
-# New AI package imports
-from game.ai import get_adapter
 from game.ai.perception import gather_perception
 from simulation.zone_manager import ZoneManager
 
@@ -278,12 +276,15 @@ class GameState:
                 continue
             if row["entity_id"] == self.player_id:
                 continue
+
             zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
             if zone not in active_zones:
                 continue
             ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
             adapter = get_adapter(ai_type)
             adapter(row, self, self.rng_instance, perception)
+            dispatch_ai(row, self, self.rng_instance, perception)
+
 
         # Process any queued low-detail zone updates
         self.zone_manager.process(self.turn_count, active_zones, self)
