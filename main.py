@@ -1,4 +1,5 @@
 # main.py
+import argparse
 import logging
 import sys
 import time
@@ -11,7 +12,8 @@ import numpy as np # Added for map printing
 import structlog
 import yaml
 from PySide6.QtWidgets import QApplication
-from structlog.stdlib import add_log_level, add_logger_name # Ensure these are imported
+
+from utils.logging_utils import setup_logging
 
 # Use absolute imports relative to project root (basicrl)
 from engine.main_loop import MainLoop
@@ -51,28 +53,7 @@ SETTINGS_FILE = CONFIG_DIR / "settings.toml"
 
 
 # --- Structlog Setup ---
-def setup_logging():
-    """Configures structlog for console output."""
-    # Ensure standard logging is configured first if not done elsewhere
-    logging.basicConfig(level=logging.DEBUG, format="%(message)s") # Set base level for stdlib
-
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            add_logger_name,
-            add_log_level,
-            structlog.processors.TimeStamper(fmt="iso", utc=False),
-            structlog.dev.ConsoleRenderer(colors=True),
-        ],
-        # *** MODIFIED: Changed level to DEBUG ***
-        wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
-        # *** END MODIFICATION ***
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        cache_logger_on_first_use=True,
-    )
-
-log = structlog.get_logger() # module-level logger
+log = structlog.get_logger()  # module-level logger
 # --- End Structlog Setup ---
 
 
@@ -145,12 +126,28 @@ def print_map_section(game_map: GameMap, center_x: int, center_y: int, radius: i
 
 def main() -> None:
     """Main entry point for the application."""
-    setup_logging()
+    parser = argparse.ArgumentParser(description="Run the BasicRL game")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Logging level",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
+    args, qt_args = parser.parse_known_args()
+    level = (
+        logging.DEBUG
+        if args.verbose
+        else getattr(logging, args.log_level.upper(), logging.INFO)
+    )
+    setup_logging(level)
     log.info("Application starting...")
     log.info(f"Script directory: {SCRIPT_DIR}")
     log.info(f"Config directory: {CONFIG_DIR}")
 
-    app = QApplication(sys.argv)
+    app = QApplication(qt_args)
 
     try:
         # --- Load Configurations ---

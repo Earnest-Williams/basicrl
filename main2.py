@@ -3,10 +3,13 @@
 
 import argparse
 import json
+import logging
 import sys
 import time
 import traceback
 import warnings
+
+from utils.logging_utils import setup_logging
 
 import polars as pl  # Needed for potential final map check/info
 
@@ -73,11 +76,26 @@ if __name__ == "__main__":
         action="store_true",
         help="Use orjson for faster intermediate JSON (if needed for debug).",
     )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Logging level",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
     # Add --noise-seed if you want separate control, otherwise GameRNG derives it
     # parser.add_argument("--noise-seed", type=int, default=None,
     # help="Specific seed for Perlin noise.")
 
     args = parser.parse_args()
+    log_level = (
+        logging.DEBUG
+        if args.verbose
+        else getattr(logging, args.log_level.upper(), logging.INFO)
+    )
+    setup_logging(log_level)
 
     start_time_main = time.time()
     print("--- Dungeon Generation Pipeline ---")
