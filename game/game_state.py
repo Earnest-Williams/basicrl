@@ -9,6 +9,7 @@ from game.items.registry import ItemRegistry
 
 # Assuming these imports are correct relative to game_state.py
 from game.world.game_map import GameMap
+from game.systems.ai_system import dispatch_ai
 
 log = structlog.get_logger()
 
@@ -148,16 +149,40 @@ class GameState:
         """Advances the game turn counter and performs turn-based updates."""
         self.turn_count += 1
         log.debug("Turn advanced", turn=self.turn_count)
+        # --- Status Effect Duration Update ---
+        # Iterate through active entities, decrementing status effect durations
+        # and removing any expired effects.
+        for row in self.entity_registry.entities_df.iter_rows(named=True):
+            if not row.get("is_active", False):
+                continue
 
-        # --- TODO: Status Effect Duration Update ---
-        # Iterate through active entities, get status_effects list, decrement durations,
-        # filter expired effects, update component using set_entity_component.
+            entity_id = row["entity_id"]
+            status_effects = row.get("status_effects") or []
+            if not status_effects:
+                continue
 
-        # --- TODO: AI processing call ---
-        # e.g., process_all_mob_ai(self.entity_registry.entities_df, world_map_data, global_state)
-        # This requires defining what constitutes world_map_data and global_state.
+            updated_effects: list[dict] = []
+            for effect in status_effects:
+                new_duration = effect.get("duration", 0) - 1
+                if new_duration > 0:
+                    updated_effects.append({**effect, "duration": new_duration})
+                else:
+                    log.debug(
+                        "Status effect expired",
+                        entity_id=entity_id,
+                        effect=effect.get("id"),
+                    )
 
-        # --- TODO: Other turn-based updates ---
+            if updated_effects != status_effects:
+                self.entity_registry.set_entity_component(
+                    entity_id, "status_effects", updated_effects
+                )
+
+        # --- AI processing call ---
+        log.debug("Invoking AI dispatcher")
+        dispatch_ai(self)
+
+        # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)
 
     # --- NEW: State transition helper ---
