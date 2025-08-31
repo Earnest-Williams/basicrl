@@ -307,7 +307,7 @@ def _handle_player_pickup(gs: GameState) -> bool:
     """
     player_id = gs.player_id
     player_pos = gs.player_position
-    if not player_pos:
+    if player_pos is None:
         log.warning("Pickup action failed: player pos not found")
         return False  # Cannot act
 
@@ -380,7 +380,7 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
     player_pos = gs.player_position
     item_reg: ItemRegistry = gs.item_registry  # Add type hint
 
-    if not player_pos:
+    if player_pos is None:
         log.warning("Drop action failed: player pos not found", player_id=player_id)
         gs.add_message("Cannot drop item: Your position is unknown.", (255, 0, 0))
         return False  # Cannot act
@@ -497,7 +497,7 @@ def process_player_action(
 
                 # Prepare context for effect execution
                 player_pos = gs.player_position
-                if not player_pos:
+                if player_pos is None:
                     log.warning(
                         "Cannot execute 'use' action: Player position unknown.",
                         item_id=item_id,
