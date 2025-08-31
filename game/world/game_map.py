@@ -94,7 +94,13 @@ class GameMap:
             (height, width), dtype=np.float32, order="C"
         )
         self.last_seen_time: np.ndarray = np.zeros(
-            (height, width), dtype=np.float32, order="C"
+            (height, width), dtype=np.int32, order="C"
+        )
+        self.memory_fade_mask: np.ndarray = np.zeros(
+            (height, width), dtype=bool, order="C"
+        )
+        self.prev_visible: np.ndarray = np.zeros(
+            (height, width), dtype=bool, order="C"
         )
         # Perception layers reused across turns
         self.noise_map: np.ndarray = np.zeros(
@@ -148,13 +154,15 @@ class GameMap:
         return self.transparent[y, x]
 
     # --- Memory fade helper ---
-    def update_memory_fade(self, current_time: float) -> None:
+    def update_memory_fade(self, current_time: int) -> None:
         """Fade remembered tiles based on elapsed time."""
         update_memory_fade(
             current_time,
             self.last_seen_time,
             self.memory_intensity,
             self.visible,
+            self.memory_fade_mask,
+            self.prev_visible,
         )
 
     # --- MODIFIED compute_fov method ---
