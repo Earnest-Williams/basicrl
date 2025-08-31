@@ -17,26 +17,23 @@ from structlog.stdlib import add_log_level, add_logger_name # Ensure these are i
 from engine.main_loop import MainLoop
 from engine.window_manager import WindowManager
 from game.game_state import GameState
-# Ensure GameMap and TILE IDs are importable
+
+# Import core world components; fail fast if dependencies are missing
 try:
     from game.world.game_map import TILE_ID_FLOOR, TILE_ID_WALL, GameMap
-except ImportError:
-    try:
-         from basicrl.game.world.game_map import TILE_ID_FLOOR, TILE_ID_WALL, GameMap
-    except ImportError:
-        structlog.get_logger().error("CRITICAL: Failed to import GameMap and TILE IDs.")
-        GameMap = object # Dummy
-        TILE_ID_FLOOR, TILE_ID_WALL = 0, 1 # Dummies
+except ImportError as e:
+    structlog.get_logger().error(
+        "CRITICAL: Failed to import GameMap and TILE IDs.", error=str(e)
+    )
+    raise
 
-# Ensure procgen is importable
 try:
     from game.world.procgen import generate_dungeon
-except ImportError:
-    try:
-        from basicrl.game.world.procgen import generate_dungeon
-    except ImportError:
-         structlog.get_logger().error("CRITICAL: Failed to import generate_dungeon.")
-         def generate_dungeon(*args, **kwargs): raise NotImplementedError("generate_dungeon not imported")
+except ImportError as e:
+    structlog.get_logger().error(
+        "CRITICAL: Failed to import generate_dungeon.", error=str(e)
+    )
+    raise
 
 
 # --- Paths relative to this script's location ---

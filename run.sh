@@ -16,7 +16,8 @@ else
   fi
 fi
 
-# --- Run main as a module, mimicking `python -m project.main` ---
+# --- Run main as a module ---
 echo "Running: python -m $PROJECT_NAME.main $@"
+# Ensure project modules resolve without fallback imports
 PYTHONPATH="$PARENT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
   python -m "$PROJECT_NAME.main" "$@"

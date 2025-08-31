@@ -1,4 +1,4 @@
-# simple_rl/rng_utils - Deterministic Random Number Generator
+# utils/game_rng - Deterministic Random Number Generator
 
 ## Purpose
 
@@ -29,7 +29,7 @@ The intended usage is to instantiate `GameRNG` once at a high level (e.g., at th
 
 ```python
 # Example Usage (in a main script)
-from simple_rl.rng_utils.game_rng import GameRNG
+from utils.game_rng import GameRNG
 
 # Initialize with a seed (e.g., from config or system time)
 main_rng = GameRNG(seed=12345)
