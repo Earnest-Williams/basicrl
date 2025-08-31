@@ -1,6 +1,6 @@
 # Runtime dependencies
 cairosvg==2.8.2
-numpy==2.3.2
+numpy==1.26.4
 numba==0.61.2
 orjson==3.11.3
 pillow==11.3.0
