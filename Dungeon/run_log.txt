@@ -1,0 +1,19 @@
+Starting Pipeline Run...
+Sun Aug 31 10:58:14 UTC 2025
+Cleaning previous output files...
+--- Running Core Generator (python core.py) ---
+Warning: Relative import failed. Ensure PYTHONPATH includes project root or run via main.py.
+FATAL: GameRNG not found via absolute path either.
+Traceback (most recent call last):
+  File "/home/runner/work/basicrl/basicrl/Dungeon/core.py", line 19, in <module>
+    from game_rng import GameRNG
+ModuleNotFoundError: No module named 'game_rng'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/work/basicrl/basicrl/Dungeon/core.py", line 28, in <module>
+    from game_rng import GameRNG  # type: ignore # noqa
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'game_rng'
+!!! ERROR: Core Generator failed with status 1. Check run_log.txt. !!!
