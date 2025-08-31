@@ -160,7 +160,7 @@ class GameMap:
 
     # --- Memory fade helper ---
     def update_memory_fade(
-        self, current_time: int, steepness: float, midpoint: float, duration: float
+        self, current_time: int, steepness: float, midpoint: float
     ) -> None:
         """Fade remembered tiles based on elapsed time."""
         update_memory_fade(
@@ -175,7 +175,6 @@ class GameMap:
 
             steepness,
             midpoint,
-            duration,
         )
 
     # --- MODIFIED compute_fov method ---
