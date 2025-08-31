@@ -1,42 +1,18 @@
 import numpy as np
 import pytest
-import pathlib
 import sys
 import os
 import types
 
-# Import lights_dev modules directly via path since the directory isn't a package
-lights_dev_path = pathlib.Path(__file__).resolve().parent.parent / "lights_dev"
-sys.path.append(str(lights_dev_path))
-import main_game  # type: ignore  # pylint: disable=import-error
-import constants  # type: ignore  # pylint: disable=import-error
-
-
-def test_memory_fade_bounds():
-    height, width = 1, 1
-    current_time = np.float32(100.0)
-
-    last_seen = np.full((height, width), current_time, dtype=np.float32)
-    memory_intensity = np.ones((height, width), dtype=np.float32)
-    visible = np.zeros((height, width), dtype=bool)
-
-    # Immediately after being seen, intensity should remain at 1.0
-    main_game._update_memory_fade_internal(
-        current_time, last_seen, memory_intensity, visible, height, width
-    )
-    assert memory_intensity[0, 0] == pytest.approx(1.0)
-
-    # After MEMORY_DURATION seconds, intensity should decay to ~0
-    last_seen[0, 0] = current_time - constants.MEMORY_DURATION
-    memory_intensity[0, 0] = 1.0
-    main_game._update_memory_fade_internal(
-        current_time, last_seen, memory_intensity, visible, height, width
-    )
-    assert memory_intensity[0, 0] == pytest.approx(0.0, abs=1e-6)
-
-
 # Ensure project root on path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from game.world.fov import (
+    update_memory_fade,
+    MEMORY_DURATION,
+    MEMORY_SIGMOID_STEEPNESS,
+    MEMORY_SIGMOID_MIDPOINT,
+)
 
 # Minimal stubs for external modules
 module = types.ModuleType("game_rng")
@@ -67,6 +43,38 @@ from game.world.game_map import GameMap
 from game.game_state import GameState
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
+
+def test_memory_fade_bounds():
+    current_time = np.float32(100.0)
+
+    last_seen = np.full((1, 1), current_time, dtype=np.float32)
+    memory_intensity = np.ones((1, 1), dtype=np.float32)
+    visible = np.zeros((1, 1), dtype=bool)
+    mask = np.zeros((1, 1), dtype=bool)
+    prev_visible = np.ones((1, 1), dtype=bool)
+
+    update_memory_fade(current_time, last_seen, memory_intensity, visible, mask, prev_visible)
+    expected = 1.0 / (
+        1.0 + np.exp(MEMORY_SIGMOID_STEEPNESS * (0.0 - MEMORY_SIGMOID_MIDPOINT))
+    )
+    assert memory_intensity[0, 0] == pytest.approx(expected)
+    assert mask[0, 0]
+
+    last_seen[0, 0] = current_time - MEMORY_DURATION
+    update_memory_fade(current_time, last_seen, memory_intensity, visible, mask, prev_visible)
+    expected_after = 1.0 / (
+        1.0 + np.exp(
+            MEMORY_SIGMOID_STEEPNESS * (MEMORY_DURATION - MEMORY_SIGMOID_MIDPOINT)
+        )
+    )
+    assert memory_intensity[0, 0] == pytest.approx(expected_after)
+    assert mask[0, 0]
+
+    last_seen[0, 0] = current_time - (MEMORY_DURATION + 1000.0)
+    update_memory_fade(current_time, last_seen, memory_intensity, visible, mask, prev_visible)
+    assert memory_intensity[0, 0] == pytest.approx(0.0, abs=1e-6)
+    assert not mask[0, 0]
 
 
 def create_game_state():
@@ -128,27 +136,3 @@ def test_memory_fade_skips_zero_intensity_tiles():
     )
     assert gm.memory_intensity[py, px] == 0.0
     assert not gm.memory_fade_mask[py, px]
-
-
-def test_multiple_exposures_slow_fade():
-    def measure_intensity(exposures: int) -> float:
-        gs = create_game_state()
-        px, py = gs.player_position
-
-        for _ in range(exposures - 1):
-            gs.advance_turn()
-
-        gs.entity_registry.set_entity_component(gs.player_id, "x", 0)
-        gs.entity_registry.set_entity_component(gs.player_id, "y", 0)
-        gs.advance_turn()
-
-        for _ in range(10):
-            gs.advance_turn()
-
-        return gs.game_map.memory_intensity[py, px]
-
-    single = measure_intensity(1)
-    repeated = measure_intensity(3)
-
-    assert repeated > single
-

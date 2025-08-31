@@ -393,6 +393,7 @@ def update_memory_fade(
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
 
+    return
 
 
 
