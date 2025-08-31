@@ -1,5 +1,5 @@
 # game/game_state.py
-from typing import Any, Dict, Literal, Tuple, Union  # Added Literal
+from typing import Any, Callable, Dict, Literal, Set, Tuple, Union
 
 import structlog
 from game_rng import GameRNG  # Assuming this path is correct
@@ -13,6 +13,7 @@ from game.items.registry import ItemRegistry
 from game.world.game_map import GameMap, LightSource
 from game.systems.ai_system import dispatch_ai
 from game.ai.perception import gather_perception
+from simulation.zone_manager import ZoneManager
 
 
 log = structlog.get_logger()
@@ -28,9 +29,9 @@ class GameState:
         player_start_hp: int,
         player_fov_radius: int,
         item_templates: Dict[str, Any],
-        entity_templates: Dict[str, Any],
-        effect_definitions: Dict[str, Any],
-        rng_seed: int | None,
+        entity_templates: Dict[str, Any] | None = None,
+        effect_definitions: Dict[str, Any] | None = None,
+        rng_seed: int | None = None,
         ai_config: Dict[str, Any] | None = None,
     ):
         log.info("Initializing GameState...")
@@ -55,10 +56,10 @@ class GameState:
         # Store loaded entity templates in a simple registry
         from game.entities.template_registry import EntityTemplateRegistry
 
-        self.entity_templates = EntityTemplateRegistry(entity_templates)
+        self.entity_templates = EntityTemplateRegistry(entity_templates or {})
 
         self.item_registry: ItemRegistry = ItemRegistry(item_templates)
-        self.effect_definitions: Dict[str, Any] = effect_definitions
+        self.effect_definitions: Dict[str, Any] = effect_definitions or {}
         self.ai_config: Dict[str, Any] = ai_config or {}
         log.debug("ItemRegistry initialized", templates=len(item_templates))
         log.debug("Effect definitions stored", effects=len(effect_definitions))
@@ -96,6 +97,11 @@ class GameState:
             LightSource(player_start_x, player_start_y, player_fov_radius, (255, 255, 255))
         )
         self.player_light_index: int = 0
+
+        # Track simulation zones for coarse updates when entities are far away
+        self.zone_manager: ZoneManager = ZoneManager(
+            self._map_width, self._map_height
+        )
 
         # --- NEW: UI State ---
         self.ui_state: Literal["PLAYER_TURN", "INVENTORY_VIEW", "TARGETING"] = (
@@ -175,51 +181,92 @@ class GameState:
         # if len(self.message_log) > MAX_LOG_LENGTH:
         #     self.message_log = self.message_log[-MAX_LOG_LENGTH:]
 
+    def schedule_low_detail_update(
+        self, x: int, y: int, callback: Callable[["GameState"], None]
+    ) -> None:
+        """Queue a low-detail update for the zone containing ``(x, y)``.
+
+        Systems can use this to defer expensive logic for entities that are
+        far away from the player.  The callback will receive the ``GameState``
+        instance when executed.
+        """
+        self.zone_manager.schedule_event(x, y, callback)
+
+    def _process_status_effects_for_entity(self, entity_id: int) -> None:
+        """Tick down status effects for a single entity."""
+        status_effects = (
+            self.entity_registry.get_entity_component(entity_id, "status_effects") or []
+        )
+        if not status_effects:
+            return
+        updated_effects: list[dict] = []
+        for effect in status_effects:
+            new_duration = effect.get("duration", 0) - 1
+            if new_duration > 0:
+                updated_effects.append({**effect, "duration": new_duration})
+            else:
+                effect_id = effect.get("id")
+                log.debug(
+                    "Status effect expired", entity_id=entity_id, effect=effect_id
+                )
+                entity_name = (
+                    self.entity_registry.get_entity_component(entity_id, "name")
+                    or f"Entity {entity_id}"
+                )
+                self.add_message(f"{entity_name}'s {effect_id} wears off.")
+        if updated_effects != status_effects:
+            self.entity_registry.set_entity_component(
+                entity_id, "status_effects", updated_effects
+            )
+
+    def _process_zone(self, zone: Tuple[int, int]) -> None:
+        """Aggregate update for all entities within ``zone``.
+
+        This performs a very coarse simulation step used for areas that are far
+        from the player.  Perception data is omitted for performance; AI
+        adapters receive ``None`` for the perception argument.
+        """
+        for row in self.entity_registry.entities_df.iter_rows(named=True):
+            if not row.get("is_active", False):
+                continue
+            if self.zone_manager.get_zone(row.get("x"), row.get("y")) != zone:
+                continue
+            entity_id = row["entity_id"]
+            self._process_status_effects_for_entity(entity_id)
+            if entity_id == self.player_id:
+                continue
+            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
+            adapter = get_adapter(ai_type)
+            adapter(row, self, self.rng_instance, None)
+
     def advance_turn(self) -> None:
         """Advances the game turn counter and performs turn-based updates."""
         self.turn_count += 1
         log.debug("Turn advanced", turn=self.turn_count)
-        # Player leaves a scent each turn at their current position
         player_pos = self.player_position
         if player_pos:
             px, py = player_pos
             self.scent_events.append((px, py, 5.0))
-        # --- Status Effect Duration Update ---
-        # Iterate through active entities, decrementing status effect durations
-        # and removing any expired effects.
+
+        active_zones: Set[Tuple[int, int]] = self.zone_manager.get_active_zones(
+            player_pos
+        )
+
+        # Update nearby entities immediately and schedule distant zones for later
         for row in self.entity_registry.entities_df.iter_rows(named=True):
             if not row.get("is_active", False):
                 continue
-
             entity_id = row["entity_id"]
-            status_effects = row.get("status_effects") or []
-            if not status_effects:
-                continue
-
-            updated_effects: list[dict] = []
-            for effect in status_effects:
-                new_duration = effect.get("duration", 0) - 1
-                if new_duration > 0:
-                    updated_effects.append({**effect, "duration": new_duration})
-                else:
-                    effect_id = effect.get("id")
-                    log.debug(
-                        "Status effect expired",
-                        entity_id=entity_id,
-                        effect=effect_id,
-                    )
-                    entity_name = row.get("name", f"Entity {entity_id}")
-                    self.add_message(f"{entity_name}'s {effect_id} wears off.")
-
-            if updated_effects != status_effects:
-                self.entity_registry.set_entity_component(
-                    entity_id, "status_effects", updated_effects
-                )
+            zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
+            if zone in active_zones:
+                self._process_status_effects_for_entity(entity_id)
+            else:
+                self.zone_manager.schedule_zone_event(zone, lambda gs, z=zone: gs._process_zone(z))
 
         # Recalculate FOV so perception and rendering use up-to-date visibility
         self.update_fov()
 
-        # --- AI processing call ---
+        # --- AI processing for nearby entities ---
         log.debug("Gathering perception data for AI")
         perception = gather_perception(self)
 
@@ -230,7 +277,17 @@ class GameState:
             if row["entity_id"] == self.player_id:
                 continue
 
+            zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
+            if zone not in active_zones:
+                continue
+            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
+            adapter = get_adapter(ai_type)
+            adapter(row, self, self.rng_instance, perception)
             dispatch_ai(row, self, self.rng_instance, perception)
+
+
+        # Process any queued low-detail zone updates
+        self.zone_manager.process(self.turn_count, active_zones, self)
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)

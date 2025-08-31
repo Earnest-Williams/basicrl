@@ -1,0 +1,75 @@
+import os
+import sys
+import types
+
+# Ensure project root is on sys.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# Stub out game_rng for deterministic behaviour
+module = types.ModuleType("game_rng")
+class DummyRNG:
+    def __init__(self, seed=None):
+        self.initial_seed = seed
+    def get_int(self, a, b):
+        return a
+module.GameRNG = DummyRNG
+sys.modules["game_rng"] = module
+
+# Stub ai_system to satisfy GameState imports
+ai_module = types.ModuleType("game.systems.ai_system")
+def dispatch_ai(*args, **kwargs):
+    return None
+ai_module.dispatch_ai = dispatch_ai
+sys.modules["game.systems.ai_system"] = ai_module
+
+from simulation.zone_manager import ZoneManager
+from game.world.game_map import GameMap, TILE_ID_FLOOR
+from game.game_state import GameState
+
+
+def test_zone_manager_far_zone_delay():
+    manager = ZoneManager(map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3)
+    called = []
+    manager.schedule_event(50, 50, lambda gs: called.append(1))
+    for turn in range(3):
+        active = manager.get_active_zones((5, 5))
+        manager.process(turn, active, None)
+    assert called == []
+    manager.process(3, manager.get_active_zones((5, 5)), None)
+    assert called == [1]
+
+
+def test_zone_manager_active_zone_immediate():
+    manager = ZoneManager(map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3)
+    called = []
+    manager.schedule_event(5, 5, lambda gs: called.append(1))
+    manager.process(0, manager.get_active_zones((5, 5)), None)
+    assert called == [1]
+
+
+def _create_game_state():
+    gm = GameMap(100, 100)
+    gm.tiles[:] = TILE_ID_FLOOR
+    gm.update_tile_transparency()
+    gs = GameState(
+        existing_map=gm,
+        player_start_pos=(1, 1),
+        player_glyph=ord('@'),
+        player_start_hp=10,
+        player_fov_radius=4,
+        item_templates={},
+        effect_definitions={},
+        rng_seed=1,
+    )
+    return gs
+
+
+def test_game_state_schedules_far_event():
+    gs = _create_game_state()
+    triggered = []
+    gs.schedule_low_detail_update(80, 80, lambda state: triggered.append(state.turn_count))
+    for _ in range(4):
+        gs.advance_turn()
+        assert triggered == []
+    gs.advance_turn()
+    assert triggered == [5]
