@@ -51,7 +51,7 @@ def get_transparency_map(tiles: np.ndarray) -> np.ndarray:
     return transparency
 
 
-@dataclass
+@dataclass(frozen=True)
 class LightSource:
     """Simple representation of a colored light source."""
     x: int
