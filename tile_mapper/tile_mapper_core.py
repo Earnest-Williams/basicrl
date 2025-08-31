@@ -267,8 +267,11 @@ def flood_fill_replace(
                     visited.add((nx, ny))
                     q.append((nx, ny))
 
-    print(
-        f"Flood Fill: Replaced {filled_count} tiles of type '{original_tile}' with '{fill_tile}'."
+    log.info(
+        "Flood fill replaced tiles",
+        filled_count=filled_count,
+        original_tile=original_tile,
+        fill_tile=fill_tile,
     )
     return filled_count
 
@@ -277,7 +280,7 @@ def ctrl_click_fill(tilemap: TileMap, x: int, y: int, fill_tile: str) -> bool:
     """Fills perimeter of non-default area with fill_tile. Returns True if changed."""
     connected_area = _flood_fill_find_area(tilemap, x, y, match_tile_type=None)
     if not connected_area:
-        print(f"Ctrl+Click: No non-default area found at ({x},{y}).")
+        log.info("Ctrl+Click: no non-default area found", x=x, y=y)
         return False
 
     perimeter_to_fill = set()
@@ -292,7 +295,9 @@ def ctrl_click_fill(tilemap: TileMap, x: int, y: int, fill_tile: str) -> bool:
                     perimeter_to_fill.add((nx, ny))
 
     if not perimeter_to_fill:
-        print("Ctrl+Click: Area found, but no default tile perimeter detected.")
+        log.info(
+            "Ctrl+Click: area found but no default tile perimeter detected"
+        )
         return False
 
     painted_count = 0
@@ -300,7 +305,11 @@ def ctrl_click_fill(tilemap: TileMap, x: int, y: int, fill_tile: str) -> bool:
         if tilemap.set_tile(px, py, fill_tile):
             painted_count += 1
 
-    print(f"Ctrl+Click: Painted {painted_count} perimeter tiles with '{fill_tile}'.")
+    log.info(
+        "Ctrl+Click painted perimeter tiles",
+        count=painted_count,
+        fill_tile=fill_tile,
+    )
     return painted_count > 0
 
 
@@ -314,8 +323,9 @@ def ctrl_shift_click_wall(
     protected_chars = {wall_char, door_char}
 
     if clicked_tile_type is None or clicked_tile_type == tilemap.default_tile:
-        print(
-            f"Ctrl+Shift+Click: Cannot wall from default '{tilemap.default_tile}' or outside."
+        log.info(
+            "Ctrl+Shift+Click: cannot wall from default or outside",
+            default_tile=tilemap.default_tile,
         )
         return False
 
@@ -323,8 +333,9 @@ def ctrl_shift_click_wall(
         tilemap, x, y, match_tile_type=clicked_tile_type
     )
     if not connected_area:
-        print(
-            f"Ctrl+Shift+Click: No contiguous area of type '{clicked_tile_type}' found."
+        log.info(
+            "Ctrl+Shift+Click: no contiguous area found",
+            tile_type=clicked_tile_type,
         )
         return False
 
@@ -339,8 +350,9 @@ def ctrl_shift_click_wall(
                     perimeter_to_wall.add((nx, ny))
 
     if not perimeter_to_wall:
-        print(
-            f"Ctrl+Shift+Click: Area of '{clicked_tile_type}' found, but no perimeter detected."
+        log.info(
+            "Ctrl+Shift+Click: area found but no perimeter",
+            tile_type=clicked_tile_type,
         )
         return False
 
@@ -354,8 +366,11 @@ def ctrl_shift_click_wall(
         else:
             skipped_count += 1
 
-    print(
-        f"Ctrl+Shift+Click: Painted {painted_count} perimeter tiles with '{wall_fill_tile}'. Skipped {skipped_count} protected."
+    log.info(
+        "Ctrl+Shift+Click painted perimeter tiles",
+        painted=painted_count,
+        skipped=skipped_count,
+        wall_fill_tile=wall_fill_tile,
     )
     return painted_count > 0
 

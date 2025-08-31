@@ -23,6 +23,9 @@ from PySide6.QtWidgets import (
 # Import constants/functions from config if needed by dialogs (e.g., for default tile checks)
 # Example: from .tile_mapper_config import CONFIG_FILE (adjust path as needed)
 from tile_mapper_config import CONFIG_FILE  # Assuming flat structure for now
+import structlog
+
+log = structlog.get_logger(__name__)
 
 
 # --- Edit Tile Dialog ---
@@ -255,13 +258,15 @@ class MapSelectionDialog(QDialog):
                             except ValueError:
                                 continue
                     else:
-                        print(f"Warning: Invalid range '{part}'.")
+                        log.warning("Invalid range in selection", part=part)
                 except ValueError:
-                    print(f"Warning: Could not parse range '{part}'.")
+                    log.warning("Could not parse range", part=part)
             elif part in all_keys_set:
                 selected.add(part)
             else:
-                print(f"Warning: Unknown map key or invalid format '{part}'.")
+                log.warning(
+                    "Unknown map key or invalid format", part=part
+                )
 
         return sorted(
             list(selected),
@@ -293,7 +298,7 @@ class MapSelectionDialog(QDialog):
         num_selected = len(self.selected_keys)
 
         if num_selected <= 1 and self.tiling_mode != "Single":
-            print("Info: Tiling mode reset to 'Single' for single map selection.")
+            log.info("Tiling mode reset to 'Single' for single map selection")
             self.tiling_mode = "Single"
             self.tiling_combo.setCurrentText("Single")
         elif num_selected > 1 and self.tiling_mode == "Single":

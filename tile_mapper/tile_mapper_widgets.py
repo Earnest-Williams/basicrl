@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import structlog
+
 # Import necessary components from other modules
 # Assuming flat structure for now, adjust paths like 'from .tile_mapper_core ...' if needed
 from tile_mapper_core import (
@@ -47,6 +49,9 @@ from tile_mapper_utils import (  # Assuming utils module exists/will exist
     parse_key,
     parse_modifier,
 )
+
+
+log = structlog.get_logger(__name__)
 
 
 # --- Tile Editor Widget ---
@@ -108,7 +113,7 @@ class TileEditorWidget(QWidget):
         """Activates the region selection tool."""
         self.selecting_region = True
         self.setCursor(Qt.CursorShape.CrossCursor)
-        print("Selection tool activated.")
+        log.debug("Selection tool activated")
         # Clear previous selection visually
         if self.selection_rect:
             self.selection_rect = None
@@ -121,7 +126,7 @@ class TileEditorWidget(QWidget):
         self.selection_start_pos = None
         # Don't clear self.selection_rect here, keep it until next selection starts
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        print("Selection tool deactivated.")
+        log.debug("Selection tool deactivated")
 
     def get_current_selection(self) -> QRect | None:
         """Returns the current valid selection rectangle (in grid coords)."""
@@ -170,8 +175,8 @@ class TileEditorWidget(QWidget):
             ):
                 self.tilemap.tiles = new_tiles_data
             else:
-                print(
-                    "Error: Provided new_tiles_data dimensions mismatch. Re-initializing."
+                log.error(
+                    "Provided new_tiles_data dimensions mismatch. Re-initializing"
                 )
                 self.tilemap.tiles = [
                     [new_default_tile] * new_width for _ in range(new_height)
@@ -200,15 +205,15 @@ class TileEditorWidget(QWidget):
         if tile_char in self.app_config.get("tiles", {}):
             if self._selected_tile != tile_char:
                 self._selected_tile = tile_char
-                print(f"Selected tile: {self._selected_tile}")
+                log.info("Selected tile", tile=self._selected_tile)
                 self.selected_tile_changed.emit(self._selected_tile)
         else:
             # Existing revert logic...
-            print(f"Warning: Attempted unknown tile '{tile_char}'.")
+            log.warning("Attempted unknown tile", tile=tile_char)
             safe_tile = self._get_initial_selected_tile()
             if self._selected_tile != safe_tile:
                 self._selected_tile = safe_tile
-                print(f"Reverted to: {self._selected_tile}")
+                log.info("Reverted to safe tile", tile=self._selected_tile)
                 self.selected_tile_changed.emit(self._selected_tile)
 
     def pixel_to_grid(self, pos: QPoint) -> QPoint:
@@ -389,11 +394,11 @@ class TileEditorWidget(QWidget):
             action_found = False
 
             for action_name, control in controls.items():
-                if control.get("trigger") == "LeftClick":
-                    required_modifier = parse_modifier(control.get("modifier", "None"))
-                    if current_modifiers == required_modifier:
-                        print(f"Debug: Matched Press '{action_name}'")
-                        action_found = True
+                        if control.get("trigger") == "LeftClick":
+                            required_modifier = parse_modifier(control.get("modifier", "None"))
+                            if current_modifiers == required_modifier:
+                                log.debug("Matched press", action=action_name)
+                                action_found = True
                         redraw_needed = False
                         if action_name == "flood_fill":
                             filled = flood_fill_replace(
@@ -451,7 +456,7 @@ class TileEditorWidget(QWidget):
                 if control.get("trigger") == "RightClick":
                     required_modifier = parse_modifier(control.get("modifier", "None"))
                     if current_modifiers == required_modifier:
-                        print(f"Debug: Matched Press '{action_name}'")
+                        log.debug("Matched press", action=action_name)
                         if action_name == "erase_tile":
                             if self.tilemap.set_tile(
                                 grid_pos.x(), grid_pos.y(), self.tilemap.default_tile
@@ -509,7 +514,9 @@ class TileEditorWidget(QWidget):
         ):
             self.selection_rect = QRect(self.selection_start_pos, end_pos).normalized()
             self.selection_start_pos = None  # End drag
-            print(f"Selected Region (Grid Coords): {self.selection_rect.getRect()}")
+            log.debug(
+                "Selected region", coords=self.selection_rect.getRect()
+            )
             self.selection_rect_changed.emit(self.selection_rect)  # Emit final rect
             self.update()  # Redraw finalized selection
             event.accept()
@@ -553,8 +560,11 @@ class TileEditorWidget(QWidget):
             ):
                 action_to_perform = "place_tile_click"
 
-            print(
-                f"Debug: Release - Action: {action_to_perform}, Drag: {is_drag}, Mods: {current_modifiers}"
+            log.debug(
+                "Release event",
+                action=action_to_perform,
+                is_drag=is_drag,
+                modifiers=current_modifiers,
             )
             redraw_needed = False
             if action_to_perform == "draw_rect":
@@ -605,7 +615,9 @@ class TileEditorWidget(QWidget):
                     action_to_perform = action_name
                     break
 
-        print(f"Debug: Wheel - Action: {action_to_perform}, Mods: {current_modifiers}")
+        log.debug(
+            "Wheel event", action=action_to_perform, modifiers=current_modifiers
+        )
         if not self.scroll_area:
             event.ignore()
             return
@@ -628,7 +640,7 @@ class TileEditorWidget(QWidget):
                 rel_y = widget_point.y() / self.height() if self.height() > 0 else 0.5
 
                 self.app_config["tile_size"] = new_tile_size  # Update config directly
-                print(f"Zooming: New tile size = {new_tile_size}")
+                log.debug("Zooming", new_tile_size=new_tile_size)
                 self.update_widget_size()  # Resizes widget
                 self.zoom_changed.emit()  # Notify palette
 
@@ -683,7 +695,7 @@ class TileEditorWidget(QWidget):
                     and current_key == required_key_enum
                     and current_modifiers == required_modifier
                 ):
-                    print(f"Debug: Matched KeyPress '{action_name}'")
+                    log.debug("Matched keypress", action=action_name)
                     if action_name.startswith("select_tile_"):
                         try:
                             idx = int(action_name.split("_")[-1]) - 1
@@ -822,7 +834,7 @@ class TilePaletteWidget(QWidget):
     def rebuild_palette(self):
         """Clears and rebuilds tile buttons based on config, respecting filter."""
         # ... (Rebuild logic - unchanged, uses self.app_config) ...
-        print("Debug: Rebuilding palette...")
+        log.debug("Rebuilding palette")
         while self.button_grid_layout.count():
             item = self.button_grid_layout.takeAt(0)
             if item:
@@ -1047,7 +1059,7 @@ class TilePaletteWidget(QWidget):
                 remaining = list(self.app_config.get("tiles", {}).keys())
                 new_default = remaining[0] if remaining else "."
                 self.app_config["default_tile"] = new_default
-                print(f"New default: '{new_default}'.")
+                log.info("New default tile set", new_default=new_default)
                 new_default_selected = new_default
 
             if save_config(CONFIG_FILE, self.app_config):
