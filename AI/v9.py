@@ -137,7 +137,7 @@ class OutcomeResult:
     evaluation: float = 0.0
 
 
-@dataclass
+@dataclass(frozen=True)
 class TraitProfile:
     """Trait modifiers influencing agent behaviour and recovery."""
 
