@@ -18,7 +18,7 @@ from game_rng import GameRNG
 
 # Concrete dependency implementations
 
-@dataclass
+@dataclass(frozen=True)
 class Home:
     """Resource storage and field references for an agent's dwelling."""
 
