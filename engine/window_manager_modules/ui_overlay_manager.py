@@ -58,8 +58,8 @@ class UIOverlayManager:
         # Inventory state
         self.inventory_cursor: int = 0
         self.inventory_scroll_offset: int = 0  # For future scrolling
-        # Map from display line index to (item_id | None, is_equipped_flag)
-        self._inventory_ui_map: PyDict[int, Tuple[int | None, bool]] = {}
+        # Map from display line index to (item_id | None, is_equipped_flag, is_attached)
+        self._inventory_ui_map: PyDict[int, Tuple[int | None, bool, bool]] = {}
         log.debug("UIOverlayManager initialized.")
 
     def _load_overlay_definitions(self) -> List[PyDict[str, Any]]:
@@ -109,10 +109,11 @@ class UIOverlayManager:
         draw = ImageDraw.Draw(img_copy)
 
         # Font Loading (Consider centralizing or caching in WindowManager/Config)
-        text_font = None
+        font_cfg = self.window_manager_ref.app_config if hasattr(self.window_manager_ref, "app_config") else {}
+        font_path = font_cfg.get("ui_font_path", "arial.ttf")
+        font_size = int(font_cfg.get("ui_font_size", 10))
         try:
-            # TODO: Get font path/size from config via window_manager_ref.app_config
-            text_font = ImageFont.truetype("arial.ttf", 10)
+            text_font = ImageFont.truetype(font_path, font_size)
         except IOError:
             text_font = ImageFont.load_default()
 
@@ -332,13 +333,15 @@ class UIOverlayManager:
         if not item_reg or not entity_reg:
             log.error("Registries missing for inventory.")
             return base_image
+        font_cfg = self.window_manager_ref.app_config if hasattr(self.window_manager_ref, "app_config") else {}
+        font_path = font_cfg.get("ui_font_path", "arial.ttf")
         title_font = font
         line_height = 15
         panel_padding = 10
         title_height = 20
         panel_width = 350
         try:
-            title_font = ImageFont.truetype("arialbd.ttf", font.size + 2)
+            title_font = ImageFont.truetype(font_path, font.size + 2)
         except IOError:
             pass
         all_displayable_items = self._get_combined_inventory_list(gs)
@@ -364,36 +367,37 @@ class UIOverlayManager:
                 font=font,
             )
             return base_image
+        equipped_items_tuples = [
+            item
+            for item in all_displayable_items
+            if item[0] is not None and item[2] and item[1] is not None
+        ]
+        inventory_items_tuples = [
+            item
+            for item in all_displayable_items
+            if item[0] is not None and not item[2] and item[1] is not None
+        ]
+
+        has_equipped_items = bool(equipped_items_tuples)
+        has_inventory_items = bool(inventory_items_tuples)
+
         num_display_lines = 0
-        has_equipped_items = any(
-            item[0] is not None and item[2] and item[1] is not None
-            for item in all_displayable_items
-        )
-        has_inventory_items = any(
-            item[0] is not None and not item[2] and item[1] is not None
-            for item in all_displayable_items
-        )
-        num_display_lines += 1
-        num_display_lines += len(
-            [
-                item
-                for item in all_displayable_items
-                if item[0] is not None and item[2] and item[1] is not None
-            ]
-        )
-        # Equipped + header
+        num_display_lines += 1  # Equipped header
+        num_display_lines += len(equipped_items_tuples)
+        for _, item_id, _ in equipped_items_tuples:
+            try:
+                num_display_lines += item_reg.get_attached_items(item_id).height
+            except Exception:
+                pass
         if not has_equipped_items:
             num_display_lines += 1  # Placeholder
-        num_display_lines += 1
         num_display_lines += 1  # Spacer + Inv Header
-        num_display_lines += len(
-            [
-                item
-                for item in all_displayable_items
-                if item[0] is not None and not item[2] and item[1] is not None
-            ]
-        )
-        # Inventory items
+        num_display_lines += len(inventory_items_tuples)
+        for _, item_id, _ in inventory_items_tuples:
+            try:
+                num_display_lines += item_reg.get_attached_items(item_id).height
+            except Exception:
+                pass
         if not has_inventory_items:
             num_display_lines += 1  # Placeholder
         panel_height = (
@@ -437,23 +441,47 @@ class UIOverlayManager:
         self._inventory_ui_map.clear()
         draw.text((text_x, current_y), "-- Equipped --", fill=header_color, font=font)
         current_y += line_height
-        self._inventory_ui_map[list_index] = (None, False)
+        self._inventory_ui_map[list_index] = (None, False, False)
         list_index += 1
-        equipped_items_tuples = [
-            item
-            for item in all_displayable_items
-            if item[0] is not None and item[2] and item[1] is not None
-        ]
         if equipped_items_tuples:
             for line, item_id, is_equipped in equipped_items_tuples:
+                line_mod = line
+                try:
+                    if item_reg.get_item_component(item_id, "attachable_info"):
+                        line_mod += " (attachable)"
+                except Exception:
+                    pass
                 color = (
                     cursor_color if list_index == self.inventory_cursor else item_color
                 )
                 prefix = "> " if list_index == self.inventory_cursor else "  "
-                draw.text((text_x, current_y), prefix + line, fill=color, font=font)
+                draw.text((text_x, current_y), prefix + line_mod, fill=color, font=font)
                 current_y += line_height
-                self._inventory_ui_map[list_index] = (item_id, is_equipped)
+                self._inventory_ui_map[list_index] = (item_id, is_equipped, False)
                 list_index += 1
+                try:
+                    attached_df = item_reg.get_attached_items(item_id)
+                    if attached_df.height > 0:
+                        for att in attached_df.iter_rows(named=True):
+                            att_line = f"  {att.get('name', '?')} (attached)"
+                            color = (
+                                cursor_color
+                                if list_index == self.inventory_cursor
+                                else item_color
+                            )
+                            prefix = (
+                                "> " if list_index == self.inventory_cursor else "  "
+                            )
+                            draw.text((text_x, current_y), prefix + att_line, fill=color, font=font)
+                            current_y += line_height
+                            self._inventory_ui_map[list_index] = (
+                                att.get("item_id"),
+                                False,
+                                True,
+                            )
+                            list_index += 1
+                except Exception as e:
+                    log.error("Error listing attachments", error=e)
         else:
             draw.text(
                 (text_x + 5, current_y),
@@ -462,34 +490,58 @@ class UIOverlayManager:
                 font=font,
             )
             current_y += line_height
-            self._inventory_ui_map[list_index] = (None, False)
+            self._inventory_ui_map[list_index] = (None, False, False)
             list_index += 1
         current_y += line_height // 2
         draw.text((text_x, current_y), "-- Inventory --", fill=header_color, font=font)
         current_y += line_height
-        self._inventory_ui_map[list_index] = (None, False)
+        self._inventory_ui_map[list_index] = (None, False, False)
         list_index += 1
-        inventory_items_tuples = [
-            item
-            for item in all_displayable_items
-            if item[0] is not None and not item[2] and item[1] is not None
-        ]
         if inventory_items_tuples:
             for line, item_id, is_equipped in inventory_items_tuples:
+                line_mod = line
+                try:
+                    if item_reg.get_item_component(item_id, "attachable_info"):
+                        line_mod += " (attachable)"
+                except Exception:
+                    pass
                 color = (
                     cursor_color if list_index == self.inventory_cursor else item_color
                 )
                 prefix = "> " if list_index == self.inventory_cursor else "  "
-                draw.text((text_x, current_y), prefix + line, fill=color, font=font)
+                draw.text((text_x, current_y), prefix + line_mod, fill=color, font=font)
                 current_y += line_height
-                self._inventory_ui_map[list_index] = (item_id, is_equipped)
+                self._inventory_ui_map[list_index] = (item_id, is_equipped, False)
                 list_index += 1
+                try:
+                    attached_df = item_reg.get_attached_items(item_id)
+                    if attached_df.height > 0:
+                        for att in attached_df.iter_rows(named=True):
+                            att_line = f"  {att.get('name', '?')} (attached)"
+                            color = (
+                                cursor_color
+                                if list_index == self.inventory_cursor
+                                else item_color
+                            )
+                            prefix = (
+                                "> " if list_index == self.inventory_cursor else "  "
+                            )
+                            draw.text((text_x, current_y), prefix + att_line, fill=color, font=font)
+                            current_y += line_height
+                            self._inventory_ui_map[list_index] = (
+                                att.get("item_id"),
+                                False,
+                                True,
+                            )
+                            list_index += 1
+                except Exception as e:
+                    log.error("Error listing attachments", error=e)
         else:
             draw.text(
                 (text_x + 5, current_y), "(Empty)", fill=placeholder_color, font=font
             )
             current_y += line_height
-            self._inventory_ui_map[list_index] = (None, False)
+            self._inventory_ui_map[list_index] = (None, False, False)
             list_index += 1
         return base_image
 
@@ -567,47 +619,53 @@ class UIOverlayManager:
         # Redraw will be triggered by InputHandler via WindowManager.update_frame()
 
     def get_action_for_key(self, action_type: str) -> PyDict[str, Any] | None:
-        """Gets the game action dictionary for the selected inventory item."""
-        # (Implementation unchanged from previous step)
+        """Get the game action dictionary for the selected inventory item."""
         selected_data = self._inventory_ui_map.get(self.inventory_cursor)
         if not selected_data or selected_data[0] is None:
             return None
+
         item_id: int = selected_data[0]
         is_equipped: bool = selected_data[1]
-        action: PyDict[str, Any] | None = None
+        is_attached: bool = selected_data[2]
         gs = self.window_manager_ref.main_loop.game_state
+
         if action_type == "equip_unequip":
-            action = {"type": "unequip" if is_equipped else "equip", "item_id": item_id}
+            return {"type": "unequip" if is_equipped else "equip", "item_id": item_id}
         elif action_type == "use":
             if not is_equipped:
-                action = {"type": "use", "item_id": item_id}
-            else:
-                (
-                    gs.add_message("Cannot use equipped items directly.", (255, 100, 0))
-                    if gs
-                    else None
-                )
+                return {"type": "use", "item_id": item_id}
+            if gs:
+                gs.add_message("Cannot use equipped items directly.", (255, 100, 0))
+            return None
         elif action_type == "drop":
-            action = {"type": "drop", "item_id": item_id}
+            return {"type": "drop", "item_id": item_id}
         elif action_type == "attach":
             if is_equipped:
                 if gs:
                     gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
-            else:
-                host_item_id = None
-                for idx, data in self._inventory_ui_map.items():
-                    if data[0] is not None and data[1]:
-                        host_item_id = data[0]
-                        break
-                if host_item_id is None:
-                    if gs:
-                        gs.add_message("No equipped item to attach to.", (255, 100, 0))
-                else:
-                    action = {
-                        "type": "attach",
-                        "item_to_attach_id": item_id,
-                        "target_host_item_id": host_item_id,
-                    }
+                return None
+            if is_attached:
+                if gs:
+                    gs.add_message("Item is already attached.", (255, 100, 0))
+                return None
+            host_item_id = None
+            for _, data in self._inventory_ui_map.items():
+                if data[0] is not None and data[1]:
+                    host_item_id = data[0]
+                    break
+            if host_item_id is None:
+                if gs:
+                    gs.add_message("No equipped item to attach to.", (255, 100, 0))
+                return None
+            return {
+                "type": "attach",
+                "item_to_attach_id": item_id,
+                "target_host_item_id": host_item_id,
+            }
         elif action_type == "detach":
-            action = {"type": "detach", "item_to_detach_id": item_id}
-        return action
+            if is_attached:
+                return {"type": "detach", "item_to_detach_id": item_id}
+            if gs:
+                gs.add_message("Item is not attached.", (255, 100, 0))
+            return None
+        return None
