@@ -13,7 +13,6 @@ Designed as a starting point for iteration with custom map data.
 import os  # For determining CPU count
 import time
 from collections import deque
-from enum import IntEnum
 from typing import Deque, Dict, List, Tuple
 
 import numpy as np
@@ -22,6 +21,9 @@ from joblib import Parallel, delayed
 from numba import njit
 from game.world.los import line_of_sight
 import structlog
+
+from game.constants import FeatureType, FlowType, MAX_FLOWS
+from game_rng import GameRNG
 
 log = structlog.get_logger(__name__)
 
@@ -39,32 +41,6 @@ SMELL_STRENGTH: int = 80  # Threshold for scent aging/reset
 SCENT_RESET_AGE: int = 250  # Base age for scent reset cycle
 # Parallelism
 N_JOBS: int = max(1, os.cpu_count() // 2)  # Use half the CPU cores for Joblib
-
-
-# --- Enums ---
-class FlowType(IntEnum):
-    """Flow field types for noise propagation."""
-
-    PASS_DOORS = 0  # Monsters that can open/bash doors
-    NO_DOORS = 1  # Monsters blocked by closed doors
-    REAL_NOISE = 2  # Actual noise for stealth/perception (dampened by doors)
-    MONSTER_NOISE = 3  # Noise originating from monsters
-    # Add other flow types (e.g., WANDERING) if needed
-    # FLOW_WANDERING_HEAD = 4 ...
-
-
-MAX_FLOWS: int = len(FlowType)  # Determine max flows from Enum
-
-
-class FeatureType(IntEnum):
-    """Placeholder feature types - REPLACE WITH YOUR MAP FEATURES"""
-
-    FLOOR = 0
-    WALL = 1
-    CLOSED_DOOR = 2  # Example
-    OPEN_DOOR = 3  # Example
-    SECRET_DOOR = 4  # Example
-    # Add other features (traps, stairs, water, etc.)
 
 
 # --- Data Types ---
@@ -522,22 +498,24 @@ def initialize_monsters(num_monsters: int, height: int, width: int) -> pl.DataFr
 # --- Perception System (Parallelized) ---
 
 
-def skill_check(actor_skill: int, difficulty: int, target_skill: int) -> bool:
-    """
-    Performs a simplified skill check (placeholder).
-    Replace with your game's specific skill check logic.
+def skill_check(
+    rng: GameRNG, actor_skill: int, difficulty: int, target_skill: int
+) -> bool:
+    """Deterministic d100 skill check using :class:`GameRNG`.
+
+    The check succeeds if a d100 roll plus the actor's skill exceeds the
+    combined difficulty and target skill.
 
     Args:
+        rng: The deterministic random number generator.
         actor_skill: Skill value of the acting entity (e.g., monster perception).
-        difficulty: Difficulty modifier (e.g., based on noise distance, stealth).
-        target_skill: Skill value of the target resisting (e.g., player stealth).
+        difficulty: Difficulty modifier (e.g., based on noise distance).
+        target_skill: Skill value of the resisting entity (e.g., player stealth).
 
     Returns:
         True if the check succeeds, False otherwise.
     """
-    # Example: Roll d100 vs combined skill difference
-    # Higher actor skill is better, higher difficulty/target skill is harder.
-    roll = np.random.randint(1, 101)
+    roll = rng.get_int(1, 100)
     threshold = 50 + actor_skill - (difficulty + target_skill)
     return roll <= threshold
 
@@ -548,6 +526,7 @@ def _process_monster_perception_chunk(
     flow_centers: np.ndarray,  # Noise flow centers
     player_stealth_skill: int,  # Player's current stealth value
     noise_flow_type: FlowType,  # Which noise map to use (e.g., REAL_NOISE)
+    rng: GameRNG,
 ) -> List[int]:  # Return list of IDs of monsters that detected player
     """
     Processes perception checks for a chunk of monsters.
@@ -590,6 +569,7 @@ def _process_monster_perception_chunk(
         # Add other factors: lighting, player state (singing?), monster state?
 
         if skill_check(
+            rng,
             actor_skill=perception,
             difficulty=difficulty_mod,
             target_skill=player_stealth_skill,
@@ -613,6 +593,8 @@ def monster_perception(
     player_y: int,
     player_x: int,  # Player position (needed?) - implicitly noise center
     player_stealth_skill: int,  # Player's current stealth value
+    rng: GameRNG,
+    noise_flow_type: FlowType = FlowType.REAL_NOISE,
     # Add other relevant params: player_attacked_recently?, main_roll?,
     # difficulty?
 ) -> List[int]:
@@ -625,6 +607,8 @@ def monster_perception(
         flow_centers: NumPy array of flow center coordinates.
         player_y, player_x: Current player coordinates (primarily for context).
         player_stealth_skill: Player's relevant skill value.
+        rng: Deterministic random number generator.
+        noise_flow_type: Which noise flow map to use for perception.
 
     Returns:
         A list containing the IDs of all monsters that detected the player this turn.
@@ -662,7 +646,12 @@ def monster_perception(
     # backend="multiprocessing" is another option
     results: List[List[int]] = Parallel(n_jobs=N_JOBS, backend="loky")(
         delayed(_process_monster_perception_chunk)(
-            chunk, cave_cost, flow_centers, player_stealth_skill, FlowType.REAL_NOISE
+            chunk,
+            cave_cost,
+            flow_centers,
+            player_stealth_skill,
+            noise_flow_type,
+            rng,
         )
         for chunk in df_chunks
     )
@@ -727,6 +716,7 @@ if __name__ == "__main__":
     # --- Initialize Player and Monsters ---
     player_y, player_x = MAP_HGT // 2 + 10, MAP_WID // 2
     player_stealth_skill = 10  # Example skill value
+    rng = GameRNG(seed=123)  # Deterministic RNG for demo
 
     num_monsters = 500  # Example number of monsters for testing parallelism
     monster_df = initialize_monsters(num_monsters, MAP_HGT, MAP_WID)
@@ -791,6 +781,7 @@ if __name__ == "__main__":
             player_y,
             player_x,
             player_stealth_skill,
+            rng,
         )
         # Here you would typically update the state of alerted monsters in monster_df
         # or pass alerted_ids to an AI processing system.
