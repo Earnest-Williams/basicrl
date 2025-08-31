@@ -644,6 +644,10 @@ def monster_perception(
     # backend="loky" is default and generally robust
     # backend="threading" might be suitable if skill_check involves I/O or GIL-releasing C code
     # backend="multiprocessing" is another option
+    #
+    # Draw per-chunk seeds from the caller's RNG so each worker has an
+    # independent random stream while the original RNG advances.
+    chunk_seeds = [rng.get_int(0, 2**32 - 1) for _ in df_chunks]
     results: List[List[int]] = Parallel(n_jobs=N_JOBS, backend="loky")(
         delayed(_process_monster_perception_chunk)(
             chunk,
@@ -651,9 +655,9 @@ def monster_perception(
             flow_centers,
             player_stealth_skill,
             noise_flow_type,
-            rng,
+            GameRNG(seed),
         )
-        for chunk in df_chunks
+        for chunk, seed in zip(df_chunks, chunk_seeds)
     )
 
     # --- Aggregate Results ---
