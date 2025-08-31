@@ -144,9 +144,9 @@ class GameState:
                 self.game_map.explored[py, px] = True  # Ensure explored too
             # Update memory and last seen time for visible tiles
             self.game_map.memory_intensity[self.game_map.visible] = 1.0
-            self.game_map.last_seen_time[self.game_map.visible] = float(self.turn_count)
+            self.game_map.last_seen_time[self.game_map.visible] = self.turn_count
             # Fade memory for tiles no longer visible
-            self.game_map.update_memory_fade(float(self.turn_count))
+            self.game_map.update_memory_fade(self.turn_count)
             # Keep player light source in sync with position
             try:
                 self.light_sources[self.player_light_index].x = px

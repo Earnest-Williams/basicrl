@@ -342,7 +342,7 @@ def compute_fov(
     )
 
 def update_memory_fade(
-    current_time: np.float32,
+    current_time: int,
     last_seen_time: np.ndarray,
     memory_intensity: np.ndarray,
     visible: np.ndarray,
@@ -389,6 +389,20 @@ def update_memory_fade(
 
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
+    for y in range(height):
+        for x in range(width):
+            intensity = memory_intensity[y, x]
+            if intensity > 0.0 and not visible[y, x]:
+                elapsed = current_time - last_seen_time[y, x]
+                if elapsed < 0:
+                    elapsed = 0
+                exponent = steepness * (float(elapsed) - midpoint)
+                if exponent < 70.0:
+                    denom = 1.0 + math.exp(exponent)
+                    new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
+                else:
+                    new_intensity = 0.0
+                memory_intensity[y, x] = max(0.0, new_intensity)
 
 
 @numba.njit(cache=True)
