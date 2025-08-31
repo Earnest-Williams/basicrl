@@ -4,6 +4,7 @@
 import argparse
 import cProfile
 import io
+import logging
 import pstats
 
 # Removed 'random' import if it was implicitly used before
@@ -12,6 +13,8 @@ import time
 import traceback  # Import traceback for error logging
 from collections import Counter
 from multiprocessing import Pool, cpu_count
+
+from utils.logging_utils import setup_logging
 
 # --- Use relative imports ---
 # Use try-except for robustness
@@ -193,7 +196,22 @@ if __name__ == "__main__":
         help="Initial seed for generating run seeds (default: time-based)",
     )
     parser.add_argument("--profile", action="store_true", help="Enable profiling")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Logging level",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
     args = parser.parse_args()
+    log_level = (
+        logging.DEBUG
+        if args.verbose
+        else getattr(logging, args.log_level.upper(), logging.INFO)
+    )
+    setup_logging(log_level)
 
     # --- GUI Mode ---
     if args.mode == "gui":
