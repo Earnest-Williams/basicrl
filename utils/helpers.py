@@ -32,8 +32,9 @@ DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
 # *** MODIFIED: Replaced | with Union[] ***
 def roll_dice(dice_str: Union[str, None], rng: Union["GameRNG", None]) -> int:
     """
-    Rolls dice based on a string format (e.g., '1d6', '2d4+1').
-    Requires a GameRNG instance.
+    Rolls dice based on a string format (e.g., "1d6", "2d4+1").
+    Requires a :class:`GameRNG` instance and raises ``ValueError`` if ``rng`` is
+    ``None``.
     """
     if not dice_str:
         return 0
@@ -44,11 +45,8 @@ def roll_dice(dice_str: Union[str, None], rng: Union["GameRNG", None]) -> int:
                 "GameRNG type could not be imported, cannot roll dice without RNG instance."
             )
             raise TypeError("GameRNG instance is required for roll_dice.")
-        else:
-            log.error("Dice roll attempted without RNG instance!")
-            # Consider raising an error instead of returning 0? Depends on expected usage.
-            # raise ValueError("RNG instance is required for roll_dice.")
-            return 0  # Returning 0 for now, but this indicates an issue.
+        log.error("Dice roll attempted without RNG instance!")
+        raise ValueError("RNG instance is required for roll_dice.")
 
     match = DICE_PATTERN.match(dice_str)
     if match:
