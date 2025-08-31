@@ -5,9 +5,11 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import structlog
+import polars as pl
 
 # Imports for type hinting and GameRNG
 from game_rng import GameRNG
+from ..world import line_of_sight
 
 if TYPE_CHECKING:
 
@@ -72,10 +74,15 @@ def _get_entities_in_aoe(
         potential_targets = potential_targets.with_columns(
             dist_sq=((pl.col("x") - cx) ** 2 + (pl.col("y") - cy) ** 2)
         ).filter(pl.col("dist_sq") <= radius_sq)
-        target_entities = potential_targets["entity_id"].to_list()
+        candidate_ids = potential_targets["entity_id"].to_list()
 
-    # TODO: Optional LOS check from center_pos to each entity in target_entities
-    # Requires game_map visibility logic
+        transparency = gs.game_map.transparent
+        for entity_id in candidate_ids:
+            pos = gs.entity_registry.get_position(entity_id)
+            if not pos:
+                continue
+            if line_of_sight(cy, cx, pos.y, pos.x, transparency):
+                target_entities.append(entity_id)
 
     log.debug(
         "AOE Query results",
@@ -128,13 +135,20 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            if target_id == gs.player_id:
-                gs.add_message(f"You heal for {amount_healed} HP.", (0, 255, 0))
-            else:
-                # TODO: Check visibility before showing message
-                gs.add_message(
-                    f"The {target_name} heals for {amount_healed} HP.", (0, 180, 0)
-                )
+            target_pos = gs.entity_registry.get_position(target_id)
+            player_can_see = target_id == gs.player_id or (
+                target_pos and gs.game_map.visible[target_pos.y, target_pos.x]
+            )
+            if player_can_see:
+                if target_id == gs.player_id:
+                    gs.add_message(
+                        f"You heal for {amount_healed} HP.", (0, 255, 0)
+                    )
+                else:
+                    gs.add_message(
+                        f"The {target_name} heals for {amount_healed} HP.",
+                        (0, 180, 0),
+                    )
         else:
             log.error("Failed to set new HP for heal target", target_id=target_id)
 
@@ -425,9 +439,27 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
         log.debug("Damage calculated as zero or less", raw=raw_damage)
         return
 
-    # TODO: Implement damage resistance/vulnerability checks based on damage_type
-    # final_damage = calculate_final_damage(raw_damage, damage_type, target_id, gs)
-    final_damage = raw_damage  # Placeholder
+    resistances: Dict[str, float] = {}
+    vulnerabilities: Dict[str, float] = {}
+    try:
+        resistances = (
+            gs.entity_registry.get_entity_component(target_id, "resistances") or {}
+        )
+    except ValueError:
+        pass
+    try:
+        vulnerabilities = (
+            gs.entity_registry.get_entity_component(target_id, "vulnerabilities") or {}
+        )
+    except ValueError:
+        pass
+
+    multiplier = 1.0
+    if isinstance(resistances, dict):
+        multiplier *= 1 - float(resistances.get(damage_type, 0))
+    if isinstance(vulnerabilities, dict):
+        multiplier *= 1 + float(vulnerabilities.get(damage_type, 0))
+    final_damage = max(0, int(raw_damage * multiplier))
 
     current_hp = gs.entity_registry.get_entity_component(target_id, "hp")
     if current_hp is None:
@@ -457,22 +489,32 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            # TODO: Check visibility
-            if target_id == gs.player_id:
-                gs.add_message(
-                    f"The {source_name} hits you for {amount_damaged} damage!",
-                    (255, 0, 0),
-                )
-            elif source_id == gs.player_id:
-                gs.add_message(
-                    f"You hit the {target_name} for {amount_damaged} damage!",
-                    (0, 255, 0),
-                )
-            else:  # Mob vs Mob
-                gs.add_message(
-                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
-                    (200, 200, 0),
-                )
+            target_pos = gs.entity_registry.get_position(target_id)
+            source_pos = (
+                gs.entity_registry.get_position(source_id) if source_id is not None else None
+            )
+            player_can_see = (
+                target_id == gs.player_id
+                or source_id == gs.player_id
+                or (target_pos and gs.game_map.visible[target_pos.y, target_pos.x])
+                or (source_pos and gs.game_map.visible[source_pos.y, source_pos.x])
+            )
+            if player_can_see:
+                if target_id == gs.player_id:
+                    gs.add_message(
+                        f"The {source_name} hits you for {amount_damaged} damage!",
+                        (255, 0, 0),
+                    )
+                elif source_id == gs.player_id:
+                    gs.add_message(
+                        f"You hit the {target_name} for {amount_damaged} damage!",
+                        (0, 255, 0),
+                    )
+                else:  # Mob vs Mob
+                    gs.add_message(
+                        f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                        (200, 200, 0),
+                    )
 
             # --- Handle Death ---
             if new_hp <= 0:
