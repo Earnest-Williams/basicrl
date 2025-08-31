@@ -42,6 +42,8 @@ class MainLoop:
         lighting_ambient: float,
         lighting_min_fov: float,
         lighting_falloff: float,
+        memory_fade_variance: float = 0.0,
+        memory_noise_level: float = 0.0,
         enable_memory_fade: bool = True,
         enable_colored_lights: bool = True,
     ):
@@ -81,6 +83,8 @@ class MainLoop:
         self._cfg_light_falloff = np.float32(lighting_falloff)
         self._cfg_enable_memory_fade = enable_memory_fade
         self._cfg_enable_colored_lights = enable_colored_lights
+        self._cfg_memory_fade_variance = np.float32(memory_fade_variance)
+        self._cfg_memory_noise_level = np.float32(memory_noise_level)
 
         log.info("MainLoop initialized successfully")
 
@@ -163,6 +167,8 @@ class MainLoop:
             fov_radius_sq=fov_radius_sq,  # Pass pre-calculated value
             enable_memory_fade=self._cfg_enable_memory_fade,
             enable_colored_lights=self._cfg_enable_colored_lights,
+            memory_fade_variance=self._cfg_memory_fade_variance,
+            memory_noise_level=self._cfg_memory_noise_level,
         )
         # --- End Create RenderConfig ---
 
