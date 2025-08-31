@@ -232,7 +232,7 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
             # Assume attack always consumes turn for now
             combat_system.handle_melee_attack(player_id, blocking_id, gs)
             return True  # Attack happened, turn consumed
-        except Exception as e_combat:
+        except RuntimeError as e_combat:
             log.error(
                 "Exception during combat system call",
                 error=str(e_combat),
@@ -241,7 +241,7 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
                 defender=blocking_id,
             )
             gs.add_message("An error occurred during combat!", (255, 0, 0))
-            return False  # Don't consume turn if combat system failed internally
+            raise
         # --- End Call ---
 
     # If no blocking entity, proceed to terrain checks:
@@ -280,14 +280,14 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
     except IndexError:
         log.error("IndexError during height check", **log_context)
         return False
-    except Exception as e_h:
+    except (ValueError, RuntimeError) as e_h:
         log.error(
             "Exception during height check",
             error=str(e_h),
             exc_info=True,
             **log_context,
         )
-        return False
+        raise
 
     # 5. Perform Move (Only reached if no block, walkable, and height is okay)
     success = movement_system.try_move(player_id, dx, dy, gs)
@@ -324,7 +324,7 @@ def _handle_player_pickup(gs: GameState) -> bool:
         item_to_pickup = items_at_feet.row(0, named=True)
         item_id = item_to_pickup["item_id"]
         item_name = item_to_pickup["name"]
-    except Exception as e:
+    except (IndexError, KeyError) as e:
         log.error(
             "Error accessing item data at feet",
             error=str(e),
