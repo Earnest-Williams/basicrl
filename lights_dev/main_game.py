@@ -90,9 +90,11 @@ except ImportError as e:
         MEMORY_WALL_LEVELS = [" "] * 5
         MEMORY_PILLAR_LEVELS = [" "] * 5
         MEMORY_FLOOR_LEVELS = [" "] * 5
-        MEMORY_SIGMOID_STEEPNESS = 1.0
-        MEMORY_SIGMOID_MIDPOINT = 1.0
+        MEMORY_DECAY_RATE = 1.0
         TILE_ID_TO_CATEGORY = {}
+
+# Expose decay rate as a plain global for Numba
+MEMORY_DECAY_RATE = constants.MEMORY_DECAY_RATE
 
 
 # Configure logging
@@ -220,8 +222,7 @@ def _update_memory_fade_internal(
     height: int,
     width: int,
 ) -> None:
-    steepness = constants.MEMORY_SIGMOID_STEEPNESS
-    midpoint = constants.MEMORY_SIGMOID_MIDPOINT
+    decay_rate = MEMORY_DECAY_RATE
     for y in range(height):
         for x in range(width):
             intensity = memory_intensity[y, x]
@@ -229,13 +230,8 @@ def _update_memory_fade_internal(
                 elapsed_time = current_time - last_seen_time[y, x]
                 if elapsed_time < 0.0:
                     elapsed_time = 0.0
-                exponent = steepness * (elapsed_time - midpoint)
-                if exponent < 70.0:
-                    denominator = 1.0 + math.exp(exponent)
-                    new_intensity = 1.0 / denominator if denominator > 1e-9 else 0.0
-                else:
-                    new_intensity = 0.0
-                memory_intensity[y, x] = max(0.0, new_intensity)
+                new_intensity = max(0.0, 1.0 - decay_rate * elapsed_time)
+                memory_intensity[y, x] = new_intensity
 
 
 @numba.jit(nopython=True)
