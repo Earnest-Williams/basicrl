@@ -152,10 +152,15 @@ templates:
         - id: "belt_loop_front"
           compatible_types: ["small_pouch", "dagger_sheath"]
           description: "Front loop"
+          flags: ["exclusive"]
+          weight_limit: 1.0
         - id: "belt_loop_left"
           compatible_types: ["small_pouch", "tool_holster", "lantern_hook_compatible"]
+          flags: ["lantern_hook"]
+          weight_limit: 2.0
         - id: "belt_loop_right"
           compatible_types: ["small_pouch", "tool_holster"]
+          weight_limit: 1.0
     effects: {}
 
   simple_ring: # NEW Example
@@ -173,6 +178,8 @@ templates:
       mount_points:
         - id: "center_setting"
           compatible_types: ["small_gem", "medium_gem"]
+          flags: ["gem_setting"]
+          weight_limit: 0.2
     effects: {}
 
   # --- Attachable Items ---
@@ -188,6 +195,7 @@ templates:
       pouch_capacity: 5 # Assumes separate inventory logic for containers
       attachable_info:
         compatible_mount_types: ["belt_loop_front", "belt_loop_left", "belt_loop_right"] # Matches belt IDs
+        required_mount_flags: []
     effects: {}
 
   faceted_ruby: # NEW Example
@@ -201,6 +209,7 @@ templates:
       cost: 250
       attachable_info:
         compatible_mount_types: ["small_gem_setting", "center_setting"] # Matches ring/amulet IDs
+        required_mount_flags: ["gem_setting"]
     effects: {} # Attaching might grant effects
 
   # --- Items that can be Held OR Attached ---
@@ -240,6 +249,7 @@ templates:
       attachable_info: # Option 2: Attached
         # Define the type of hook this lantern uses/needs
         compatible_mount_types: ["lantern_hook_compatible"]
+        required_mount_flags: ["lantern_hook"]
     effects: {}
 
   # --- Add more item templates as needed ---
