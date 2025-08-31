@@ -49,6 +49,7 @@ def main():
         player_start_hp=10,
         player_fov_radius=6,
         item_templates={},  # ✅ must be a dict
+        entity_templates={},
         effect_definitions={},
         rng_seed=42,
     )
