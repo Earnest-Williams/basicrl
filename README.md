@@ -25,7 +25,7 @@ See `basicrl_project.txt` for a detailed task list and vision statement.
 
 ## Installation
 
-BasicRL targets **Python 3.11**. Install dependencies using pip:
+BasicRL targets **Python 3.11**. All runtime and development dependencies are pinned in `requirements.txt`.
 
 ```bash
 python -m venv .venv
