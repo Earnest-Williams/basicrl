@@ -43,6 +43,8 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "max_fullness": pl.Float32,
     "equipped_item_ids": pl.List(pl.UInt64),
     "body_plan": pl.Object,
+    "resistances": pl.Object,
+    "vulnerabilities": pl.Object,
 }
 
 
@@ -96,6 +98,8 @@ class EntityRegistry:
         max_fullness: float = 100.0,
         status_effects: list | None = None,
         initial_body_plan: Dict[str, int] | None = None,
+        resistances: Dict[str, float] | None = None,
+        vulnerabilities: Dict[str, float] | None = None,
     ) -> int:
         # (Implementation unchanged - uses direct schema on creation)
         new_id = self._get_next_id()
@@ -162,6 +166,10 @@ class EntityRegistry:
             "max_fullness": [max_fullness],
             "equipped_item_ids": [[]],
             "body_plan": [body_plan],
+            "resistances": [resistances if resistances is not None else {}],
+            "vulnerabilities": [
+                vulnerabilities if vulnerabilities is not None else {}
+            ],
         }
         try:
             new_entity_df = pl.DataFrame(entity_data, schema=ENTITY_SCHEMA)
