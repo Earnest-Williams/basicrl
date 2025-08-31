@@ -19,6 +19,10 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 
 log = structlog.get_logger()
 
+# Cardinal directions used for simple movement heuristics when planning
+# cannot determine a better action.
+directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
 
 def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
     """Return a cached FlowFieldPathfinder for the current map.

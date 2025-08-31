@@ -12,8 +12,6 @@ from game.items.registry import ItemRegistry
 
 from game.world.game_map import GameMap, LightSource
 from game.systems.ai_system import dispatch_ai
-# New AI package imports
-from game.ai import get_adapter
 from game.ai.perception import gather_perception
 
 
@@ -232,9 +230,7 @@ class GameState:
             if row["entity_id"] == self.player_id:
                 continue
 
-            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
-            adapter = get_adapter(ai_type)
-            adapter(row, self, self.rng_instance, perception)
+            dispatch_ai(row, self, self.rng_instance, perception)
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)

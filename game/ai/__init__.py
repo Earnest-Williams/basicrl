@@ -12,7 +12,7 @@ from typing import Callable, Dict
 
 import structlog
 
-from . import goap, community
+from . import goap, community, simple, ml_policy
 
 if True:
     from typing import TYPE_CHECKING
@@ -28,6 +28,8 @@ log = structlog.get_logger()
 ADAPTERS: Dict[str, Callable] = {
     "goap": goap.take_turn,
     "community": community.take_turn,
+    "simple": simple.take_turn,
+    "ml_policy": ml_policy.take_turn,
 }
 
 
