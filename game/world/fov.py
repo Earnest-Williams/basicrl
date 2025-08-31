@@ -6,7 +6,6 @@ Includes height/ceiling checks and explored tile tracking.
 """
 
 import time
-import math
 from collections import deque
 from typing import TypeAlias, List, Optional
 
@@ -348,6 +347,7 @@ def update_memory_fade(
     visible: np.ndarray,
     needs_update_mask: np.ndarray,
     prev_visible: np.ndarray,
+    memory_strength: np.ndarray,
 ) -> None:
     """Sigmoid-based fading of remembered tiles.
 
@@ -377,7 +377,12 @@ def update_memory_fade(
     ys, xs = np.where(needs_update_mask)
     elapsed_time = current_time - last_seen_time[ys, xs]
     elapsed_time = np.maximum(elapsed_time, 0.0)
-    exponent = steepness * (elapsed_time - midpoint)
+
+    strength = memory_strength[ys, xs]
+    scale = 1.0 + strength
+    decay_rate = steepness / scale
+    midpoint_scaled = midpoint * scale
+    exponent = decay_rate * (elapsed_time - midpoint_scaled)
 
     new_intensity = np.zeros_like(elapsed_time, dtype=np.float32)
     mask = exponent < 70.0
@@ -389,20 +394,6 @@ def update_memory_fade(
 
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
-    for y in range(height):
-        for x in range(width):
-            intensity = memory_intensity[y, x]
-            if intensity > 0.0 and not visible[y, x]:
-                elapsed = current_time - last_seen_time[y, x]
-                if elapsed < 0:
-                    elapsed = 0
-                exponent = steepness * (float(elapsed) - midpoint)
-                if exponent < 70.0:
-                    denom = 1.0 + math.exp(exponent)
-                    new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
-                else:
-                    new_intensity = 0.0
-                memory_intensity[y, x] = max(0.0, new_intensity)
 
 
 @numba.njit(cache=True)

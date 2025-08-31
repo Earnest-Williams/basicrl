@@ -14,6 +14,8 @@ log = structlog.get_logger()
 
 TILE_ID_FLOOR: Final[int] = 0
 TILE_ID_WALL: Final[int] = 1
+# Maximum number of times a tile can strengthen its memory
+MAX_MEMORY_STRENGTH: Final[float] = 5.0
 
 
 class TileType(NamedTuple):
@@ -93,6 +95,9 @@ class GameMap:
         self.memory_intensity: np.ndarray = np.zeros(
             (height, width), dtype=np.float32, order="C"
         )
+        self.memory_strength: np.ndarray = np.zeros(
+            (height, width), dtype=np.float32, order="C"
+        )
         self.last_seen_time: np.ndarray = np.zeros(
             (height, width), dtype=np.int32, order="C"
         )
@@ -163,6 +168,7 @@ class GameMap:
             self.visible,
             self.memory_fade_mask,
             self.prev_visible,
+            self.memory_strength,
         )
 
     # --- MODIFIED compute_fov method ---
@@ -183,6 +189,9 @@ class GameMap:
             if self.in_bounds(tx, ty):
                 self.visible[ty, tx] = True
                 self.explored[ty, tx] = True
+                self.memory_strength[ty, tx] = np.minimum(
+                    self.memory_strength[ty, tx] + 1.0, MAX_MEMORY_STRENGTH
+                )
 
         def get_distance(dx: int, dy: int) -> float:
             return math.hypot(dx, dy)

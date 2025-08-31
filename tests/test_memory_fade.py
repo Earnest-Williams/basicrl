@@ -116,3 +116,26 @@ def test_memory_fade_skips_zero_intensity_tiles():
     assert gm.memory_intensity[py, px] == 0.0
     assert not gm.memory_fade_mask[py, px]
 
+
+def test_multiple_exposures_slow_fade():
+    def measure_intensity(exposures: int) -> float:
+        gs = create_game_state()
+        px, py = gs.player_position
+
+        for _ in range(exposures - 1):
+            gs.advance_turn()
+
+        gs.entity_registry.set_entity_component(gs.player_id, "x", 0)
+        gs.entity_registry.set_entity_component(gs.player_id, "y", 0)
+        gs.advance_turn()
+
+        for _ in range(10):
+            gs.advance_turn()
+
+        return gs.game_map.memory_intensity[py, px]
+
+    single = measure_intensity(1)
+    repeated = measure_intensity(3)
+
+    assert repeated > single
+
