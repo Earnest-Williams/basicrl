@@ -1,10 +1,9 @@
 # dungeon_generator.py
 
 
-"""
-Functions for generating dungeon map layouts.
-"""
-import random
+"""Functions for generating dungeon map layouts."""
+
+from game_rng import GameRNG
 
 # Import necessary constants
 from constants import FLOOR_ID, PILLAR_ID, WALL_ID
@@ -22,8 +21,8 @@ def dungeon_create_room(dungeon: Dungeon, x: int, y: int, width: int, height: in
         dungeon.tiles[y_start:y_end, x_start:x_end] = FLOOR_ID
 
 
-def dungeon_generate_map_u_shape(dungeon: Dungeon):
-    """Generates a U-shaped room with pillars in the given Dungeon instance."""
+def dungeon_generate_map_u_shape(dungeon: Dungeon, rng: GameRNG) -> None:
+    """Generates a U-shaped room with pillars using the shared RNG."""
     width = dungeon.width
     height = dungeon.height
     margin = 4
@@ -49,8 +48,8 @@ def dungeon_generate_map_u_shape(dungeon: Dungeon):
     attempts = 0
     max_attempts = num_pillars * 20
     while pillars_placed < num_pillars and attempts < max_attempts:
-        px = random.randint(open_x_min, open_x_max)
-        py = random.randint(open_y_min, open_y_max)
+        px = rng.randint(open_x_min, open_x_max)
+        py = rng.randint(open_y_min, open_y_max)
         if dungeon.tiles[py, px] == FLOOR_ID:  # Check tile on instance
             dungeon.tiles[py, px] = PILLAR_ID  # Place pillar on instance
             pillars_placed += 1

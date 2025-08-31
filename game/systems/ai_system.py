@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
+
+from game_rng import GameRNG
+
 import structlog
 
 from game.systems import movement_system
@@ -24,11 +26,12 @@ if TYPE_CHECKING:  # pragma: no cover - for type checking only
 log = structlog.get_logger()
 
 
-def dispatch_ai(game_state: GameState) -> None:
+def dispatch_ai(game_state: GameState, rng: GameRNG) -> None:
     """Process all AI-controlled entities for the current turn.
 
     Args:
         game_state: The active :class:`GameState` instance.
+        rng: Shared :class:`GameRNG` instance providing randomness.
 
     The dispatcher logs each entity it processes. If there are no AI
     entities, it exits quietly after logging. This function is a stub
@@ -80,14 +83,8 @@ def dispatch_ai(game_state: GameState) -> None:
     # --- Move each AI entity according to the flow field ---
     for entity in ai_entities:
         entity_id = entity["entity_id"]
-        ex, ey = entity["x"], entity["y"]
-        dx, dy = pathfinder.get_flow_vector(ey, ex)
 
-        if dx == 0 and dy == 0 and (ex, ey) != (px, py):
-            log.warning(
-                "No path to goal for entity", entity_id=entity_id, pos=(ex, ey)
-            )
-            continue
+        dx, dy = rng.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
 
         moved = movement_system.try_move(entity_id, dx, dy, game_state)
         log.debug(
