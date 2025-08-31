@@ -192,6 +192,7 @@ def main() -> None:
         vis_blend_factor: float = hv_config.get("blend_factor", 0.3)
         gameplay_rules = config.get("gameplay_rules", {})
         max_traversable_step: int = gameplay_rules.get("max_traversable_step", 2)
+        ai_config = config.get("ai", {})
         log.info("Main configuration values extracted.")
 
         # --- Game Initialization ---
@@ -214,6 +215,7 @@ def main() -> None:
             player_glyph=player_glyph, player_start_hp=player_start_hp,
             player_fov_radius=player_fov_radius, item_templates=item_templates,
             effect_definitions=effect_definitions, rng_seed=rng_seed_to_pass,
+            ai_config=ai_config,
         )
 
         # Spawn initial items
