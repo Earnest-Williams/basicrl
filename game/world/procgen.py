@@ -618,7 +618,7 @@ def generate_dungeon(
     game_map: GameMap,
     map_width: int,
     map_height: int,
-    seed: Union[int, None] = None,
+    seed: int | None = None,
     algorithm: str = "bsp",
 ) -> Tuple[int, int]:
     """Entry point for dungeon generation selecting different algorithms."""
