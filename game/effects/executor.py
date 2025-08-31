@@ -37,13 +37,13 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
     if not costs:
         return True  # No cost defined
 
-    if not gs:
+    if gs is None:
         log.error("Cost check failed: game_state missing from context")
         return False
 
     # Ensure entity_registry is available
     entity_registry: "EntityRegistry" = gs.entity_registry
-    if not entity_registry:
+    if entity_registry is None:
         log.error("Cost check failed: entity_registry missing from game_state")
         return False
 
@@ -67,7 +67,7 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
                 failure_reason = "Item charge required but no item specified"
                 break
             # Ensure item_registry exists
-            if not gs.item_registry:
+            if gs.item_registry is None:
                 log.error(
                     "Cost check failed: item_registry missing for item_charge cost"
                 )
@@ -212,7 +212,7 @@ def _is_consumable_effect(effect_id: str, context: Dict[str, Any]) -> bool:
     if not item_id:
         return False
     gs: "GameState" | None = context.get("game_state")
-    if not gs or not gs.item_registry:
+    if gs is None or gs.item_registry is None:
         return False
     template_id = gs.item_registry.get_item_template_id(item_id)
     if not template_id:
@@ -228,7 +228,7 @@ def _is_consumable_effect(effect_id: str, context: Dict[str, Any]) -> bool:
 def _consume_item(item_id: int, context: Dict[str, Any]):
     # ... (item consumption logic remains the same) ...
     gs: "GameState" | None = context.get("game_state")
-    if not gs or not gs.item_registry:
+    if gs is None or gs.item_registry is None:
         return
     quantity = gs.item_registry.get_item_component(item_id, "quantity")
     if quantity is None:
@@ -255,7 +255,7 @@ def execute_effect(effect_id: str, context: Dict[str, Any]) -> bool:
     )
 
     gs: "GameState" | None = context.get("game_state")  # Use | None
-    if not gs:
+    if gs is None:
         log.error(
             "execute_effect failed: 'game_state' missing from context",
             effect_id=effect_id,
