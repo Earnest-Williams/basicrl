@@ -197,7 +197,16 @@ def main() -> None:
         lighting_min_fov: float = lighting_config.get("min_fov_level", 0.25)
         lighting_falloff: float = lighting_config.get("falloff_power", 1.5)
         enable_colored_lights: bool = lighting_config.get("colored_lights", True)
-        enable_memory_fade: bool = lighting_config.get("memory_fade", True)
+
+        memory_fade_cfg = config.get("memory_fade", {})
+        enable_memory_fade: bool = memory_fade_cfg.get("enabled", True)
+        memory_fade_duration: float = memory_fade_cfg.get("duration", 60.0)
+        memory_fade_midpoint: float = memory_fade_cfg.get(
+            "midpoint", memory_fade_duration / 2.0
+        )
+        memory_fade_steepness: float = memory_fade_cfg.get(
+            "steepness", 6.0 / memory_fade_duration
+        )
         hv_config = config.get("height_visualization", {})
         vis_enabled_default: bool = hv_config.get("enabled_by_default", False)
         vis_max_diff: int = hv_config.get("max_relative_difference", 10)
@@ -242,6 +251,12 @@ def main() -> None:
             effect_definitions=effect_definitions,
             rng_seed=rng_seed_to_pass,
             ai_config=ai_config,
+            memory_fade_config={
+                "enabled": enable_memory_fade,
+                "duration": memory_fade_duration,
+                "midpoint": memory_fade_midpoint,
+                "steepness": memory_fade_steepness,
+            },
         )
 
         # Spawn initial items

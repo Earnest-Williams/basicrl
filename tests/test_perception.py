@@ -38,6 +38,8 @@ from game.game_state import GameState
 from game.ai.perception import gather_perception
 from game.systems import movement_system
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def create_game_state():
     game_map = GameMap(width=10, height=10)
@@ -51,6 +53,7 @@ def create_game_state():
         item_templates={},
         effect_definitions={},
         rng_seed=42,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
     return gs
 

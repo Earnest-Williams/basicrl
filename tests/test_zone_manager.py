@@ -26,6 +26,8 @@ from simulation.zone_manager import ZoneManager
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def test_zone_manager_far_zone_delay():
     manager = ZoneManager(map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3)
@@ -60,6 +62,7 @@ def _create_game_state():
         item_templates={},
         effect_definitions={},
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
     return gs
 

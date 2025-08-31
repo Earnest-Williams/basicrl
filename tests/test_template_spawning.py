@@ -34,6 +34,8 @@ from game.game_state import GameState
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.effects.handlers import create_portal, attempt_spawn_entity
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def _make_game_state(entity_templates):
     game_map = GameMap(5, 5)
@@ -49,6 +51,7 @@ def _make_game_state(entity_templates):
         entity_templates=entity_templates,
         effect_definitions={},
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
 
 

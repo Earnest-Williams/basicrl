@@ -47,6 +47,8 @@ from game.game_state import GameState
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.systems.equipment_system import apply_passive_effects, remove_passive_effects
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def _create_basic_map():
     game_map = GameMap(5, 5)
@@ -95,6 +97,7 @@ def test_apply_and_remove_passive_effects():
         item_templates=item_templates,
         effect_definitions=_effect_definitions(),
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
 
     player_id = gs.player_id

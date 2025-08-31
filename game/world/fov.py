@@ -6,7 +6,6 @@ Includes height/ceiling checks and explored tile tracking.
 """
 
 import time
-import math
 from collections import deque
 from typing import TypeAlias, List, Optional
 
@@ -43,10 +42,6 @@ CLOSE_RANGE_DIVISOR: int = 8
 FAR_RANGE_DIVISOR: int = 16
 _THRESHOLD_AT_CUTOFF: int = CLOSE_RANGE_SQ_THRESHOLD // CLOSE_RANGE_DIVISOR
 MAX_SECTORS: int = 10000  # Safety limit for sector processing
-# Memory fade parameters
-MEMORY_DURATION: float = 60.0
-MEMORY_SIGMOID_MIDPOINT: float = MEMORY_DURATION / 2.0
-MEMORY_SIGMOID_STEEPNESS: float = 6.0 / MEMORY_DURATION
 
 # --- Numba Helper Functions ---
 @numba.njit(cache=True, inline="always")
@@ -348,6 +343,9 @@ def update_memory_fade(
     visible: np.ndarray,
     needs_update_mask: np.ndarray,
     prev_visible: np.ndarray,
+    steepness: float,
+    midpoint: float,
+    duration: float,
 ) -> None:
     """Sigmoid-based fading of remembered tiles.
 
@@ -356,9 +354,6 @@ def update_memory_fade(
     invisible and pruned when tiles become visible again or their intensity
     reaches zero.
     """
-
-    steepness = MEMORY_SIGMOID_STEEPNESS
-    midpoint = MEMORY_SIGMOID_MIDPOINT
 
     # Remove tiles that no longer need fading
     needs_update_mask[visible] = False
@@ -376,7 +371,7 @@ def update_memory_fade(
 
     ys, xs = np.where(needs_update_mask)
     elapsed_time = current_time - last_seen_time[ys, xs]
-    elapsed_time = np.maximum(elapsed_time, 0.0)
+    elapsed_time = np.clip(elapsed_time, 0.0, duration)
     exponent = steepness * (elapsed_time - midpoint)
 
     new_intensity = np.zeros_like(elapsed_time, dtype=np.float32)
@@ -387,22 +382,10 @@ def update_memory_fade(
 
     memory_intensity[ys, xs] = np.maximum(0.0, new_intensity)
 
-    # Prune tiles that have faded completely
-    needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
-    for y in range(height):
-        for x in range(width):
-            intensity = memory_intensity[y, x]
-            if intensity > 0.0 and not visible[y, x]:
-                elapsed = current_time - last_seen_time[y, x]
-                if elapsed < 0:
-                    elapsed = 0
-                exponent = steepness * (float(elapsed) - midpoint)
-                if exponent < 70.0:
-                    denom = 1.0 + math.exp(exponent)
-                    new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
-                else:
-                    new_intensity = 0.0
-                memory_intensity[y, x] = max(0.0, new_intensity)
+    # Prune tiles that have faded completely or exceeded duration
+    needs_update_mask[ys, xs] = (memory_intensity[ys, xs] > 0.0) & (
+        elapsed_time < duration
+    )
 
 
 @numba.njit(cache=True)

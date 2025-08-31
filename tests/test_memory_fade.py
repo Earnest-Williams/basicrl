@@ -66,6 +66,8 @@ sys.modules["game.systems.ai_system"] = ai_module
 from game.world.game_map import GameMap
 from game.game_state import GameState
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def create_game_state():
     game_map = GameMap(width=10, height=10)
@@ -80,6 +82,7 @@ def create_game_state():
         entity_templates={},
         effect_definitions={},
         rng_seed=42,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
     return gs
 
@@ -108,11 +111,21 @@ def test_memory_fade_skips_zero_intensity_tiles():
     gm.memory_intensity[py, px] = 0.0
     assert gm.memory_fade_mask[py, px]
 
-    gm.update_memory_fade(float(gs.turn_count))
+    gm.update_memory_fade(
+        float(gs.turn_count),
+        gs.memory_fade_steepness,
+        gs.memory_fade_midpoint,
+        gs.memory_fade_duration,
+    )
     assert not gm.memory_fade_mask[py, px]
     assert gm.memory_intensity[py, px] == 0.0
 
-    gm.update_memory_fade(float(gs.turn_count) + 1.0)
+    gm.update_memory_fade(
+        float(gs.turn_count) + 1.0,
+        gs.memory_fade_steepness,
+        gs.memory_fade_midpoint,
+        gs.memory_fade_duration,
+    )
     assert gm.memory_intensity[py, px] == 0.0
     assert not gm.memory_fade_mask[py, px]
 
