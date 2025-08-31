@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union, cast
 import polars as pl
 import structlog
 
+from game.entities.components import Inventory
+
 # Import specific types needed from other modules
 # Ensure these imports work correctly based on your project structure
 try:
@@ -523,7 +525,11 @@ def can_unequip(entity_id: int, item_id: int, gs: "GameState") -> Tuple[bool, st
     inv_capacity = entity_reg.get_entity_component(entity_id, "inventory_capacity")
     if inv_capacity is not None:
         current_inventory = item_reg.get_entity_inventory(entity_id)
-        if current_inventory.height >= inv_capacity:
+        inventory = Inventory(
+            capacity=inv_capacity,
+            items=current_inventory.select("item_id").to_series().to_list(),
+        )
+        if len(inventory.items) >= inventory.capacity:
             return False, "Inventory full"
 
     return True, "Can unequip"
@@ -793,7 +799,11 @@ def can_detach(
     inv_capacity = entity_reg.get_entity_component(entity_id, "inventory_capacity")
     if inv_capacity is not None:
         current_inventory = item_reg.get_entity_inventory(entity_id)
-        if current_inventory.height >= inv_capacity:
+        inventory = Inventory(
+            capacity=inv_capacity,
+            items=current_inventory.select("item_id").to_series().to_list(),
+        )
+        if len(inventory.items) >= inventory.capacity:
             return False, "Inventory full"
 
     return True, "Can detach"

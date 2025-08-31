@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Self
 import polars as pl
 import structlog
 
+from game.entities.components import CombatStats, Inventory, Position, Renderable
+
 try:
     from game.items.registry import BodySlotType, EquipSlot
 except ImportError:
@@ -304,18 +306,18 @@ class EntityRegistry:
             )
             return False
 
-    def get_position(self: Self, entity_id: int) -> tuple[int, int] | None:
-        # (Implementation unchanged)
+    def get_position(self: Self, entity_id: int) -> Position | None:
+        """Return the Position component for an entity if available."""
         pos_x = self.get_entity_component(entity_id, "x")
         pos_y = self.get_entity_component(entity_id, "y")
         if pos_x is not None and pos_y is not None:
-            return int(pos_x), int(pos_y)
+            return Position(int(pos_x), int(pos_y))
         return None
 
-    def set_position(self: Self, entity_id: int, x: int, y: int) -> bool:
-        # (Implementation unchanged)
-        success_x = self.set_entity_component(entity_id, "x", x)
-        success_y = self.set_entity_component(entity_id, "y", y)
+    def set_position(self: Self, entity_id: int, position: Position) -> bool:
+        """Update an entity's position component."""
+        success_x = self.set_entity_component(entity_id, "x", position.x)
+        success_y = self.set_entity_component(entity_id, "y", position.y)
         return success_x and success_y
 
     def get_entities_at(self: Self, x: int, y: int) -> pl.DataFrame:

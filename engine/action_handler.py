@@ -10,6 +10,7 @@ import structlog
 
 from game.effects.executor import execute_effect
 from game.entities.registry import EntityRegistry
+from game.entities.components import Position
 
 # Use absolute imports for game modules
 from game.game_state import GameState
@@ -178,7 +179,7 @@ def _handle_fall(
                 )
 
     # Move entity to landing spot only if it didn't die
-    move_success = entity_reg.set_position(entity_id, landing_x, landing_y)
+    move_success = entity_reg.set_position(entity_id, Position(landing_x, landing_y))
     if not move_success:
         log.error(
             "Failed to set entity position after fall",
@@ -288,7 +289,7 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
         return False
 
     # 5. Perform Move (Only reached if no block, walkable, and height is okay)
-    success = entity_registry.set_position(player_id, new_x, new_y)
+    success = entity_registry.set_position(player_id, Position(new_x, new_y))
     if success:
         log.debug("Player moved successfully", **log_context)
         return True  # Movement successful, turn consumed

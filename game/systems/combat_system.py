@@ -4,10 +4,12 @@ Handles combat calculations and actions between entities.
 """
 from typing import TYPE_CHECKING
 
+import polars as pl
 import structlog
 
 # Import roll_dice from its new location
 from utils.helpers import roll_dice
+from game.entities.components import CombatStats
 
 if TYPE_CHECKING:
     from game_rng import GameRNG  # Assuming this is importable for type hint
@@ -98,20 +100,23 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     final_damage = max(0, raw_damage)  # Ensure damage isn't negative
 
     # --- Apply Damage & Check Death ---
-    defender_hp = entity_reg.get_entity_component(defender_id, "hp")
-    if defender_hp is None:
+    defender_stats = CombatStats(
+        hp=entity_reg.get_entity_component(defender_id, "hp") or 0,
+        max_hp=entity_reg.get_entity_component(defender_id, "max_hp") or 0,
+    )
+    if defender_stats.hp <= 0:
         log.error("Defender missing HP component", defender_id=defender_id)
         return  # Cannot apply damage
 
-    new_hp = max(0, defender_hp - final_damage)
-    damage_dealt = defender_hp - new_hp
+    new_hp = max(0, defender_stats.hp - final_damage)
+    damage_dealt = defender_stats.hp - new_hp
 
     log.debug(
         "Damage calculated",
         raw=raw_damage,
         final=final_damage,
         dealt=damage_dealt,
-        defender_hp_old=defender_hp,
+        defender_hp_old=defender_stats.hp,
         defender_hp_new=new_hp,
     )
 
