@@ -343,7 +343,7 @@ def compute_fov(
 
 @numba.njit(cache=True)
 def update_memory_fade(
-    current_time: np.float32,
+    current_time: int,
     last_seen_time: np.ndarray,
     memory_intensity: np.ndarray,
     visible: np.ndarray,
@@ -356,10 +356,10 @@ def update_memory_fade(
         for x in range(width):
             intensity = memory_intensity[y, x]
             if intensity > 0.0 and not visible[y, x]:
-                elapsed_time = current_time - last_seen_time[y, x]
-                if elapsed_time < 0.0:
-                    elapsed_time = 0.0
-                exponent = steepness * (elapsed_time - midpoint)
+                elapsed = current_time - last_seen_time[y, x]
+                if elapsed < 0:
+                    elapsed = 0
+                exponent = steepness * (float(elapsed) - midpoint)
                 if exponent < 70.0:
                     denom = 1.0 + math.exp(exponent)
                     new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
