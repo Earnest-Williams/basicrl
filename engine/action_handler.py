@@ -443,7 +443,8 @@ def process_player_action(
     player_id = gs.player_id  # Get player ID for convenience
     player_acted = False  # Default: action does not consume a turn unless successful
     log.debug(
-        f"ActionHandler: Processing action type: {action_type}",
+        "ActionHandler: Processing action type",
+        action_type=action_type,
         player_id=player_id,
         action_details=action,
     )
