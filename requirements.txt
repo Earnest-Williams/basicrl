@@ -1,0 +1,21 @@
+# Runtime dependencies
+cairosvg==2.8.2
+numpy==2.3.2
+numba==0.61.2
+orjson==3.11.3
+pillow==11.3.0
+polars==1.32.3
+pyside6==6.9.2
+pygame==2.6.1
+pyyaml==6.0.2
+readchar==4.2.1
+simpleaudio==1.0.4
+structlog==25.4.0
+
+# Development dependencies
+black==25.1.0
+isort==6.0.1
+mypy==1.17.1
+pyright==1.1.404
+pytest==8.4.1
+ruff==0.12.11
