@@ -251,7 +251,7 @@ class EntityRegistry:
             target_dtype = ENTITY_SCHEMA[component_name]
 
             # Extract value, handling List types specifically
-            if isinstance(target_dtype, pl.List):<<<<<<< codex/add-los-checks-in-target-selection
+            if isinstance(target_dtype, pl.List):
                 # For list types, accessing the first element of the Series
                 # and then converting to list should yield the Python list.
                 # Polars Series.item() often returns the first element directly.

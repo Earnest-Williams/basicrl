@@ -12,7 +12,7 @@ from game.systems.pathfinding.flowfield import FlowFieldPathfinder
 from game.world.game_map import TILE_TYPES
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
-    import numpy as np<<<<<<< codex/implement-flow-field-guided-movement-for-ai
+    import numpy as np
     from game.game_state import GameState
     from game_rng import GameRNG
     from polars.type_aliases import IntoExpr
