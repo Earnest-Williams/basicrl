@@ -30,6 +30,8 @@ lighting:
   ambient_level: 0.15     # Base light level for explored, non-visible tiles (0.0 to 1.0)
   min_fov_level: 0.25     # Minimum light level for tiles just inside FOV radius (0.0 to 1.0)
   falloff_power: 1.5      # Controls how quickly light dims with distance (higher = faster falloff)
+  colored_lights: true    # Enable colored light rendering
+  memory_fade: true       # Enable fading of remembered tiles
 
 # -- Height Visualization --
 height_visualization:
