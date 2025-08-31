@@ -1,0 +1,29 @@
+# config/entities.yaml
+# Defines entity and portal templates for the basic roguelike
+
+templates:
+  default_portal:
+    glyph: 62        # '>'
+    color: [255, 0, 255]
+    name: "Portal"
+    blocks_movement: false
+    target_map: null
+    linked_positions: []
+
+  goblin:
+    glyph: 103      # 'g'
+    color: [0, 128, 0]
+    hp: 10
+    name: "Goblin"
+
+  orc:
+    glyph: 79       # 'O'
+    color: [0, 255, 0]
+    hp: 25
+    name: "Orc"
+
+  rat:
+    glyph: 114      # 'r'
+    color: [128, 128, 128]
+    hp: 5
+    name: "Giant Rat"
