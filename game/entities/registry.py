@@ -18,7 +18,7 @@ except ImportError:
 
 log = structlog.get_logger()
 
-# ENTITY_SCHEMA (Unchanged)
+# ENTITY_SCHEMA
 ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "entity_id": pl.UInt32,
     "is_active": pl.Boolean,
@@ -33,6 +33,11 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "blocks_movement": pl.Boolean,
     "hp": pl.Int16,
     "max_hp": pl.Int16,
+    "strength": pl.Int16,
+    "defense": pl.Int16,
+    "armor": pl.Int16,
+    "xp": pl.Int32,
+    "xp_reward": pl.Int32,
     "inventory_capacity": pl.UInt16,
     "status_effects": pl.List(
         pl.Struct({"id": pl.Utf8, "duration": pl.Int16, "intensity": pl.Float32})
@@ -96,6 +101,11 @@ class EntityRegistry:
         ai_type: str | None = None,
         hp: int = 1,
         max_hp: int = 1,
+        strength: int = 0,
+        defense: int = 0,
+        armor: int = 0,
+        xp: int = 0,
+        xp_reward: int = 0,
         inventory_capacity: int = 26,
         mana: float = 0.0,
         max_mana: float = 0.0,
@@ -163,6 +173,11 @@ class EntityRegistry:
             "blocks_movement": [blocks_movement],
             "hp": [hp],
             "max_hp": [max_hp],
+            "strength": [strength],
+            "defense": [defense],
+            "armor": [armor],
+            "xp": [xp],
+            "xp_reward": [xp_reward],
             "inventory_capacity": [inventory_capacity],
             "status_effects": [status_effects if status_effects is not None else []],
             "mana": [mana],

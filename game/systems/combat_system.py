@@ -32,6 +32,7 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     entity_reg: "EntityRegistry" = gs.entity_registry
     item_reg: "ItemRegistry" = gs.item_registry
     rng: "GameRNG" = gs.rng_instance  # Get RNG from GameState
+    game_map = gs.game_map
 
     attacker_name = entity_reg.get_entity_component(attacker_id, "name") or "Attacker"
     defender_name = entity_reg.get_entity_component(defender_id, "name") or "Defender"
@@ -94,10 +95,12 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
         log.debug("Attacker is unarmed")
 
     # --- Calculate Damage ---
-    # TODO: Factor in attacker stats (e.g., strength)
-    # TODO: Factor in defender stats (e.g., defense, armor class)
     raw_damage = roll_dice(damage_dice, rng)
-    final_damage = max(0, raw_damage)  # Ensure damage isn't negative
+    attacker_strength = entity_reg.get_entity_component(attacker_id, "strength") or 0
+    defender_defense = entity_reg.get_entity_component(defender_id, "defense") or 0
+    defender_armor = entity_reg.get_entity_component(defender_id, "armor") or 0
+    modified_damage = raw_damage + attacker_strength - defender_defense - defender_armor
+    final_damage = max(0, modified_damage)  # Ensure damage isn't negative
 
     # --- Apply Damage & Check Death ---
     defender_stats = CombatStats(
@@ -121,7 +124,12 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     )
 
     # Add Combat Messages
-    # TODO: Visibility checks
+    ax = entity_reg.get_entity_component(attacker_id, "x") or 0
+    ay = entity_reg.get_entity_component(attacker_id, "y") or 0
+    dx = entity_reg.get_entity_component(defender_id, "x") or 0
+    dy = entity_reg.get_entity_component(defender_id, "y") or 0
+    visible = game_map.visible[ay, ax] or game_map.visible[dy, dx]
+
     attack_msg = ""
     damage_msg = ""
     hit_color = (200, 200, 200)  # Default color
@@ -150,10 +158,11 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
         else:
             damage_msg = "It misses."
 
-    if attack_msg:
-        gs.add_message(attack_msg, hit_color)
-    if damage_msg:
-        gs.add_message(damage_msg, damage_color)
+    if visible:
+        if attack_msg:
+            gs.add_message(attack_msg, hit_color)
+        if damage_msg:
+            gs.add_message(damage_msg, damage_color)
 
     # Update Defender HP
     if damage_dealt > 0:
@@ -165,6 +174,20 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     # Handle Death [Source [source 53]]
     if new_hp <= 0:
         log.info(f"{defender_name} died.", defender_id=defender_id)
-        gs.add_message(f"The {defender_name} dies!", (255, 100, 100))  # Death color
-        # TODO: Handle XP, item drops, remove body etc.
-        entity_reg.delete_entity(defender_id)  # Mark inactive
+        if game_map.visible[dy, dx]:
+            gs.add_message(f"The {defender_name} dies!", (255, 100, 100))
+        # Award XP to attacker
+        xp_reward = entity_reg.get_entity_component(defender_id, "xp_reward") or 0
+        if xp_reward:
+            current_xp = entity_reg.get_entity_component(attacker_id, "xp") or 0
+            entity_reg.set_entity_component(attacker_id, "xp", current_xp + xp_reward)
+            if attacker_id == gs.player_id and game_map.visible[dy, dx]:
+                gs.add_message(f"You gain {xp_reward} XP.", (0, 255, 255))
+        # Drop inventory and equipped items
+        inv_items = item_reg.get_entity_inventory(defender_id)
+        eq_items = item_reg.get_entity_equipped(defender_id)
+        for item in inv_items.iter_rows(named=True):
+            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
+        for item in eq_items.iter_rows(named=True):
+            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
+        entity_reg.delete_entity(defender_id)

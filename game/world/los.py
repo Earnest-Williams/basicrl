@@ -21,29 +21,29 @@ except Exception:  # pragma: no cover - fallback when Numba isn't available
 
 @njit(cache=True)
 def line_of_sight(
-    y0: int,
     x0: int,
-    y1: int,
+    y0: int,
     x1: int,
+    y1: int,
     transparency_map: np.ndarray,
 ) -> bool:
     """Return True if there's an unobstructed line between two points.
 
     Parameters
     ----------
-    y0, x0 : int
+    x0, y0 : int
         Start coordinates.
-    y1, x1 : int
+    x1, y1 : int
         End coordinates.
     transparency_map : np.ndarray
         Boolean array where ``True`` indicates a transparent tile.
     """
     height, width = transparency_map.shape
     if not (
-        0 <= y0 < height
-        and 0 <= x0 < width
-        and 0 <= y1 < height
+        0 <= x0 < width
+        and 0 <= y0 < height
         and 0 <= x1 < width
+        and 0 <= y1 < height
     ):
         return False
 
