@@ -9,6 +9,26 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Callable, Dict, Set, Tuple
+import importlib
+
+
+def _resolve_callback(path: str) -> Callable[[Any], None] | None:
+    """Resolve ``path`` into a callable.
+
+    ``path`` should be of the form ``"module.submodule:qualname"``.  If the
+    import fails or the attribute does not exist, ``None`` is returned.
+    """
+    try:
+        module_name, qualname = path.split(":", 1)
+        module = importlib.import_module(module_name)
+        obj: Any = module
+        for attr in qualname.split("."):
+            obj = getattr(obj, attr)
+        if callable(obj):
+            return obj  # type: ignore[return-value]
+    except Exception:
+        return None
+    return None
 
 
 class ZoneManager:
@@ -120,19 +140,21 @@ class ZoneManager:
             "event_queue": [
                 [zx, zy, event_id] for (zx, zy), event_id in self.event_queue.items()
             ],
+            "event_registry": [
+                [event_id, f"{cb.__module__}:{cb.__qualname__}"]
+                for event_id, cb in self.event_registry.items()
+            ],
             "next_event_id": self._next_event_id,
         }
 
     @classmethod
-    def from_dict(
-        cls,
-        data: Dict[str, Any],
-        event_registry: Dict[int, Callable[[Any], None]],
-    ) -> "ZoneManager":
+    def from_dict(cls, data: Dict[str, Any]) -> "ZoneManager":
         """Restore a ``ZoneManager`` from ``data``.
 
-        ``event_registry`` should contain callbacks for all event identifiers
-        referenced in ``data``'s event queue.
+        Event callbacks are resolved from their fully qualified dotted paths
+        stored in ``data['event_registry']``.  If a callback cannot be
+        imported it is skipped, leaving the corresponding event id without a
+        callable, which will be ignored during processing.
         """
         manager = cls(
             data.get("map_width", 0),
@@ -152,6 +174,10 @@ class ZoneManager:
             (zx, zy): event_id
             for zx, zy, event_id in data.get("event_queue", [])
         }
-        manager.event_registry = event_registry
+        manager.event_registry = {}
+        for event_id, path in data.get("event_registry", []):
+            callback = _resolve_callback(path)
+            if callback:
+                manager.event_registry[event_id] = callback
         manager._next_event_id = data.get("next_event_id", 1)
         return manager
