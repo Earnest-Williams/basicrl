@@ -10,7 +10,10 @@ from game.items.registry import ItemRegistry
 
 # Assuming these imports are correct relative to game_state.py
 from game.world.game_map import GameMap
-from game.systems.ai_system import dispatch_ai
+
+# New AI package imports
+from game.ai import get_adapter
+from game.ai.perception import gather_perception
 
 log = structlog.get_logger()
 
@@ -27,6 +30,7 @@ class GameState:
         item_templates: Dict[str, Any],
         effect_definitions: Dict[str, Any],
         rng_seed: int | None,
+        ai_config: Dict[str, Any] | None = None,
     ):
         log.info("Initializing GameState...")
 
@@ -49,6 +53,7 @@ class GameState:
 
         self.item_registry: ItemRegistry = ItemRegistry(item_templates)
         self.effect_definitions: Dict[str, Any] = effect_definitions
+        self.ai_config: Dict[str, Any] = ai_config or {}
         log.debug("ItemRegistry initialized", templates=len(item_templates))
         log.debug("Effect definitions stored", effects=len(effect_definitions))
 
@@ -183,8 +188,19 @@ class GameState:
                 )
 
         # --- AI processing call ---
-        log.debug("Invoking AI dispatcher")
-        dispatch_ai(self, self.rng_instance)
+        log.debug("Gathering perception data for AI")
+        perception = gather_perception(self)
+
+        log.debug("Processing AI-controlled entities")
+        for row in self.entity_registry.entities_df.iter_rows(named=True):
+            if not row.get("is_active", False):
+                continue
+            if row["entity_id"] == self.player_id:
+                continue
+
+            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
+            adapter = get_adapter(ai_type)
+            adapter(row, self, self.rng_instance, perception)
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)

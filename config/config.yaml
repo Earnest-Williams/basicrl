@@ -44,4 +44,11 @@ height_visualization:
 gameplay_rules:
   max_traversable_step: 2  # 2 units = 1 meter step limit
 
+# -- AI Selection --
+ai:
+  default: goap        # Global default AI ('goap' or 'community')
+  entity_overrides:    # Optional per-entity mapping: name -> ai type
+    # "villager": "community"
+    # "goblin": "goap"
+
 # Add other game parameters here as needed
