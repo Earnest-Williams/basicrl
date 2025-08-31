@@ -316,20 +316,43 @@ def find_first_available_slot(
     return None
 
 
-def get_item_mount_points(item_id: int, gs: "GameState") -> List[Dict] | None:
-    """Helper: Get mount_points list for an item, ensuring validity."""
+def get_item_mount_points(
+    item_id: int,
+    gs: "GameState",
+    required_flags: List[str] | None = None,
+    item_weight: float | None = None,
+) -> List[Dict] | None:
+    """Helper: Get mount_points list for an item, optionally filtering by flags and weight."""
     if not hasattr(gs, "item_registry") or gs.item_registry is None:
         return None
     mounts = gs.item_registry.get_item_component(item_id, "mount_points")
-    if isinstance(mounts, list) and all(isinstance(mp, dict) for mp in mounts):
+    if not (isinstance(mounts, list) and all(isinstance(mp, dict) for mp in mounts)):
+        if mounts is not None:
+            log.warning(
+                "mount_points component data is not list[dict]",
+                item_id=item_id,
+                data=mounts,
+            )
+        return None
+
+    # If no filtering requested, return as-is
+    if not required_flags and item_weight is None:
         return mounts
-    elif mounts is not None:
-        log.warning(
-            "mount_points component data is not list[dict]",
-            item_id=item_id,
-            data=mounts,
-        )
-    return None  # Return None if missing or invalid format
+
+    filtered: List[Dict] = []
+    for mp in mounts:
+        mp_flags = mp.get("flags", []) or []
+        weight_limit = mp.get("weight_limit")
+        if required_flags and not all(flag in mp_flags for flag in required_flags):
+            continue
+        if (
+            item_weight is not None
+            and weight_limit is not None
+            and item_weight > weight_limit
+        ):
+            continue
+        filtered.append(mp)
+    return filtered
 
 
 def get_attachable_info(item_id: int, gs: "GameState") -> Dict | None:
@@ -721,19 +744,57 @@ def can_attach(
     if not compatible_mount_types or not isinstance(compatible_mount_types, list):
         return False, "Item has no compatible mount types defined", None
 
+    required_mount_flags = attach_info.get("required_mount_flags", [])
+    item_weight = get_item_attribute(item_to_attach_id, "weight", gs, 0) or 0
+
     # 4. Get mount_points from target_host_item
-    mount_points = get_item_mount_points(target_host_item_id, gs)
-    if not mount_points:
+    all_mount_points = get_item_mount_points(target_host_item_id, gs)
+    if not all_mount_points:
         return False, "Host item has no mount points", None
 
-    # 5. Iterate through mount_points on host and find compatible + free slot
+    mount_points = get_item_mount_points(
+        target_host_item_id, gs, required_mount_flags, item_weight
+    )
+
+    occupied_issue = False
+    flag_issue = False
+    weight_issue = False
+
+    if not mount_points:
+        for mp in all_mount_points:
+            mp_id = mp.get("id")
+            if mp_id not in compatible_mount_types:
+                continue
+            if mp.get("accepted_item_id") is not None:
+                occupied_issue = True
+            mp_flags = mp.get("flags", []) or []
+            if required_mount_flags and not all(f in mp_flags for f in required_mount_flags):
+                flag_issue = True
+            weight_limit = mp.get("weight_limit")
+            if (
+                weight_limit is not None
+                and item_weight is not None
+                and item_weight > weight_limit
+            ):
+                weight_issue = True
+        if occupied_issue:
+            return False, "Mount point already occupied", None
+        if flag_issue:
+            return False, "Mount point missing required flags", None
+        if weight_issue:
+            return False, "Attachment exceeds mount point weight limit", None
+        return False, "No compatible mount points", None
+
     for mp in mount_points:
         mp_id = mp.get("id")
-        is_free = mp.get("accepted_item_id") is None
-        if mp_id and is_free and mp_id in compatible_mount_types:
-            # TODO: Add flag checks if needed
+        if mp_id not in compatible_mount_types:
+            continue
+        if mp.get("accepted_item_id") is None:
             return True, "Compatible slot found", mp_id
+        occupied_issue = True
 
+    if occupied_issue:
+        return False, "Mount point already occupied", None
     return False, "No compatible/free mount points", None
 
 

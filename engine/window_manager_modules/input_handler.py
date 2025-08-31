@@ -265,7 +265,8 @@ class InputHandler:
                     Qt.Key.Key_E: "equip_unequip",
                     Qt.Key.Key_U: "use",
                     Qt.Key.Key_D: "drop",
-                    # TODO: Add Attach/Detach keys here
+                    Qt.Key.Key_A: "attach",
+                    Qt.Key.Key_R: "detach",
                 }
                 if key in nav_map:
                     self.window_manager_ref.ui_overlay_manager.navigate(nav_map[key])

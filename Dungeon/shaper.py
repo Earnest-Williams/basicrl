@@ -79,16 +79,16 @@ except ImportError:
 #     HAS_PERLIN = False # Noise blobs will fallback
 
 # === Constants & Configuration ===
+from common.constants import (
+    MAT_SOLID_ROCK,
+    MAT_CAVE_FLOOR,
+    MAT_SHAFT_OPENING,
+    MAT_CLIFF_EDGE,
+    MAT_DOOR_CLOSED,
+    MAT_DOOR_OPEN,
+)
+
 GRID_RESOLUTION: float = 1.0
-# --- Define Tile/Material Constants Centrally (as per Plan Step 4) ---
-# TODO: Replace these with imports from common/constants.py once created
-MAT_SOLID_ROCK: int = 0
-MAT_CAVE_FLOOR: int = 1
-MAT_SHAFT_OPENING: int = 2
-MAT_CLIFF_EDGE: int = 3
-MAT_DOOR_CLOSED: int = 4  # Example
-MAT_DOOR_OPEN: int = 5  # Example
-# --- End Central Constants Placeholder ---
 
 CA_ITERATIONS: int = 8
 CA_BIRTH_THRESHOLD: int = 5
@@ -969,6 +969,7 @@ def create_map_dataframe(  # Added rng parameter
     type_grid: np.ndarray,
     origin_offset: Tuple[int, int],
     rng: GameRNG,
+    higher_final_grid: Optional[np.ndarray] = None,
 ) -> Optional[pl.DataFrame]:
     """Creates final Polars DataFrame including chamber IDs and open_above calculation."""
     if final_grid is None or depth_grid is None or type_grid is None:
@@ -1070,6 +1071,14 @@ def create_map_dataframe(  # Added rng parameter
 
     # --- Create Polars DataFrame ---
     try:
+        # Determine whether each cell is open above
+        if higher_final_grid is not None and higher_final_grid.shape == final_grid.shape:
+            col_open_above = higher_final_grid[non_rock_y, non_rock_x] != MAT_SOLID_ROCK
+        else:
+            if higher_final_grid is not None:
+                log.warning("Higher stratum grid shape mismatch; defaulting open_above to True")
+            col_open_above = np.ones(num_non_rock, dtype=bool)
+
         map_data = pl.DataFrame(
             {
                 "x": col_x,  # Should be float for world coords
@@ -1080,20 +1089,13 @@ def create_map_dataframe(  # Added rng parameter
                 "material_id": col_mat_id,
                 "walkable": col_walkable,
                 "chamber_id": col_chamber_id,
-                "open_above": True,  # Placeholder - Assume True for single stratum
+                "open_above": col_open_above,
                 "features": np.uint32(0),  # Placeholder bitmask
                 "tags": np.uint32(0),  # Placeholder bitmask
                 "stratum_index": np.uint8(0),  # Placeholder - Assume stratum 0
             }
         )
         print("Initial DataFrame created.")
-
-        # --- Calculate 'open_above' (Placeholder) ---
-        # TODO: Refine 'open_above' when multi-strata are implemented
-        print("Calculating 'open_above' column (placeholder)...")
-        # For now, assume all floor cells are open above in single stratum
-        # map_data = map_data.with_columns(pl.lit(True).alias("open_above"))
-        print("Calculated 'open_above' column.")
 
     except Exception as e:
         log.error(
