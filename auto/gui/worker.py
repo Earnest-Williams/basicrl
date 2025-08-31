@@ -2,6 +2,8 @@
 # REMOVED: import random
 import time
 
+import structlog
+
 # Imports seem correct now
 from PySide6.QtCore import QMutex, QMutexLocker, QObject, Signal, Slot
 
@@ -14,6 +16,9 @@ from ..simulation import (
     World,
     enemy_act,
 )
+
+
+log = structlog.get_logger(__name__)
 
 
 class SimulationWorker(QObject):
@@ -216,10 +221,7 @@ class SimulationWorker(QObject):
 
         except Exception as e:
             self.status_update.emit(f"Simulation Error: {e}")
-            print(f"Error in worker thread: {e}")
-            import traceback
-
-            traceback.print_exc()  # Print full traceback
+            log.error("Error in worker thread", error=e, exc_info=True)
             with QMutexLocker(self.mutex):
                 self._running = False
 
@@ -268,7 +270,7 @@ class SimulationWorker(QObject):
                 self.world.size,
             )
         except Exception as e:
-            print(f"Error emitting world state: {e}")
+            log.error("Error emitting world state", error=e)
 
     def emit_action_weights(self):
         """Emits the current action weights."""
