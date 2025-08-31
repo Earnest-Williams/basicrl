@@ -10,6 +10,7 @@ import polars as pl
 # Imports for type hinting and GameRNG
 from game_rng import GameRNG
 from ..world import line_of_sight
+from ..systems.death_system import handle_entity_death
 
 # Import sound system for audio feedback
 try:
@@ -557,11 +558,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 log.info(
                     "Entity died", target_id=target_id, name=target_name, hp=new_hp
                 )
-                # TODO: Check visibility
-                gs.add_message(f"The {target_name} dies!", (255, 100, 100))
-                # Handle death: drop items, remove from map, etc.
-                # For now, just mark as inactive
-                gs.entity_registry.delete_entity(target_id)
+                handle_entity_death(target_id, gs)
                 # Maybe add 'target_is_living': False to context for trigger checks?
                 context["target_is_living"] = (
                     False  # Update context for subsequent effects in chain
