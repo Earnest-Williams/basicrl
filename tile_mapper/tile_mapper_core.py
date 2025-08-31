@@ -3,6 +3,8 @@
 import os
 import traceback
 
+import structlog
+
 from PySide6.QtCore import QRect
 
 # Assuming tile_mapper_config is in the same directory
@@ -16,6 +18,9 @@ from tile_mapper_config import (
     USE_ORJSON,
     JSON_DecodeError,
 )
+
+
+log = structlog.get_logger(__name__)
 
 
 # --- TileMap Data Structure ---
@@ -66,7 +71,7 @@ class TileMap:
         try:
             rows = data.get("rows", [])
             if not isinstance(rows, list):
-                print("Error: Invalid map format - 'rows' key is not a list.")
+                log.error("Invalid map format - 'rows' key is not a list")
                 return False
 
             raw_height = data.get("grid_height")
@@ -92,7 +97,7 @@ class TileMap:
                 new_width = 0
 
             if not all(isinstance(row, str) for row in rows):
-                print("Error: Invalid map format - not all rows are strings.")
+                log.error("Invalid map format - not all rows are strings")
                 return False
 
             padded_rows = []
@@ -106,13 +111,13 @@ class TileMap:
                     else:
                         padded_rows.append(row)
                 if not row_lengths_consistent:
-                    print(f"Warning: Rows padded to width {new_width}.")
+                    log.warning("Rows padded to width", width=new_width)
             else:
                 padded_rows = rows
 
             if len(padded_rows) != new_height:
-                print(
-                    f"Warning: Height mismatch. Using actual row count {len(padded_rows)}."
+                log.warning(
+                    "Height mismatch. Using actual row count", actual_rows=len(padded_rows)
                 )
                 new_height = len(padded_rows)
 
@@ -127,17 +132,19 @@ class TileMap:
                 copy_w = min(len(row_list), new_width)
                 self.tiles[y][:copy_w] = row_list[:copy_w]
 
-            print(
-                f"Loaded map data: {self.width}x{self.height}, Default: '{self.default_tile}'"
+            log.info(
+                "Loaded map data",
+                width=self.width,
+                height=self.height,
+                default_tile=self.default_tile,
             )
             return True
 
         except (ValueError, TypeError) as e:
-            print(f"Error processing map data values: {e}")
+            log.error("Error processing map data values", error=str(e), exc_info=True)
             return False
         except Exception as e:
-            print(f"Error loading map data: {e}")
-            traceback.print_exc()
+            log.error("Error loading map data", error=str(e), exc_info=True)
             return False
 
 
@@ -381,7 +388,10 @@ def extract_map_region(source_tilemap: TileMap, selection: QRect) -> dict | None
         and new_width > 0
         and new_height > 0
     ):
-        print(f"Error: Invalid selection rectangle coordinates: {selection.getRect()}")
+        log.error(
+            "Invalid selection rectangle coordinates",
+            rect=selection.getRect(),
+        )
         return None
 
     new_rows = []
@@ -391,8 +401,7 @@ def extract_map_region(source_tilemap: TileMap, selection: QRect) -> dict | None
             row_segment = source_tilemap.tiles[y][start_x:end_x]
             new_rows.append("".join(row_segment))
     except IndexError:
-        print("Error: Index out of bounds during region extraction.")
-        traceback.print_exc()
+        log.error("Index out of bounds during region extraction", exc_info=True)
         return None
 
     # Use the source map's default tile for the extracted region
@@ -411,10 +420,10 @@ def save_extracted_map(
 ) -> bool:
     """Loads target JSON, adds/updates the map entry for the new key, saves back."""
     if not new_map_key:
-        print("Error: New map key cannot be empty.")
+        log.error("New map key cannot be empty")
         return False
     if not extracted_map_data:
-        print("Error: No extracted map data provided.")
+        log.error("No extracted map data provided")
         return False
 
     file_data = {"format_version": CURRENT_FORMAT_VERSION, "maps": {}}
@@ -432,14 +441,18 @@ def save_extracted_map(
                         # Ensure format version is updated/present
                         file_data["format_version"] = CURRENT_FORMAT_VERSION
                     else:
-                        print(
-                            f"Warning: File '{target_filepath}' has invalid format. Overwriting."
+                        log.warning(
+                            "File has invalid format. Overwriting.",
+                            filepath=target_filepath,
                         )
                         # Keep file_data as the default new structure
                 # else: file is empty, keep default structure
         except (JSON_DecodeError, IOError, Exception) as e:
-            print(
-                f"Warning: Could not read/parse existing file '{target_filepath}': {e}. Will overwrite."
+            log.warning(
+                "Could not read/parse existing file. Will overwrite.",
+                filepath=target_filepath,
+                error=str(e),
+                exc_info=True,
             )
             # Keep file_data as the default new structure, existing data lost
 
@@ -453,9 +466,17 @@ def save_extracted_map(
                 f.write(JSON_HANDLER.dumps(file_data, **JSON_DUMPS_KWARGS))
             else:
                 JSON_HANDLER.dump(file_data, f, **JSON_DUMPS_KWARGS)
-        print(f"Extracted map '{new_map_key}' saved successfully to {target_filepath}")
+        log.info(
+            "Extracted map saved successfully",
+            map_key=new_map_key,
+            filepath=target_filepath,
+        )
         return True
     except Exception as e:
-        print(f"Error saving extracted map to {target_filepath}: {e}")
-        traceback.print_exc()
+        log.error(
+            "Error saving extracted map",
+            filepath=target_filepath,
+            error=str(e),
+            exc_info=True,
+        )
         return False

@@ -12,6 +12,9 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import numpy as np
 import polars as pl
 from numba import njit
+import structlog
+
+log = structlog.get_logger(__name__)
 
 # Import GameRNG using relative path
 try:
@@ -19,14 +22,13 @@ try:
     from game_rng import GameRNG
 except ImportError:
     # Fallback for running shaper.py directly for tests (requires PYTHONPATH)
-    print(
-        "Warning: Relative import failed. Ensure PYTHONPATH includes project root "
-        "or run via main.py."
+    log.warning(
+        "Relative import failed. Ensure PYTHONPATH includes project root or run via main.py."
     )
     try:
         from game_rng import GameRNG  # type: ignore # noqa
     except ImportError:
-        print("FATAL: GameRNG not found via absolute path either.")
+        log.error("GameRNG not found via absolute path either", exc_info=True)
         raise
 
 # === Dependency Imports ===
@@ -36,12 +38,12 @@ try:
 
     HAS_SCIPY = True
 except ImportError:
-    print("Warning: SciPy not found. CA and Chamber ID calculation will be limited.")
+    log.warning("SciPy not found. CA and Chamber ID calculation will be limited.")
     HAS_SCIPY = False
 
     # Define dummy label if SciPy not found to avoid NameError
     def ndi_label(*args, **kwargs):  # type: ignore # noqa
-        print("Warning: SciPy not found, returning dummy labels.")
+        log.warning("SciPy not found, returning dummy labels.")
         # Return dummy grid of zeros and 0 labels
         if args and isinstance(args[0], np.ndarray):
             return np.zeros_like(args[0], dtype=int), 0
@@ -60,13 +62,13 @@ try:
         HAS_ELLIPSE_PERIMETER = True
     except ImportError:
         HAS_ELLIPSE_PERIMETER = False
-        print("Info: skimage.draw.ellipse_perimeter not found (optional).")
+        log.info("skimage.draw.ellipse_perimeter not found (optional).")
     from skimage.morphology import binary_dilation
     from skimage.morphology import disk as sk_morphology_disk
 
     HAS_SKIMAGE = True
 except ImportError:
-    print("ERROR: scikit-image not found. Rasterization/Morphology cannot proceed.")
+    log.error("scikit-image not found. Rasterization/Morphology cannot proceed.")
     HAS_SKIMAGE = False  # Essential for drawing
 
 # Removed perlin-noise import
@@ -163,7 +165,7 @@ def _rasterize_thick_line(  # Unchanged logic
 ):
     """Draws a thick line using skimage line and dilation."""
     if not HAS_SKIMAGE:
-        print("WARN: Thick line requires scikit-image.")
+        log.warning("Thick line requires scikit-image.")
         return
     # Ensure integer inputs
     r0, c0, r1, c1 = int(r0), int(c0), int(r1), int(c1)
@@ -171,7 +173,7 @@ def _rasterize_thick_line(  # Unchanged logic
     try:
         rr, cc = sk_line(r0, c0, r1, c1)
     except Exception as e:
-        print(f" Error in sk_line: {e}")
+        log.error("Error in sk_line", error=str(e), exc_info=True)
         return
 
     # Filter coordinates to be within bounds
@@ -191,7 +193,7 @@ def _rasterize_thick_line(  # Unchanged logic
             selem = sk_morphology_disk(radius)
             thick_mask = binary_dilation(line_mask, footprint=selem)
         except Exception as e:
-            print(f" Error during dilation: {e}")
+            log.error("Error during dilation", error=str(e), exc_info=True)
             # Fallback to just the thin line mask? Or return?
             thick_mask = line_mask  # Fallback to thin line
 
@@ -202,11 +204,15 @@ def _rasterize_thick_line(  # Unchanged logic
             chunk_type_mask[thick_mask] = type_id
     except IndexError:
         # This might happen if dilation near edge creates out-of-bounds indices somehow
-        print(
-            f"Warn: Index error assigning thick line value near ({r0},{c0})-({r1},{c1})."
+        log.warning(
+            "Index error assigning thick line value near endpoints",
+            start=(r0, c0),
+            end=(r1, c1),
         )
     except Exception as e:
-        print(f" Error assigning value in rasterize_thick_line: {e}")
+        log.error(
+            "Error assigning value in rasterize_thick_line", error=str(e), exc_info=True
+        )
 
 
 def _rasterize_polygon(  # Unchanged logic
@@ -219,7 +225,7 @@ def _rasterize_polygon(  # Unchanged logic
 ):
     """Rasterizes a filled polygon using skimage."""
     if not HAS_SKIMAGE:
-        print("WARN: Polygon requires scikit-image.")
+        log.warning("Polygon rasterization requires scikit-image.")
         return
     try:
         # Round coordinates and ensure they are integers for skimage
@@ -232,7 +238,7 @@ def _rasterize_polygon(  # Unchanged logic
         if chunk_type_mask is not None and chunk_type_mask.shape == grid.shape:
             chunk_type_mask[rr, cc] = type_id
     except Exception as e:
-        print(f"Error rasterizing polygon: {e}")
+        log.error("Error rasterizing polygon", error=str(e), exc_info=True)
 
 
 # --- Cavern Rasterization Helpers (Modified to accept and use 'rng') ---
@@ -261,7 +267,7 @@ def _rasterize_ellipse_cavern(  # Added rng parameter
         grid[rr, cc] = value
         chunk_type_mask[rr, cc] = type_id
     except Exception as e:
-        print(f"Error drawing ellipse cavern: {e}")
+        log.error("Error drawing ellipse cavern", error=str(e), exc_info=True)
 
 
 def _rasterize_rect_cavern(  # Added rng parameter
@@ -339,7 +345,7 @@ def _rasterize_multicircle_cavern(  # Added rng parameter
             )
             temp_mask[rr, cc] = True
         except Exception as e:
-            print(f"Error drawing disk lobe: {e}")
+            log.error("Error drawing disk lobe", error=str(e), exc_info=True)
     grid[temp_mask] = value
     chunk_type_mask[temp_mask] = type_id
 
@@ -398,10 +404,10 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
                 )
                 base_rr, base_cc = points[:, 0], points[:, 1]
     except Exception as e:
-        print(f"Error generating ellipse perimeter: {e}")
+        log.error("Error generating ellipse perimeter", error=str(e), exc_info=True)
 
     if len(base_rr) == 0:
-        print("WARN: No points for noisy ellipse boundary.")
+        log.warning("No points for noisy ellipse boundary.")
         return
 
     perturbed_r, perturbed_c = base_rr.astype(float), base_cc.astype(float)
@@ -431,7 +437,7 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
         perturbed_r += displace_r
         perturbed_c += displace_c
     except Exception as e:
-        print(f"Error applying GameRNG noise: {e}")
+        log.error("Error applying GameRNG noise", error=str(e), exc_info=True)
 
     _rasterize_polygon(grid, perturbed_r, perturbed_c, value, chunk_type_mask, type_id)
 
@@ -469,7 +475,7 @@ def _rasterize_noise_blob_cavern(  # Added rng parameter
                     r_world, c_world, scale=1.0 / freq, seed_offset=noise_seed_offset
                 )
     except Exception as e:
-        print(f"Error generating GameRNG noise field: {e}")
+        log.error("Error generating GameRNG noise field", error=str(e), exc_info=True)
         # Fallback? Or just continue with potentially zeros?
         # Let's continue, might result in smaller blob
 
@@ -491,12 +497,13 @@ def _rasterize_noise_blob_cavern(  # Added rng parameter
         grid[grid_slice][blob_mask] = value
         chunk_type_mask[grid_slice][blob_mask] = type_id
     except IndexError:
-        print(
-            f"Warn: Index error assigning noise blob mask. Slice: {grid_slice}, "
-            f"Mask Shape: {blob_mask.shape}"
+        log.warning(
+            "Index error assigning noise blob mask",
+            grid_slice=grid_slice,
+            mask_shape=blob_mask.shape,
         )
     except Exception as e:
-        print(f"Error assigning noise blob mask: {e}")
+        log.error("Error assigning noise blob mask", error=str(e), exc_info=True)
 
 
 # --- Map cavern subtype names to functions ---
@@ -520,12 +527,12 @@ def _calculate_grid_bounds(
         all_x = [n["x"] for n in nodes if not math.isnan(n.get("x", float("nan")))]
         all_y = [n["y"] for n in nodes if not math.isnan(n.get("y", float("nan")))]
         if not all_x or not all_y:
-            print("Error: No valid coordinates found for bounds calculation.")
+            log.error("No valid coordinates found for bounds calculation.")
             return None
         min_x, max_x = min(all_x), max(all_x)
         min_y, max_y = min(all_y), max(all_y)
     except Exception as e:
-        print(f"Error calculating bounds: {e}")
+        log.error("Error calculating bounds", error=str(e), exc_info=True)
         return None
 
     # Add padding around the min/max coordinates
@@ -544,7 +551,7 @@ def _calculate_grid_bounds(
     )
 
     if grid_width <= 0 or grid_height <= 0:
-        print("Error: Invalid grid dimensions calculated (non-positive).")
+        log.error("Invalid grid dimensions calculated", grid_width=grid_width, grid_height=grid_height)
         return None
 
     return grid_width, grid_height, origin_offset_x, origin_offset_y
@@ -565,7 +572,9 @@ def _initialize_grids(
         type_grid = np.zeros((height, width), dtype=np.uint8)
         return grid, depth_grid, type_grid, chunk_type_map
     except (MemoryError, ValueError) as e:
-        print(f"Error allocating grids (H:{height}, W:{width}): {e}")
+        log.error(
+            "Error allocating grids", height=height, width=width, error=str(e), exc_info=True
+        )
         return None
 
 
@@ -597,8 +606,9 @@ def _rasterize_segment(  # Added rng parameter
         p_x, p_y = parent_data.get("x", 0.0), parent_data.get("y", 0.0)
         c_x, c_y = child_node_data.get("x", p_x), child_node_data.get("y", p_y)
         if math.isnan(p_x) or math.isnan(p_y) or math.isnan(c_x) or math.isnan(c_y):
-            print(
-                f"Warn: NaN coords in segment {parent_data['id']}->{child_node_data['id']}. Skipping."
+            log.warning(
+                "NaN coords in segment; skipping",
+                segment=f"{parent_data['id']}->{child_node_data['id']}",
             )
             return
 
@@ -685,8 +695,9 @@ def _rasterize_segment(  # Added rng parameter
                         rng,  # Pass rng
                     )
                 else:
-                    print(
-                        f"ERROR: Unhandled cavern function for subtype '{chunk_subtype}'"
+                    log.error(
+                        "Unhandled cavern function for subtype",
+                        subtype=chunk_subtype,
                     )
                 # Assign depth to newly painted floor cells within the cavern
                 newly_painted_mask = (
@@ -696,9 +707,9 @@ def _rasterize_segment(  # Added rng parameter
                 )
                 depth_grid[newly_painted_mask] = parent_data.get("depth_m", 0.0)
             else:  # Fallback if subtype unknown
-                print(
-                    f"Warning: Unknown big_room subtype '{chunk_subtype}'. "
-                    "Drawing wide passage."
+                log.warning(
+                    "Unknown big_room subtype; drawing wide passage",
+                    subtype=chunk_subtype,
                 )
                 width_m = rng.get_float(*properties["width_m"])  # Use rng
                 width_cells = max(1, int(round(width_m / GRID_RESOLUTION)))
@@ -810,7 +821,7 @@ def initialize_cave_grid(  # Added rng parameter
     """Creates initial 2D grid footprint by orchestrating helper functions."""
     # Removed global debug dump variables
     if not augmented_nodes:
-        print("Error: No nodes provided for grid initialization.")
+        log.error("No nodes provided for grid initialization.")
         return None, None, None, (0, 0)
 
     print("Initializing cave grid (refactored)...")
@@ -933,11 +944,11 @@ def run_cellular_automata(  # Unchanged logic
     #     print("Using Numba loop for CA.")
     #     ca_step_func = _run_ca_step_numpy
     else:
-        print("Warning: SciPy not found. Using slower NumPy loop for CA.")
+        log.warning("SciPy not found. Using slower NumPy loop for CA.")
         # Fallback to a pure python/numpy loop if Numba isn't easily applied or available
         # For simplicity, let's assume SciPy exists or fail if not.
         # If a pure Python fallback is needed, implement _run_ca_step_numpy without @njit
-        print("ERROR: SciPy required for CA step.")
+        log.error("SciPy required for CA step.")
         return initial_grid  # Or return None?
 
     if ca_step_func:
@@ -945,7 +956,7 @@ def run_cellular_automata(  # Unchanged logic
             try:
                 grid = ca_step_func(grid)
             except Exception as e:
-                print(f"Error CA step {i+1}: {e}")
+                log.error("Error during CA step", step=i + 1, error=str(e), exc_info=True)
                 traceback.print_exc()  # Show full traceback
                 return grid  # Return current state on error
     print("CA finished.")
@@ -974,7 +985,7 @@ def create_map_dataframe(  # Added rng parameter
     non_rock_y, non_rock_x = np.where(final_grid != MAT_SOLID_ROCK)
     num_non_rock = len(non_rock_y)
     if num_non_rock == 0:
-        print("Warning: No non-rock cells found to create DataFrame.")
+        log.warning("No non-rock cells found to create DataFrame.")
         return pl.DataFrame()  # Return empty DataFrame
 
     print(f"Found {num_non_rock} non-rock cells.")
@@ -1022,7 +1033,9 @@ def create_map_dataframe(  # Added rng parameter
             unknown_type_count += 1
 
     if unknown_type_count > 0:
-        print(f"Warning: Assigned default height range to {unknown_type_count} cells.")
+        log.warning(
+            "Assigned default height range to cells", count=unknown_type_count
+        )
 
     # Calculate ceiling depth
     col_ceil_depth = (col_floor_depth - col_height).round(2)
@@ -1047,10 +1060,12 @@ def create_map_dataframe(  # Added rng parameter
             # Extract chamber IDs for the non-rock cells
             col_chamber_id = labeled_grid[non_rock_y, non_rock_x].astype(np.int32)
         except Exception as e:
-            print(f"Error during Chamber ID calculation: {e}")
+            log.error(
+                "Error during Chamber ID calculation", error=str(e), exc_info=True
+            )
             col_chamber_id.fill(-1)  # Indicate error
     else:
-        print("Warning: SciPy not found, cannot calculate Chamber IDs.")
+        log.warning("SciPy not found, cannot calculate Chamber IDs.")
         col_chamber_id.fill(-1)  # Indicate missing
 
     # --- Create Polars DataFrame ---
@@ -1081,8 +1096,11 @@ def create_map_dataframe(  # Added rng parameter
         print("Calculated 'open_above' column.")
 
     except Exception as e:
-        print(f"Error creating DataFrame or calculating open_above: {e}")
-        traceback.print_exc()
+        log.error(
+            "Error creating DataFrame or calculating open_above",
+            error=str(e),
+            exc_info=True,
+        )
         return None
 
     return map_data
@@ -1101,7 +1119,7 @@ def generate_shaped_cave(  # Added rng parameter
     # Pass rng down
     init_result = initialize_cave_grid(augmented_nodes, augmented_node_map, rng)
     if init_result is None or init_result[0] is None:  # Check if grid creation failed
-        print("Error: Failed to initialize cave grid.")
+        log.error("Failed to initialize cave grid.")
         return None
     initial_grid, depth_grid, type_grid, origin = init_result
     print(f"Grid Initialized. Size: {initial_grid.shape}. Origin Offset: {origin}")
@@ -1109,7 +1127,7 @@ def generate_shaped_cave(  # Added rng parameter
     print("\n--- Stage: Running Cellular Automata ---")
     final_grid = run_cellular_automata(initial_grid, iterations=ca_iterations)
     if final_grid is None:
-        print("Error: Cellular Automata failed.")
+        log.error("Cellular Automata failed.")
         return None
     print("Cellular Automata completed.")
 
@@ -1136,9 +1154,9 @@ def generate_shaped_cave(  # Added rng parameter
             save_img("debug_depth_grid.png", depth_grid, cmap="magma")
             save_img("debug_type_grid.png", type_grid, cmap="tab20")
         except ImportError:
-            print("Warning: Install matplotlib to save debug images.")
+            log.warning("Install matplotlib to save debug images.")
         except Exception as e:
-            print(f"Error saving debug images: {e}")
+            log.error("Error saving debug images", error=str(e), exc_info=True)
 
     print("\n--- Stage: Creating DataFrame ---")
     # Pass rng down
@@ -1148,7 +1166,7 @@ def generate_shaped_cave(  # Added rng parameter
             f"\nShaping complete. Generated DataFrame with {len(map_dataframe)} rows."
         )
     else:
-        print("\nError: Failed to create DataFrame.")
+        log.error("Failed to create DataFrame.")
 
     return map_dataframe
 
@@ -1173,7 +1191,7 @@ if __name__ == "__main__":
 
         processed_nodes_list = processed_data.get("nodes", [])
         if not processed_nodes_list:
-            print("Error: No 'nodes' in test JSON.")
+            log.error("No 'nodes' in test JSON.")
             sys.exit(1)
 
         processed_node_map = {n["id"]: n for n in processed_nodes_list}
@@ -1201,11 +1219,11 @@ if __name__ == "__main__":
                 test_map.write_ipc(OUTPUT_ARROW_FILE)
                 print("Test map saved successfully.")
             except Exception as e:
-                print(f"Error saving test map DataFrame: {e}")
+                log.error("Error saving test map DataFrame", error=str(e), exc_info=True)
         elif test_map is not None:
-            print("\nTest map DataFrame is empty.")
+            log.warning("Test map DataFrame is empty.")
         else:
-            print("\nTest map generation pipeline failed.")
+            log.error("Test map generation pipeline failed.")
 
         test_end_time = time.time()
         print(
@@ -1214,9 +1232,10 @@ if __name__ == "__main__":
         )
 
     except FileNotFoundError:
-        print(f"Test input file '{INPUT_JSON_FILE}' not found.")
+        log.error("Test input file not found", file=INPUT_JSON_FILE)
         print("Please generate it by running core.py and processor.py first.")
         print("Skipping isolated shaper test.")
     except Exception as e:
-        print(f"Error during isolated shaper test: {e}")
-        traceback.print_exc()
+        log.error(
+            "Error during isolated shaper test", error=str(e), exc_info=True
+        )

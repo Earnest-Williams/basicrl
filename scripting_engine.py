@@ -12,6 +12,9 @@ import warnings
 from io import StringIO
 
 import numpy as np
+import structlog
+
+log = structlog.get_logger(__name__)
 
 # Suppress numpy overflow warnings that are expected with uint64 operations
 warnings.filterwarnings(
@@ -91,7 +94,7 @@ def _generate_bf_func(code, tape_size=30000):
         exec(full_code, namespace)
         return namespace["bf_program"]
     except Exception as e:
-        print(f"Error executing generated BF code: {e}")
+        log.error("Error executing generated BF code", error=str(e), exc_info=True)
         raise  # Re-raise the error
 
 
@@ -172,8 +175,8 @@ class BrainfuckRunner:
                     # Numba doesn't easily support StringIO, need wrapper or different approach
                     # For now, disable JIT if I/O is involved, or handle I/O outside JITted part
                     if "." in code or "," in code:
-                        print(
-                            "Warning: JIT compilation with I/O might be slow or unsupported. Running interpreted."
+                        log.warning(
+                            "JIT compilation with I/O might be slow or unsupported. Running interpreted."
                         )
                         output = bf_func(tape, input_data, output_stream)
                     else:
@@ -182,14 +185,16 @@ class BrainfuckRunner:
                         # compiled_func = njit(lambda t: bf_func(t, "", StringIO()))
                         # compiled_func(tape)
                         # output = output_stream.getvalue() # This won't work as StringIO isn't updated by JIT
-                        print(
-                            "Warning: JIT with I/O needs complex handling. Running interpreted."
+                        log.warning(
+                            "JIT with I/O needs complex handling. Running interpreted."
                         )
                         output = bf_func(tape, input_data, output_stream)
 
                 except Exception as e:
-                    print(
-                        f"Numba JIT compilation failed: {e}. Falling back to interpreter."
+                    log.warning(
+                        "Numba JIT compilation failed. Falling back to interpreter",
+                        error=str(e),
+                        exc_info=True,
                     )
                     # Fallback to non-JIT
                     output = bf_func(tape, input_data, output_stream)
@@ -272,8 +277,8 @@ class MacroManager:
 
                 if macro_name in seen_macros:
                     # Prevent direct recursion within this expansion path
-                    print(
-                        f"Warning: Detected recursion for macro {macro_name}. Stopping expansion here."
+                    log.warning(
+                        "Detected recursion for macro; stopping expansion", macro=macro_name
                     )
                     current_expansion += macro_name  # Keep the macro name as is
                 elif macro_name in self.macros:
@@ -301,7 +306,9 @@ class MacroManager:
             seen_macros.clear()  # Reset seen set for the next level of expansion if needed, depends on desired recursion depth handling
 
         if depth >= expansion_limit:
-            print(f"Warning: Macro expansion reached depth limit ({expansion_limit}).")
+            log.warning(
+                "Macro expansion reached depth limit", expansion_limit=expansion_limit
+            )
 
         return expanded_text
 

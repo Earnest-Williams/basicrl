@@ -13,6 +13,9 @@ import time
 import traceback  # Import traceback for error logging
 from collections import Counter
 from multiprocessing import Pool, cpu_count
+import structlog
+
+log = structlog.get_logger(__name__)
 
 from utils.logging_utils import setup_logging
 
@@ -33,9 +36,8 @@ try:
         enemy_act,
     )
 except ImportError:
-    print(
-        "Error: Cannot perform relative imports. Run as module: python -m auto.main [...]",
-        file=sys.stderr,
+    log.error(
+        "Cannot perform relative imports. Run as module: python -m auto.main [...]"
     )
     # Fallback for direct execution (less ideal)
     try:
@@ -53,7 +55,11 @@ except ImportError:
             enemy_act,
         )
     except ImportError as e:
-        print(f"Failed to import simulation components or GameRNG: {e}", file=sys.stderr)
+        log.error(
+            "Failed to import simulation components or GameRNG",
+            error=str(e),
+            exc_info=True,
+        )
         sys.exit(1)
 
 
@@ -76,7 +82,12 @@ def run_single_headless(
         # Use a performant generator like xorshift for headless runs if desired
         local_rng = GameRNG(seed=run_seed, generator="xorshift", metrics=False)
     except Exception as e:
-        print(f"Error Run {run_id}: Failed to create GameRNG: {e}", file=sys.stderr)
+        log.error(
+            "Run failed to create GameRNG",
+            run_id=run_id,
+            error=str(e),
+            exc_info=True,
+        )
         return 0, {}, "RNGCreationError"
 
     print(f"--- Starting Headless Run {run_id} (Seed: {run_seed}) ---")
@@ -94,7 +105,7 @@ def run_single_headless(
     world.reset(rng=local_rng)
     agent = world.agent
     if not agent:
-        print(f"Error Run {run_id}: Agent not created.", file=sys.stderr)
+        log.error("Agent not created", run_id=run_id)
         return 0, dict(agent_ai.planner.action_weights), "AgentError"
 
     cause_of_death = "Unknown"
@@ -222,13 +233,10 @@ if __name__ == "__main__":
             # Use relative import for GUI components when run as module
             from .gui.main_window import MainWindow
         except ImportError:
-            print(
-                "Error: Could not import GUI components. Ensure PySide6 is installed.",
-                file=sys.stderr,
+            log.error(
+                "Could not import GUI components. Ensure PySide6 is installed."
             )
-            print(
-                "If running directly, ensure script is in the correct directory.", file=sys.stderr
-            )
+            log.error("If running directly, ensure script is in the correct directory.")
             sys.exit(1)
 
         try:
@@ -240,8 +248,7 @@ if __name__ == "__main__":
             main_win.show()
             sys.exit(app.exec())
         except Exception as e:
-            print(f"GUI Error: {e}", file=sys.stderr)
-            traceback.print_exc()
+            log.error("GUI Error", error=str(e), exc_info=True)
             sys.exit(1)
 
     # --- Headless Mode ---
@@ -303,8 +310,7 @@ if __name__ == "__main__":
                         result = run_single_headless(run_arg_tuple)
                     results.append(result)
         except Exception as e:
-            print(f"\n!!! Error during headless execution: {e} !!!", file=sys.stderr)
-            traceback.print_exc()
+            log.error("Error during headless execution", error=str(e), exc_info=True)
 
         # Process results
         all_turns = [r[0] for r in results]
@@ -350,5 +356,5 @@ if __name__ == "__main__":
             print(s.getvalue())
             print("------------------------------------")
     else:
-        print(f"Error: Unknown mode '{args.mode}'", file=sys.stderr)
+        log.error("Unknown mode", mode=args.mode)
         sys.exit(1)

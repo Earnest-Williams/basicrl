@@ -8,12 +8,15 @@ import time
 import typing  # Use typing instead of from typing import ...
 import uuid
 from collections import defaultdict, deque
+import structlog
+
+log = structlog.get_logger(__name__)
 
 # --- Use relative imports for project modules ---
 try:
     from game_rng import GameRNG
 except ImportError:
-    print("Warning: Could not import GameRNG. Using dummy.", file=sys.stderr)
+    log.warning("Could not import GameRNG. Using dummy implementation.")
 
     # Define dummy if needed for standalone testing, but main path needs real one
     class GameRNG:  # type: ignore # noqa
@@ -39,7 +42,7 @@ import polars as pl
 try:
     from numba import njit
 except ImportError:
-    print("Warning: Numba not found, distance calculation will be slower.", file=sys.stderr)
+    log.warning("Numba not found, distance calculation will be slower.")
 
     # Dummy decorator if Numba not available
     def njit(func=None, **options):  # type: ignore # noqa
@@ -313,7 +316,9 @@ class World:
         """Adds an entity to the world if the position is valid and mostly empty."""
         pos = entity.get_position()
         if not self.is_valid(pos[0], pos[1]):
-            print(f"Warning: Cannot add entity {entity.id} outside grid at {pos}.")
+            log.warning(
+                "Cannot add entity outside grid", entity_id=entity.id, pos=pos
+            )
             return False
 
         existing_entity = self.grid[pos[0]][pos[1]]
@@ -324,26 +329,40 @@ class World:
             can_place = True
         elif existing_entity.kind == "item" and entity.kind != "item":
             # Agent/Enemy overwrites item (item might be picked up later or destroyed)
-            print(f"Warning: Entity {entity.kind} displacing item {existing_entity.id} at {pos}.")
+            log.warning(
+                "Entity displacing item", entity_kind=entity.kind,
+                item_id=existing_entity.id, pos=pos
+            )
             self.remove_entity(existing_entity)  # Remove the item first
             can_place = True
         elif entity.kind == "item" and existing_entity.kind != "item":
             # Cannot place item on top of agent/enemy
-            print(
-                f"Warning: Cannot place item {entity.id} on occupied tile {pos} ({existing_entity.kind})."
+            log.warning(
+                "Cannot place item on occupied tile",
+                item_id=entity.id,
+                pos=pos,
+                occupier=existing_entity.kind,
             )
             can_place = False
         elif entity.kind == "item" and existing_entity.kind == "item":
             # Allow stacking items? For now, disallow.
-            print(
-                f"Warning: Cannot stack item {entity.id} on existing item {existing_entity.id} at {pos}."
+            log.warning(
+                "Cannot stack item on existing item",
+                item_id=entity.id,
+                existing_item_id=existing_entity.id,
+                pos=pos,
             )
             can_place = False
         else:  # Agent/Enemy trying to occupy same space
             can_place = False
 
         if not can_place:
-            print(f"Warning: Position {pos} occupied, cannot add {entity.kind} {entity.id}.")
+            log.warning(
+                "Position occupied; cannot add entity",
+                pos=pos,
+                entity_kind=entity.kind,
+                entity_id=entity.id,
+            )
             return False
 
         # Place entity
@@ -382,7 +401,9 @@ class World:
                 else:
                     self.entity_df = pl.concat([self.entity_df, new_df], how="vertical")
             except Exception as e:
-                print(f"Error updating Polars DataFrame: {e}")
+                log.error(
+                    "Error updating Polars DataFrame", error=str(e), exc_info=True
+                )
                 # Potentially fallback or log error, but proceed with adding to dicts/grid
 
         # Assign agent reference if applicable
@@ -480,7 +501,11 @@ class World:
             or self.grid[current_pos[0]][current_pos[1]] != entity
         ):
             # This might indicate a state inconsistency
-            print(f"Warning: Entity {entity_id} not found at expected position {current_pos}.")
+            log.warning(
+                "Entity not found at expected position",
+                entity_id=entity_id,
+                expected_pos=current_pos,
+            )
             # Allow move anyway if target is clear? Or return False? Let's be strict.
             return False
 
@@ -491,8 +516,12 @@ class World:
 
         # If target cell had an item, remove it (entity moves onto it)
         if target_entity is not None and target_entity.kind == "item":
-            print(
-                f"Warning: Entity {entity.kind} moving onto item {target_entity.id} at ({new_x},{new_y}). Item removed."
+            log.warning(
+                "Entity moving onto item; item removed",
+                entity_kind=entity.kind,
+                item_id=target_entity.id,
+                new_x=new_x,
+                new_y=new_y,
             )
             self.remove_entity(target_entity)
 
@@ -523,7 +552,7 @@ class World:
         if "kind" in self.entity_df.columns:
             return self.entity_df.filter(pl.col("kind") == kind)
         else:
-            print("Warning: 'kind' column not found in entity_df.")
+            log.warning("'kind' column not found in entity_df")
             return self._create_empty_entity_df()
 
     def get_nearest_entity(  # Unchanged logic, uses Polars/dict lookup
@@ -612,7 +641,7 @@ class World:
             )
             self.add_entity(agent)
         else:
-            print("Fatal Error: No space to place agent!")
+            log.error("No space to place agent")
             # Consider raising an exception here?
             return
 

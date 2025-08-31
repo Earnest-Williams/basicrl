@@ -21,6 +21,9 @@ import polars as pl
 from joblib import Parallel, delayed
 from numba import njit
 from game.world.los import line_of_sight
+import structlog
+
+log = structlog.get_logger(__name__)
 
 # --- Constants ---
 
@@ -143,14 +146,18 @@ def _propagate_noise_kernel(
     cost_grid.fill(infinity)
 
     if not in_bounds(start_y, start_x, height, width):
-        print(f"Warning: Noise start ({start_y}, {start_x}) out of bounds.")
+        log.warning(
+            "Noise start out of bounds", start_y=start_y, start_x=start_x
+        )
         return  # Start is outside map
 
     # Check if start location itself is blocked (e.g., inside a wall)
     if terrain_map[start_y, start_x] == FeatureType.WALL:
         # Cannot start noise inside a wall - might need refinement based on game rules
         # Or maybe allow it for specific effects? For now, just exit.
-        print(f"Warning: Noise start ({start_y}, {start_x}) is inside a wall.")
+        log.warning(
+            "Noise start is inside a wall", start_y=start_y, start_x=start_x
+        )
         return
 
     cost_grid[start_y, start_x] = start_cost
@@ -233,7 +240,7 @@ def update_noise(
     flow_idx: int = int(which_flow)  # Get integer index from Enum
 
     if not (0 <= flow_idx < MAX_FLOWS):
-        print(f"Error: Invalid flow index {flow_idx}")
+        log.error("Invalid flow index", flow_idx=flow_idx)
         return
 
     # Select the specific 2D cost grid slice for this flow type
@@ -281,7 +288,7 @@ def get_noise_dist(
     height, width = cave_cost.shape[1], cave_cost.shape[2]
 
     if not (0 <= flow_idx < MAX_FLOWS):
-        print(f"Error: Invalid flow index {flow_idx} in get_noise_dist")
+        log.error("Invalid flow index in get_noise_dist", flow_idx=flow_idx)
         return NOISE_MAX_DIST  # Return max distance on error
 
     if not in_bounds(y, x, height, width):
