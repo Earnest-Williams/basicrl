@@ -1,5 +1,5 @@
 # game/world/game_map.py
-from typing import Final, NamedTuple, Set, Tuple  # Ensure Set, Tuple are imported
+from typing import Final, NamedTuple, Set, Tuple, Dict
 
 import math
 import numpy as np
@@ -24,26 +24,64 @@ class TileType(NamedTuple):
     tile_index: int
     color_fg: tuple[int, int, int]
     color_bg: tuple[int, int, int]
+    memory_modifier: float
 
 
 TILE_TYPES: Final[dict[int, TileType]] = {
     TILE_ID_FLOOR: TileType(
         walkable=True,
         transparent=True,
-        tile_index=2, # Example index for floor tile in tileset
+        tile_index=2,  # Example index for floor tile in tileset
         color_fg=(200, 200, 200),
         color_bg=(10, 10, 30),
+        memory_modifier=1.0,
     ),
     TILE_ID_WALL: TileType(
         walkable=False,
         transparent=False,
-        tile_index=38, # Example index for wall tile in tileset
+        tile_index=38,  # Example index for wall tile in tileset
         color_fg=(180, 180, 180),
         color_bg=(30, 30, 50),
+        memory_modifier=2.0,
     ),
     # Add other tile types here...
 }
 
+
+TILE_NAME_TO_ID: Final[Dict[str, int]] = {
+    "floor": TILE_ID_FLOOR,
+    "wall": TILE_ID_WALL,
+}
+
+
+def _normalize_tile_modifier_overrides(
+    overrides: Dict[str | int, float]
+) -> Dict[int, float]:
+    """Convert user-provided keys (names or IDs) to tile ID -> modifier."""
+    normalized: Dict[int, float] = {}
+    for key, value in overrides.items():
+        tile_id: int | None
+        if isinstance(key, int):
+            tile_id = key
+        else:
+            tile_id = TILE_NAME_TO_ID.get(str(key).lower())
+        if tile_id is None:
+            continue
+        normalized[tile_id] = float(value)
+    return normalized
+
+
+def get_memory_modifier_map(
+    tiles: np.ndarray, overrides: Dict[int, float] | None = None
+) -> np.ndarray:
+    """Return an array of memory modifiers per tile."""
+    modifiers = np.ones_like(tiles, dtype=np.float32)
+    for tile_id, tile_type in TILE_TYPES.items():
+        modifiers[tiles == tile_id] = tile_type.memory_modifier
+    if overrides:
+        for tile_id, mod in overrides.items():
+            modifiers[tiles == tile_id] = mod
+    return modifiers
 
 def get_transparency_map(tiles: np.ndarray) -> np.ndarray:
     """Creates a boolean array indicating transparency based on TILE_TYPES."""
@@ -65,10 +103,13 @@ class LightSource:
 
 
 class GameMap:
-    def __init__(self, width: int, height: int):
-        """
-        Initializes the game map with dimensions and default tile arrays.
-        """
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        tile_memory_modifiers: Dict[str | int, float] | None = None,
+    ):
+        """Initializes the game map with dimensions and default tile arrays."""
         if width <= 0 or height <= 0:
             log.error("Invalid map dimensions", width=width, height=height)
             raise ValueError("Map width and height must be positive integers.")
@@ -85,6 +126,11 @@ class GameMap:
         self.visible: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
         # Cached transparency map
         self.transparent: np.ndarray = get_transparency_map(self.tiles)
+        # Memory modifier map per tile
+        self._tile_modifier_overrides: Dict[int, float] = {}
+        self.tile_memory_modifiers: np.ndarray = get_memory_modifier_map(self.tiles)
+        if tile_memory_modifiers:
+            self.apply_memory_modifier_overrides(tile_memory_modifiers)
         # Height and Ceiling maps
         self.height_map: np.ndarray = np.zeros(
             (height, width), dtype=np.int16, order="C"
@@ -127,8 +173,21 @@ class GameMap:
         self.transparent = np.zeros((self._height, self._width), dtype=bool)
         for tile_id, tile_type in TILE_TYPES.items():
             self.transparent[self.tiles == tile_id] = tile_type.transparent
+        # Recompute memory modifiers in case tiles changed
+        self.tile_memory_modifiers = get_memory_modifier_map(
+            self.tiles, self._tile_modifier_overrides
+        )
         transparent_count = np.sum(self.transparent)
         log.info("Transparency map updated", transparent_count=transparent_count)
+
+    def apply_memory_modifier_overrides(
+        self, overrides: Dict[str | int, float]
+    ) -> None:
+        """Apply designer-provided memory fade overrides per tile type."""
+        self._tile_modifier_overrides = _normalize_tile_modifier_overrides(overrides)
+        self.tile_memory_modifiers = get_memory_modifier_map(
+            self.tiles, self._tile_modifier_overrides
+        )
 
     @property
     def width(self) -> int:
@@ -170,9 +229,8 @@ class GameMap:
             self.visible,
             self.memory_fade_mask,
             self.prev_visible,
-
             self.memory_strength,
-
+            self.tile_memory_modifiers,
             steepness,
             midpoint,
         )
