@@ -37,6 +37,10 @@ CLOSE_RANGE_DIVISOR: int = 8
 FAR_RANGE_DIVISOR: int = 16
 _THRESHOLD_AT_CUTOFF: int = CLOSE_RANGE_SQ_THRESHOLD // CLOSE_RANGE_DIVISOR
 MAX_SECTORS: int = 10000  # Safety limit for sector processing
+# Memory fade parameters
+MEMORY_DURATION: float = 60.0
+MEMORY_SIGMOID_MIDPOINT: float = MEMORY_DURATION / 2.0
+MEMORY_SIGMOID_STEEPNESS: float = 6.0 / MEMORY_DURATION
 
 # --- Numba Helper Functions ---
 @numba.njit(cache=True, inline="always")
@@ -386,4 +390,77 @@ def line_of_sight(
             break
             
     return True
+
+
+@numba.njit(cache=True)
+def update_memory_fade(
+    current_time: np.float32,
+    last_seen_time: np.ndarray,
+    memory_intensity: np.ndarray,
+    visible: np.ndarray,
+) -> None:
+    """Sigmoid-based fading of remembered tiles."""
+    height, width = memory_intensity.shape
+    steepness = MEMORY_SIGMOID_STEEPNESS
+    midpoint = MEMORY_SIGMOID_MIDPOINT
+    for y in range(height):
+        for x in range(width):
+            intensity = memory_intensity[y, x]
+            if intensity > 0.0 and not visible[y, x]:
+                elapsed_time = current_time - last_seen_time[y, x]
+                if elapsed_time < 0.0:
+                    elapsed_time = 0.0
+                exponent = steepness * (elapsed_time - midpoint)
+                if exponent < 70.0:
+                    denom = 1.0 + math.exp(exponent)
+                    new_intensity = 1.0 / denom if denom > 1e-9 else 0.0
+                else:
+                    new_intensity = 0.0
+                memory_intensity[y, x] = max(0.0, new_intensity)
+
+
+@numba.njit(cache=True)
+def compute_light_color_array(
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    target_rgb_array: np.ndarray,
+    base_color_rgb: tuple[int, int, int],
+) -> None:
+    """Accumulate colored light from a source into target_rgb_array."""
+    h, w = opaque_grid.shape
+    temp_visible = np.zeros((h, w), dtype=np.bool_)
+    temp_explored = np.zeros((h, w), dtype=np.bool_)
+    _compute_fov_numba_core(
+        origin_xy,
+        range_limit,
+        opaque_grid,
+        height_map,
+        ceiling_map,
+        origin_height,
+        temp_visible,
+        temp_explored,
+    )
+
+    ox, oy = origin_xy
+    radius_sq = range_limit * range_limit
+    r = float(base_color_rgb[0])
+    g = float(base_color_rgb[1])
+    b = float(base_color_rgb[2])
+
+    for y in range(h):
+        for x in range(w):
+            if temp_visible[y, x]:
+                dx = x - ox
+                dy = y - oy
+                dist_sq = dx * dx + dy * dy
+                if dist_sq <= radius_sq:
+                    intensity = 1.0 - (dist_sq / radius_sq)
+                    if intensity > 0.0:
+                        target_rgb_array[y, x, 0] += r * intensity
+                        target_rgb_array[y, x, 1] += g * intensity
+                        target_rgb_array[y, x, 2] += b * intensity
 

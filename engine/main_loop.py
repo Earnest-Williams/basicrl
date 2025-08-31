@@ -42,6 +42,8 @@ class MainLoop:
         lighting_ambient: float,
         lighting_min_fov: float,
         lighting_falloff: float,
+        enable_memory_fade: bool = True,
+        enable_colored_lights: bool = True,
     ):
         """
         Initializes the MainLoop.
@@ -77,6 +79,8 @@ class MainLoop:
         self._cfg_ambient_light = np.float32(lighting_ambient)
         self._cfg_min_fov_light = np.float32(lighting_min_fov)
         self._cfg_light_falloff = np.float32(lighting_falloff)
+        self._cfg_enable_memory_fade = enable_memory_fade
+        self._cfg_enable_colored_lights = enable_colored_lights
 
         log.info("MainLoop initialized successfully")
 
@@ -162,6 +166,8 @@ class MainLoop:
             lighting_min_fov=self._cfg_min_fov_light,
             lighting_falloff=self._cfg_light_falloff,
             fov_radius_sq=fov_radius_sq,  # Pass pre-calculated value
+            enable_memory_fade=self._cfg_enable_memory_fade,
+            enable_colored_lights=self._cfg_enable_colored_lights,
         )
         # --- End Create RenderConfig ---
 

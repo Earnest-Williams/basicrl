@@ -9,11 +9,13 @@ from game.entities.components import Position
 from game.items.registry import ItemRegistry
 
 # Assuming these imports are correct relative to game_state.py
-from game.world.game_map import GameMap
 
+from game.world.game_map import GameMap, LightSource
+from game.systems.ai_system import dispatch_ai
 # New AI package imports
 from game.ai import get_adapter
 from game.ai.perception import gather_perception
+
 
 log = structlog.get_logger()
 
@@ -81,6 +83,12 @@ class GameState:
         self.fov_radius = player_fov_radius
         self.message_log: list[tuple[str, tuple[int, int, int]]] = []
         self.turn_count: int = 0
+        # Track light sources (player has a default white light)
+        self.light_sources: list[LightSource] = self.game_map.light_sources
+        self.light_sources.append(
+            LightSource(player_start_x, player_start_y, player_fov_radius, (255, 255, 255))
+        )
+        self.player_light_index: int = 0
 
         # --- NEW: UI State ---
         self.ui_state: Literal["PLAYER_TURN", "INVENTORY_VIEW", "TARGETING"] = (
@@ -123,6 +131,17 @@ class GameState:
                 )
                 self.game_map.visible[py, px] = True
                 self.game_map.explored[py, px] = True  # Ensure explored too
+            # Update memory and last seen time for visible tiles
+            self.game_map.memory_intensity[self.game_map.visible] = 1.0
+            self.game_map.last_seen_time[self.game_map.visible] = float(self.turn_count)
+            # Fade memory for tiles no longer visible
+            self.game_map.update_memory_fade(float(self.turn_count))
+            # Keep player light source in sync with position
+            try:
+                self.light_sources[self.player_light_index].x = px
+                self.light_sources[self.player_light_index].y = py
+            except Exception:
+                pass
         else:
             log.warning("Cannot update FOV: Player position not found.")
             self.game_map.visible[:] = False  # Clear visibility if no player

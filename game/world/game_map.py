@@ -1,11 +1,12 @@
 # game/world/game_map.py
-from typing import Final, NamedTuple, Set, Tuple # Ensure Set, Tuple are imported
+from typing import Final, NamedTuple, Set, Tuple  # Ensure Set, Tuple are imported
 
 import numpy as np
 import structlog
+from dataclasses import dataclass
 
-# Ensure correct import for the *new* FOV function
-from game.world.fov import compute_fov
+# Ensure correct import for the FOV and memory helpers
+from game.world.fov import compute_fov, update_memory_fade
 
 log = structlog.get_logger()
 
@@ -50,6 +51,15 @@ def get_transparency_map(tiles: np.ndarray) -> np.ndarray:
     return transparency
 
 
+@dataclass(frozen=True)
+class LightSource:
+    """Simple representation of a colored light source."""
+    x: int
+    y: int
+    radius: int
+    color: tuple[int, int, int]
+
+
 class GameMap:
     def __init__(self, width: int, height: int):
         """
@@ -78,6 +88,13 @@ class GameMap:
         self.ceiling_map: np.ndarray = np.zeros(
             (height, width), dtype=np.int16, order="C"
         )
+        self.memory_intensity: np.ndarray = np.zeros(
+            (height, width), dtype=np.float32, order="C"
+        )
+        self.last_seen_time: np.ndarray = np.zeros(
+            (height, width), dtype=np.float32, order="C"
+        )
+        self.light_sources: list[LightSource] = []
         log.debug("GameMap arrays initialized", shape=(height, width))
 
     def update_tile_transparency(self) -> None:
@@ -116,6 +133,16 @@ class GameMap:
             return False
         # Directly use the cached transparency map
         return self.transparent[y, x]
+
+    # --- Memory fade helper ---
+    def update_memory_fade(self, current_time: float) -> None:
+        """Fade remembered tiles based on elapsed time."""
+        update_memory_fade(
+            current_time,
+            self.last_seen_time,
+            self.memory_intensity,
+            self.visible,
+        )
 
     # --- MODIFIED compute_fov method ---
     def compute_fov(self, x: int, y: int, radius: int) -> None:

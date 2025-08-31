@@ -181,6 +181,8 @@ def main() -> None:
         lighting_ambient: float = lighting_config.get("ambient_level", 0.15)
         lighting_min_fov: float = lighting_config.get("min_fov_level", 0.25)
         lighting_falloff: float = lighting_config.get("falloff_power", 1.5)
+        enable_colored_lights: bool = lighting_config.get("colored_lights", True)
+        enable_memory_fade: bool = lighting_config.get("memory_fade", True)
         hv_config = config.get("height_visualization", {})
         vis_enabled_default: bool = hv_config.get("enabled_by_default", False)
         vis_max_diff: int = hv_config.get("max_relative_difference", 10)
@@ -245,6 +247,7 @@ def main() -> None:
             vis_color_low=vis_color_low, vis_blend_factor=vis_blend_factor,
             max_traversable_step=max_traversable_step, lighting_ambient=lighting_ambient,
             lighting_min_fov=lighting_min_fov, lighting_falloff=lighting_falloff,
+            enable_memory_fade=enable_memory_fade, enable_colored_lights=enable_colored_lights,
         )
         window.set_main_loop(main_loop)
 

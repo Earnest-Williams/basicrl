@@ -38,14 +38,17 @@ except ImportError:
 try:
     from game.game_state import GameState
     from game.world.game_map import GameMap
+    from game.world.fov import compute_light_color_array
 except ImportError:
      # Attempt fallback imports if needed
      try:
           from basicrl.game.game_state import GameState
           from basicrl.game.world.game_map import GameMap
+          from basicrl.game.world.fov import compute_light_color_array
      except ImportError:
           GameState = object # Define dummies if import fails
           GameMap = object
+          compute_light_color_array = lambda *args, **kwargs: None
           structlog.get_logger().error("CRITICAL: Failed to import GameState or GameMap in renderer.")
 
 
@@ -127,6 +130,8 @@ class RenderConfig:
     lighting_min_fov: np.float32
     lighting_falloff: np.float32
     fov_radius_sq: np.float32
+    enable_memory_fade: bool = True
+    enable_colored_lights: bool = True
 
 
 def _prepare_base_layers(
@@ -141,17 +146,24 @@ def _prepare_base_layers(
     tile_indices_render: np.ndarray,
 ) -> tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, tuple[int, int],
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[int, int],
 ]:
     """Prepares base color and glyph index arrays for the viewport."""
     if not isinstance(game_map, GameMap) or GameMap is object:
         log.error("_prepare_base_layers called with invalid GameMap")
         # Return zero-size dummy arrays for graceful failure
         dummy_shape = (max(0, viewport_height), max(0, viewport_width)) # Ensure at least 0 size
-        return ( np.zeros((*dummy_shape, 3), dtype=np.uint8), np.zeros((*dummy_shape, 3), dtype=np.uint8),
-                 np.zeros(dummy_shape, dtype=np.uint16), np.zeros(dummy_shape, dtype=bool),
-                 np.zeros(dummy_shape, dtype=bool), np.zeros(dummy_shape, dtype=np.int16),
-                 np.zeros(dummy_shape, dtype=bool), dummy_shape )
+        return (
+            np.zeros((*dummy_shape, 3), dtype=np.uint8),
+            np.zeros((*dummy_shape, 3), dtype=np.uint8),
+            np.zeros(dummy_shape, dtype=np.uint16),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=np.int16),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=np.float32),
+            dummy_shape,
+        )
 
     map_y_slice = slice(viewport_y, viewport_y + viewport_height)
     map_x_slice = slice(viewport_x, viewport_x + viewport_width)
@@ -165,16 +177,24 @@ def _prepare_base_layers(
     if actual_vp_h <= 0 or actual_vp_w <= 0:
         log.warning("Viewport slice resulted in zero or negative size.", vp_slice_y=map_y_slice, vp_slice_x=map_x_slice, map_shape=(game_map.height, game_map.width))
         dummy_shape = (max(0, actual_vp_h), max(0, actual_vp_w)) # Ensure at least 0 size
-        return ( np.zeros((*dummy_shape, 3), dtype=np.uint8), np.zeros((*dummy_shape, 3), dtype=np.uint8),
-                 np.zeros(dummy_shape, dtype=np.uint16), np.zeros(dummy_shape, dtype=bool),
-                 np.zeros(dummy_shape, dtype=bool), np.zeros(dummy_shape, dtype=np.int16),
-                 np.zeros(dummy_shape, dtype=bool), dummy_shape )
+        return (
+            np.zeros((*dummy_shape, 3), dtype=np.uint8),
+            np.zeros((*dummy_shape, 3), dtype=np.uint8),
+            np.zeros(dummy_shape, dtype=np.uint16),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=np.int16),
+            np.zeros(dummy_shape, dtype=bool),
+            np.zeros(dummy_shape, dtype=np.float32),
+            dummy_shape,
+        )
 
     # Get the viewport data from the map arrays using the safe slices
     map_visible_vp = game_map.visible[safe_y_slice, safe_x_slice]
     map_explored_vp = game_map.explored[safe_y_slice, safe_x_slice]
     map_tiles_vp = game_map.tiles[safe_y_slice, safe_x_slice]
     map_height_vp = game_map.height_map[safe_y_slice, safe_x_slice]
+    map_memory_vp = game_map.memory_intensity[safe_y_slice, safe_x_slice]
     vp_h, vp_w = map_visible_vp.shape # Actual dimensions of the viewport data
 
     # Masks for visible, explored-but-not-visible, and total drawn tiles
@@ -209,7 +229,7 @@ def _prepare_base_layers(
 
             # Assign foreground, background colors, and glyph indices using the valid IDs
             # This uses NumPy advanced indexing, which is efficient
-            base_fg[drawn_mask] = tile_fg_colors[valid_tile_ids_in_iel_ids_in_vp]
+            base_fg[drawn_mask] = tile_fg_colors[valid_tile_ids_in_vp]
             base_bg[drawn_mask] = tile_bg_colors[valid_tile_ids_in_vp]
             glyph_indices[drawn_mask] = tile_indices_render[valid_tile_ids_in_vp]
         except IndexError as e:
@@ -224,8 +244,17 @@ def _prepare_base_layers(
 
 
     # Return all relevant intermediate data and the actual viewport dimensions
-    return ( base_fg, base_bg, glyph_indices, visible_mask, drawn_mask,
-             map_height_vp, map_visible_vp, (vp_h, vp_w) )
+    return (
+        base_fg,
+        base_bg,
+        glyph_indices,
+        visible_mask,
+        drawn_mask,
+        map_height_vp,
+        map_visible_vp,
+        map_memory_vp,
+        (vp_h, vp_w),
+    )
 
 
 # Marked with cache=True for performance
@@ -763,11 +792,26 @@ def render_viewport(
 
     # --- Prepare Base Data (Calls Python helper, returns NumPy arrays) ---
     try:
-        ( base_fg, base_bg, glyph_indices, visible_mask, drawn_mask,
-          map_height_vp, map_visible_vp, (vp_h, vp_w),
+        (
+            base_fg,
+            base_bg,
+            glyph_indices,
+            visible_mask,
+            drawn_mask,
+            map_height_vp,
+            map_visible_vp,
+            map_memory_vp,
+            (vp_h, vp_w),
         ) = _prepare_base_layers(
-            gm, viewport_x, viewport_y, viewport_width, viewport_height,
-            max_defined_tile_id, tile_fg_colors, tile_bg_colors, tile_indices_render
+            gm,
+            viewport_x,
+            viewport_y,
+            viewport_width,
+            viewport_height,
+            max_defined_tile_id,
+            tile_fg_colors,
+            tile_bg_colors,
+            tile_indices_render,
         )
         # Check if the prepared viewport data is valid
         if vp_h <= 0 or vp_w <= 0:
@@ -797,6 +841,51 @@ def render_viewport(
         render_config.vis_color_high_np, render_config.vis_color_mid_np,
         render_config.vis_color_low_np, render_config.vis_blend_factor
     )
+
+    # --- Apply colored lights ---
+    if (
+        render_config.enable_colored_lights
+        and hasattr(gs, "light_sources")
+        and len(gs.light_sources) > 0
+    ):
+        light_rgb_map = np.zeros((gm.height, gm.width, 3), dtype=np.float32)
+        opaque_grid = ~gm.transparent
+        for ls in gs.light_sources:
+            try:
+                origin_h = int(gm.height_map[ls.y, ls.x])
+                compute_light_color_array(
+                    (ls.x, ls.y),
+                    ls.radius,
+                    opaque_grid,
+                    gm.height_map,
+                    gm.ceiling_map,
+                    origin_h,
+                    light_rgb_map,
+                    ls.color,
+                )
+            except Exception as e:
+                log.error("Error computing light source", error=str(e))
+        light_rgb_vp = light_rgb_map[
+            viewport_y : viewport_y + vp_h, viewport_x : viewport_x + vp_w
+        ]
+        final_fg = np.clip(
+            final_fg.astype(np.float32) + light_rgb_vp, 0, 255
+        ).astype(np.uint8)
+        final_bg = np.clip(
+            final_bg.astype(np.float32) + light_rgb_vp, 0, 255
+        ).astype(np.uint8)
+
+    # --- Apply memory fade ---
+    if render_config.enable_memory_fade:
+        memory_mask = drawn_mask & (~visible_mask)
+        if np.any(memory_mask):
+            fade_vals = map_memory_vp[memory_mask][:, None]
+            final_fg[memory_mask] = (
+                final_fg[memory_mask].astype(np.float32) * fade_vals
+            ).astype(np.uint8)
+            final_bg[memory_mask] = (
+                final_bg[memory_mask].astype(np.float32) * fade_vals
+            ).astype(np.uint8)
 
     # --- Prepare Output Buffer (NumPy array for PIL Image) ---
     output_pixel_h = vp_h * tile_h;
