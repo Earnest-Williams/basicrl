@@ -11,6 +11,7 @@ import polars as pl
 import structlog
 
 from game.entities.components import Inventory
+from game.effects.executor import execute_effect
 
 # Import specific types needed from other modules
 # Ensure these imports work correctly based on your project structure
@@ -339,6 +340,73 @@ def get_attachable_info(item_id: int, gs: "GameState") -> Dict | None:
     return info if isinstance(info, dict) else None
 
 
+# --- Passive Effect Helpers ---
+
+
+def apply_passive_effects(item_id: int, entity_id: int, gs: "GameState") -> None:
+    """Applies passive effects defined on an item's template."""
+    if not hasattr(gs, "item_registry") or gs.item_registry is None:
+        log.error("GameState missing item_registry", method="apply_passive_effects")
+        return
+    template = get_item_template(item_id, gs)
+    if not template:
+        return
+    effect_ids = template.get("effects", {}).get("passive", [])
+    if not effect_ids:
+        return
+    for effect_id in effect_ids:
+        if not isinstance(effect_id, str):
+            continue
+        context = {
+            "game_state": gs,
+            "source_entity_id": entity_id,
+            "target_entity_id": entity_id,
+            "item_instance_id": item_id,
+            "rng": getattr(gs, "rng_instance", None),
+        }
+        try:
+            execute_effect(effect_id, context)
+        except Exception as e:
+            log.error(
+                "Failed to apply passive effect",
+                item_id=item_id,
+                effect_id=effect_id,
+                error=str(e),
+            )
+
+
+def remove_passive_effects(item_id: int, entity_id: int, gs: "GameState") -> None:
+    """Removes passive effects defined on an item's template."""
+    if not hasattr(gs, "item_registry") or gs.item_registry is None:
+        log.error("GameState missing item_registry", method="remove_passive_effects")
+        return
+    template = get_item_template(item_id, gs)
+    if not template:
+        return
+    effect_ids = template.get("effects", {}).get("passive_remove", [])
+    if not effect_ids:
+        return
+    for effect_id in effect_ids:
+        if not isinstance(effect_id, str):
+            continue
+        context = {
+            "game_state": gs,
+            "source_entity_id": entity_id,
+            "target_entity_id": entity_id,
+            "item_instance_id": item_id,
+            "rng": getattr(gs, "rng_instance", None),
+        }
+        try:
+            execute_effect(effect_id, context)
+        except Exception as e:
+            log.error(
+                "Failed to remove passive effect",
+                item_id=item_id,
+                effect_id=effect_id,
+                error=str(e),
+            )
+
+
 # --- Main Equipment Actions ---
 
 
@@ -466,7 +534,7 @@ def equip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
     item_name = item_reg.get_item_component(item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You equip the {item_name} ({target_slot}).")
-    # TODO: Apply passive effects
+    apply_passive_effects(item_id, entity_id, gs)
 
     return True
 
@@ -591,7 +659,7 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
     item_name = item_reg.get_item_component(item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You unequip the {item_name}.")
-    # TODO: Remove passive effects
+    remove_passive_effects(item_id, entity_id, gs)
 
     return True
 
@@ -754,7 +822,7 @@ def attach_item(
     host_name = item_reg.get_item_component(target_host_item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You attach the {child_name} to the {host_name}.")
-    # TODO: Apply effects
+    apply_passive_effects(item_to_attach_id, entity_id, gs)
 
     return True
 
@@ -898,7 +966,7 @@ def detach_item(entity_id: int, item_to_detach_id: int, gs: "GameState") -> bool
     parent_name = item_reg.get_item_component(parent_item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You detach the {item_name} from the {parent_name}.")
-    # TODO: Remove effects
+    remove_passive_effects(item_to_detach_id, entity_id, gs)
 
     return True
 
