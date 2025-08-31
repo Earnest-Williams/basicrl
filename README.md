@@ -67,7 +67,7 @@ Pull requests are welcome! Please ensure new code is well‑documented and cover
 
 ## License
 
-This project is released under the MIT License. See [LICENSE](LICENSE) for details.
+This project's license is pending.
 
 ---
 
