@@ -1,0 +1,118 @@
+import os
+import sys
+import types
+import numpy as np
+
+# Ensure project root is on sys.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# Provide a minimal game_rng module for tests
+module = types.ModuleType("game_rng")
+
+
+class DummyRNG:
+    def __init__(self, seed=None):
+        self.initial_seed = seed
+
+    def randint(self, a, b):
+        return a
+
+
+module.GameRNG = DummyRNG
+sys.modules["game_rng"] = module
+
+# Provide a minimal ai_system module for GameState imports
+ai_module = types.ModuleType("game.systems.ai_system")
+
+
+def dispatch_ai(*args, **kwargs):
+    return None
+
+
+ai_module.dispatch_ai = dispatch_ai
+sys.modules["game.systems.ai_system"] = ai_module
+
+from game.world.game_map import GameMap, TILE_ID_FLOOR
+from game.game_state import GameState
+from engine import renderer
+
+
+def create_game_state():
+    game_map = GameMap(width=10, height=10)
+    game_map.create_test_room()
+    gs = GameState(
+        existing_map=game_map,
+        player_start_pos=(5, 5),
+        player_glyph=ord("@"),
+        player_start_hp=10,
+        player_fov_radius=4,
+        item_templates={},
+        entity_templates={},
+        effect_definitions={},
+        rng_seed=42,
+    )
+    return gs
+
+
+def test_memory_fade_blend_and_glyph_substitution():
+    gs = create_game_state()
+    gm = gs.game_map
+    px, py = gs.player_position
+
+    # Make the player's original tile only remembered, not visible
+    gm.visible[py, px] = False
+    gm.explored[py, px] = True
+    gm.memory_intensity[py, px] = 0.5
+    gm.tiles[py, px] = TILE_ID_FLOOR
+
+    max_defined_tile_id = 255
+    tile_fg_colors = np.zeros((max_defined_tile_id + 1, 3), dtype=np.uint8)
+    tile_bg_colors = np.zeros((max_defined_tile_id + 1, 3), dtype=np.uint8)
+    tile_indices_render = np.zeros(max_defined_tile_id + 1, dtype=np.uint16)
+    tile_fg_colors[TILE_ID_FLOOR] = [200, 200, 200]
+    tile_bg_colors[TILE_ID_FLOOR] = [10, 10, 10]
+    tile_indices_render[TILE_ID_FLOOR] = ord('.')
+
+    (
+        base_fg,
+        base_bg,
+        glyph_indices,
+        visible_mask,
+        drawn_mask,
+        map_height_vp,
+        map_visible_vp,
+        map_memory_vp,
+        map_tiles_vp,
+        (vp_h, vp_w),
+    ) = renderer._prepare_base_layers(
+        gm,
+        viewport_x=0,
+        viewport_y=0,
+        viewport_width=gm.width,
+        viewport_height=gm.height,
+        max_defined_tile_id=max_defined_tile_id,
+        tile_fg_colors=tile_fg_colors,
+        tile_bg_colors=tile_bg_colors,
+        tile_indices_render=tile_indices_render,
+    )
+
+    final_fg = base_fg.copy()
+    final_bg = base_bg.copy()
+    glyphs = glyph_indices.copy()
+    fade_color = np.array([100, 100, 100], dtype=np.uint8)
+
+    renderer._apply_memory_fade(
+        final_fg,
+        final_bg,
+        glyphs,
+        map_memory_vp,
+        map_tiles_vp,
+        drawn_mask,
+        visible_mask,
+        fade_color,
+    )
+
+    assert (final_fg[py, px] == np.array([150, 150, 150], dtype=np.uint8)).all()
+    assert (final_bg[py, px] == np.array([55, 55, 55], dtype=np.uint8)).all()
+    expected_glyph = renderer.MEMORY_FLOOR_GLYPHS[2]
+    assert glyphs[py, px] == expected_glyph

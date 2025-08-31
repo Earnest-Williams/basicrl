@@ -6,7 +6,7 @@ and optimized techniques.
 """
 # Standard Library Imports
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict as PyDict, List, cast
 
 # Third-party Imports
@@ -37,7 +37,7 @@ except ImportError:
 # Ensure GameState and GameMap are importable
 try:
     from game.game_state import GameState
-    from game.world.game_map import GameMap
+    from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
     from game.world.fov import compute_light_color_array
 except ImportError:
      # Attempt fallback imports if needed
@@ -61,6 +61,12 @@ log = structlog.get_logger()
 # Using a specific shape that is not possible for actual tile arrays (height, width, 4)
 # This allows checking for its presence within Numba code.
 NJIT_SENTINEL_TILE_ARRAY_SHAPE = (0, 0, 4)
+
+# Glyph sets used when fading remembered tiles.  These roughly mimic the
+# shaded characters used in the developer lighting prototype.
+MEMORY_WALL_GLYPHS = np.array([ord("▓"), ord("▒"), ord("░"), ord("⋅"), ord(" ")], dtype=np.uint16)
+MEMORY_FLOOR_GLYPHS = np.array([ord("."), ord("·"), ord("⋅"), ord(" "), ord(" ")], dtype=np.uint16)
+MEMORY_LEVEL_COUNT = MEMORY_WALL_GLYPHS.size
 
 
 # --- Numba Helper Functions ---
@@ -132,6 +138,9 @@ class RenderConfig:
     fov_radius_sq: np.float32
     enable_memory_fade: bool = True
     enable_colored_lights: bool = True
+    memory_fade_color_np: np.ndarray = field(
+        default_factory=lambda: np.array([128, 128, 128], dtype=np.uint8)
+    )
 
 
 def _prepare_base_layers(
@@ -146,7 +155,7 @@ def _prepare_base_layers(
     tile_indices_render: np.ndarray,
 ) -> tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[int, int],
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[int, int],
 ]:
     """Prepares base color and glyph index arrays for the viewport."""
     if not isinstance(game_map, GameMap) or GameMap is object:
@@ -253,6 +262,7 @@ def _prepare_base_layers(
         map_height_vp,
         map_visible_vp,
         map_memory_vp,
+        map_tiles_vp,
         (vp_h, vp_w),
     )
 
@@ -410,6 +420,52 @@ def _apply_height_visualization(
     # If a 'mid' color blend is desired, that would require additional masking/interpolation steps.
 
     return final_fg, final_bg
+
+# --- Memory fade helper ---------------------------------------------------
+def _apply_memory_fade(
+    final_fg: np.ndarray,
+    final_bg: np.ndarray,
+    glyph_indices: np.ndarray,
+    map_memory_vp: np.ndarray,
+    map_tiles_vp: np.ndarray,
+    drawn_mask: np.ndarray,
+    visible_mask: np.ndarray,
+    fade_color_np: np.ndarray,
+) -> None:
+    """Blend colors and swap glyphs for tiles remembered in the fog."""
+    memory_mask = drawn_mask & (~visible_mask)
+    if not np.any(memory_mask):
+        return
+
+    fade_vals = map_memory_vp[memory_mask][:, None]
+    fade_rgb = fade_color_np.astype(np.float32)
+
+    # Blend foreground and background toward the fade colour
+    final_fg[memory_mask] = (
+        final_fg[memory_mask].astype(np.float32) * fade_vals
+        + fade_rgb * (1.0 - fade_vals)
+    ).astype(np.uint8)
+    final_bg[memory_mask] = (
+        final_bg[memory_mask].astype(np.float32) * fade_vals
+        + fade_rgb * (1.0 - fade_vals)
+    ).astype(np.uint8)
+
+    # Substitute glyphs based on intensity level
+    tile_ids = map_tiles_vp[memory_mask]
+    levels = np.clip(
+        (1.0 - map_memory_vp[memory_mask]) * MEMORY_LEVEL_COUNT,
+        0,
+        MEMORY_LEVEL_COUNT - 1,
+    ).astype(np.intp)
+
+    new_glyphs = glyph_indices[memory_mask].copy()
+    wall_mask = tile_ids == TILE_ID_WALL
+    if np.any(wall_mask):
+        new_glyphs[wall_mask] = MEMORY_WALL_GLYPHS[levels[wall_mask]]
+    floor_mask = tile_ids == TILE_ID_FLOOR
+    if np.any(floor_mask):
+        new_glyphs[floor_mask] = MEMORY_FLOOR_GLYPHS[levels[floor_mask]]
+    glyph_indices[memory_mask] = new_glyphs
 
 # Marked with cache=True for performance
 # This function draws the map tiles onto the pre-filled background buffer.
@@ -803,6 +859,7 @@ def render_viewport(
             map_height_vp,
             map_visible_vp,
             map_memory_vp,
+            map_tiles_vp,
             (vp_h, vp_w),
         ) = _prepare_base_layers(
             gm,
@@ -879,15 +936,16 @@ def render_viewport(
 
     # --- Apply memory fade ---
     if render_config.enable_memory_fade:
-        memory_mask = drawn_mask & (~visible_mask)
-        if np.any(memory_mask):
-            fade_vals = map_memory_vp[memory_mask][:, None]
-            final_fg[memory_mask] = (
-                final_fg[memory_mask].astype(np.float32) * fade_vals
-            ).astype(np.uint8)
-            final_bg[memory_mask] = (
-                final_bg[memory_mask].astype(np.float32) * fade_vals
-            ).astype(np.uint8)
+        _apply_memory_fade(
+            final_fg,
+            final_bg,
+            glyph_indices,
+            map_memory_vp,
+            map_tiles_vp,
+            drawn_mask,
+            visible_mask,
+            render_config.memory_fade_color_np,
+        )
 
     # --- Prepare Output Buffer (NumPy array for PIL Image) ---
     output_pixel_h = vp_h * tile_h;
