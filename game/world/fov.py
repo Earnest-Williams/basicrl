@@ -14,6 +14,7 @@ import numba
 import numpy as np
 import structlog
 from numba.typed import List as NumbaList
+from .los import line_of_sight
 
 # --- Type Aliases ---
 Point: TypeAlias = tuple[int, int]
@@ -334,63 +335,6 @@ def compute_fov(
         duration_ms=f"{duration_ms:.2f}",
         visible_count=np.sum(visible_grid)
     )
-
-@numba.njit(cache=True)
-def line_of_sight(
-    x0: int, y0: int, x1: int, y1: int, transparency_map: np.ndarray
-) -> bool:
-    """
-    Bresenham line-of-sight implementation.
-    Returns True if there's a clear line of sight between points.
-    """
-    height, width = transparency_map.shape
-    if not (0 <= y0 < height and 0 <= x0 < width and \
-           0 <= y1 < height and 0 <= x1 < width):
-        return False
-
-    dx = abs(x1 - x0)
-    dy = -abs(y1 - y0)
-    sx = 1 if x0 < x1 else -1
-    sy = 1 if y0 < y1 else -1
-    err = dx + dy
-    
-    xi, yi = x0, y0
-    n_steps = max(dx, -dy)
-    
-    for _ in range(n_steps):
-        e2 = 2 * err
-        next_xi, next_yi = xi, yi
-        step_x, step_y = False, False
-        
-        if e2 >= dy:
-            if xi == x1:
-                break
-            err += dy
-            next_xi += sx
-            step_x = True
-            
-        if e2 <= dx:
-            if yi == y1:
-                break
-            err += dx
-            next_yi += sy
-            step_y = True
-            
-        check_x, check_y = xi, yi
-        if step_x:
-            check_x += sx
-        if step_y:
-            check_y += sy
-            
-        if not transparency_map[check_y, check_x]:
-            return False
-            
-        xi, yi = check_x, check_y
-        if xi == x1 and yi == y1:
-            break
-            
-    return True
-
 
 @numba.njit(cache=True)
 def update_memory_fade(
