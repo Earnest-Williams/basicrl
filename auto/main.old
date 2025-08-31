@@ -1,0 +1,307 @@
+# main.py
+#!/usr/bin/env python3
+
+import argparse
+import cProfile
+import io
+import pstats
+import random
+import sys
+import time
+from collections import Counter
+from multiprocessing import Pool, cpu_count
+
+# --- Use relative imports ---
+from .simulation import (
+    ENEMY_SPAWN_CHANCE,
+    GRID_SIZE,  # Import new constants
+    MAX_TURNS,
+    PASSIVE_HUNGER_PER_TURN,
+    REST_HEALTH_REGEN,
+    START_HEALTH,
+    STARVATION_HEALTH_DAMAGE,
+    ActionResult,  # Import ActionResult type hint
+    AgentAI,
+    World,
+    enemy_act,
+)
+
+# --- Configuration ---
+DEFAULT_NUM_RUNS = 5
+DEFAULT_NUM_WORKERS = max(1, cpu_count() // 2)
+
+
+# --- Headless Simulation Function ---
+def run_single_headless(
+    args: tuple[int, dict[str, float] | None],
+) -> tuple[int, dict[str, float], str]:
+    """Runs a single headless simulation instance with Flee/Rest mechanics."""
+    run_id, initial_weights_dict = args
+    print(f"--- Starting Headless Run {run_id} ---")
+    start_time = time.time()
+
+    world = World(size=GRID_SIZE)
+    agent_ai = AgentAI(world)
+
+    if initial_weights_dict is not None:
+        for key, value in initial_weights_dict.items():
+            agent_ai.planner.action_weights[key] = value
+
+    world.reset()
+    agent = world.agent
+    if not agent:
+        print(f"Error Run {run_id}: Agent not created.")
+        return 0, dict(agent_ai.planner.action_weights), "AgentError"
+
+    cause_of_death = "Unknown"
+
+    while agent.health > 0 and world.turn < MAX_TURNS:
+        world.turn += 1
+
+        # --- Track state BEFORE actions/events this turn ---
+        health_before_turn = agent.health
+        action_taken_this_turn: ActionResult = None  # Track action name
+
+        # --- Agent Turn ---
+        action_taken_this_turn = agent_ai.act(agent)  # Get action name
+        if agent.health <= 0:
+            cause_of_death = "DiedAfterAction"  # Less likely now with health separate
+            break
+
+        # --- Apply Passive Hunger & Starvation Damage ---
+        new_hunger = max(0.0, agent.hunger - PASSIVE_HUNGER_PER_TURN)
+        world.update_entity_hunger(agent.id, new_hunger)
+        if agent.hunger <= 0:
+            new_health = max(0.0, agent.health - STARVATION_HEALTH_DAMAGE)
+            world.update_entity_health(agent.id, new_health)
+            if new_health <= 0:
+                cause_of_death = "Starvation"
+                break
+        if agent.health <= 0:  # Re-check after potential starvation
+            if cause_of_death == "Unknown":
+                cause_of_death = "Starvation"
+            break
+
+        # --- Enemy Turn ---
+        agent_was_attacked_this_turn = False  # Reset flag
+        health_before_enemies = (
+            agent.health
+        )  # Check health specifically before enemy attacks
+
+        current_enemy_ids = list(world.entities_by_kind["enemy"].keys())
+        for enemy_id in current_enemy_ids:
+            if enemy_id in world.entities:
+                enemy = world.entities[enemy_id]
+                # Applies damage & hunger cost to agent if hit
+                enemy_act(enemy, world)
+                if agent.health <= 0:
+                    if cause_of_death == "Unknown":
+                        cause_of_death = "KilledByEnemy"
+                    break
+        if agent.health <= 0:
+            if cause_of_death == "Unknown":
+                cause_of_death = "KilledByEnemy"
+            break
+        # Check if health decreased during enemy turns
+        if agent.health < health_before_enemies:
+            agent_was_attacked_this_turn = True
+        # --- End Enemy Turn ---
+
+        # --- World Events ---
+        if random.random() < ENEMY_SPAWN_CHANCE:
+            world.spawn_random_enemy()
+        # --- End World Events ---
+
+        # --- Resting Health Regen ---
+        # Agent rests if it waited OR took no action (due to planning fail/stuck)
+        # AND was not attacked this turn
+        agent_rested = (
+            action_taken_this_turn == "Wait" or action_taken_this_turn is None
+        )
+
+        if agent_rested and not agent_was_attacked_this_turn:
+            if agent.health < START_HEALTH:
+                new_health = min(
+                    START_HEALTH, agent.health + REST_HEALTH_REGEN)
+                # Only update if health actually changes to avoid unnecessary DF updates
+                if new_health > agent.health:
+                    world.update_entity_health(agent.id, new_health)
+        # --- End Resting ---
+
+    # Determine Final Outcome
+    turns_survived = world.turn
+    agent_survived = world.agent is not None and world.agent.health > 0
+    if agent_survived and world.turn >= MAX_TURNS:
+        final_outcome = "Survived (MaxTurns)"
+    elif agent_survived:
+        final_outcome = "Survived (Unknown)"
+    else:
+        final_outcome = (
+            cause_of_death if cause_of_death != "Unknown" else "Defeated (Unknown)"
+        )
+
+    # Learning Step
+    agent_ai.learn(turns_survived)
+    final_weights = dict(agent_ai.planner.action_weights)
+
+    end_time = time.time()
+    print(
+        f"--- Finished Headless Run {run_id} ({final_outcome}) --- Turns: {
+            turns_survived}, Time: {end_time - start_time:.2f}s ---"
+    )
+
+    return turns_survived, final_weights, final_outcome
+
+
+# --- Main Execution Logic ---
+if __name__ == "__main__":
+    # (Parser setup remains the same)
+    parser = argparse.ArgumentParser(
+        description="Run GOAP Simulation (GUI or Headless)"
+    )
+    parser.add_argument(
+        "--mode", choices=["gui", "headless"], default="gui", help="Mode"
+    )
+    parser.add_argument(
+        "-n", "--num-runs", type=int, default=DEFAULT_NUM_RUNS, help="Number of runs"
+    )
+    parser.add_argument(
+        "-w",
+        "--workers",
+        type=int,
+        default=DEFAULT_NUM_WORKERS,
+        help="Number of workers",
+    )
+    parser.add_argument(
+        "--learn",
+        choices=["independent", "shared"],
+        default="independent",
+        help="Learning mode",
+    )
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable profiling")
+    args = parser.parse_args()
+
+    # --- GUI Mode ---
+    if args.mode == "gui":
+        # (Remains the same)
+        print("Starting GUI Mode...")
+        from PySide6.QtWidgets import QApplication
+
+        from .gui.main_window import MainWindow
+
+        try:
+            app = QApplication(sys.argv)
+            main_win = MainWindow()
+            main_win.show()
+            sys.exit(app.exec())
+        except Exception as e:
+            print(f"GUI Error: {e}")
+            sys.exit(1)
+
+    # --- Headless Mode ---
+    elif args.mode == "headless":
+        # (Remains the same - handles 3-tuple result correctly)
+        print(
+            f"Starting Headless Mode: {args.num_runs} runs, {
+                args.workers} workers, {args.learn} learning."
+        )
+        total_start_time = time.time()
+        all_turns: list[int] = []
+        all_weights: list[dict[str, float]] = []
+        all_outcomes: list[str] = []
+        profiler = None
+        initial_weights_arg = None
+        if args.profile:
+            print("Profiling enabled for the first run.")
+            profiler = cProfile.Profile()
+        if args.learn == "shared":
+            print("Shared learning selected...")
+            temp_ai = AgentAI(World(size=GRID_SIZE))
+            initial_weights_arg = dict(temp_ai.planner.action_weights)
+        run_args = []
+        [
+            run_args.append(
+                (i + 1, initial_weights_arg if args.learn == "shared" else None)
+            )
+            for i in range(args.num_runs)
+        ]
+        results: list[tuple[int, dict[str, float], str]] = []
+        num_actual_workers = min(args.workers, args.num_runs)
+        try:
+            if num_actual_workers > 1:
+                print(
+                    f"Using multiprocessing Pool with {
+                        num_actual_workers} workers..."
+                )
+                with Pool(processes=num_actual_workers) as pool:
+                    if profiler:
+                        profiler.enable()
+                        first_result = run_single_headless(run_args[0])
+                        profiler.disable()
+                        results.append(first_result)
+                        if len(run_args) > 1:
+                            results.extend(
+                                pool.map(run_single_headless, run_args[1:]))
+                    else:
+                        results = pool.map(run_single_headless, run_args)
+            else:
+                print("Using sequential execution (1 worker)...")
+                for i, run_arg_tuple in enumerate(run_args):
+                    if i == 0 and profiler:
+                        profiler.enable()
+                        result = run_single_headless(run_arg_tuple)
+                        profiler.disable()
+                    else:
+                        result = run_single_headless(run_arg_tuple)
+                    results.append(result)
+        except Exception as e:
+            print(f"\n!!! Error during headless execution: {e} !!!")
+            import traceback
+
+            traceback.print_exc()
+        all_turns = [r[0] for r in results]
+        all_weights = [r[1] for r in results]
+        all_outcomes = [r[2] for r in results]
+        print("\n=============== Headless Simulation Summary ===============")
+        print(f"Total Runs Attempted: {args.num_runs}")
+        print(f"Runs Completed: {len(results)}")
+        print(f"Workers Used: {num_actual_workers}")
+        print(f"Learning Mode: {args.learn}")
+        if all_turns:
+            avg_turns = sum(all_turns) / len(all_turns)
+            max_turns = max(all_turns)
+            min_turns = min(all_turns)
+            print(f"Average Turns Survived: {avg_turns:.2f}")
+            print(f"Max Turns Survived: {max_turns}")
+            print(f"Min Turns Survived: {min_turns}")
+            print("\nOutcome Summary:")
+            outcome_counts = Counter(all_outcomes)
+            [
+                print(f"  - {outcome}: {count} run(s)")
+                for outcome, count in outcome_counts.most_common()
+            ]
+        else:
+            print("No simulation runs completed successfully.")
+        if all_weights:
+            print("\nFinal Action Weights (from last completed run):")
+            last_weights = dict(sorted(all_weights[-1].items()))
+            [
+                print(f"  - {name:<20}: {weight:.3f}")
+                for name, weight in last_weights.items()
+            ]
+        total_end_time = time.time()
+        print(
+            f"\nTotal Headless Execution Time: {
+                total_end_time - total_start_time:.2f}s"
+        )
+        if profiler:
+            print("\n--- cProfile Results (First Run) ---")
+            s = io.StringIO()
+            stats = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
+            stats.print_stats(40)
+            print(s.getvalue())
+            print("------------------------------------")
+    else:
+        print(f"Error: Unknown mode '{args.mode}'")
+        sys.exit(1)
