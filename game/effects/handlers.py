@@ -11,6 +11,14 @@ import polars as pl
 from game_rng import GameRNG
 from ..world import line_of_sight
 
+# Import sound system for audio feedback
+try:
+    from ..systems.sound import handle_event, play_sound
+except ImportError:
+    # Fallback if sound system is not available
+    def handle_event(event_name: str, context=None): pass
+    def play_sound(effect_name: str, context=None): return False
+
 if TYPE_CHECKING:
 
     # Corrected relative import path assuming handlers.py is inside effects folder
@@ -139,6 +147,15 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
             player_can_see = target_id == gs.player_id or (
                 target_pos and gs.game_map.visible[target_pos.y, target_pos.x]
             )
+            
+            # Play healing sound effect
+            sound_context = {
+                "target": "player" if target_id == gs.player_id else "other",
+                "amount": amount_healed,
+                "visible": player_can_see
+            }
+            handle_event("heal_target", sound_context)
+            
             if player_can_see:
                 if target_id == gs.player_id:
                     gs.add_message(
@@ -273,6 +290,14 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
             item=projectile_item_id,
             owner=source_entity_id,
         )
+        
+        # Play recall sound effect
+        sound_context = {
+            "item_type": "projectile",
+            "target": "player" if source_entity_id == gs.player_id else "other"
+        }
+        handle_event("recall_ammo", sound_context)
+        
         if source_entity_id == gs.player_id:
             item_name = (
                 gs.item_registry.get_item_component(projectile_item_id, "name")
@@ -499,6 +524,17 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 or (target_pos and gs.game_map.visible[target_pos.y, target_pos.x])
                 or (source_pos and gs.game_map.visible[source_pos.y, source_pos.x])
             )
+            
+            # Play damage sound effect
+            sound_context = {
+                "target": "player" if target_id == gs.player_id else "other",
+                "damage_type": damage_type,
+                "amount": amount_damaged,
+                "visible": player_can_see,
+                "fatal": new_hp <= 0
+            }
+            handle_event("deal_damage", sound_context)
+            
             if player_can_see:
                 if target_id == gs.player_id:
                     gs.add_message(
