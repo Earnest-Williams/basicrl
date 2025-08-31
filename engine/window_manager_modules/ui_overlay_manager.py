@@ -619,110 +619,53 @@ class UIOverlayManager:
         # Redraw will be triggered by InputHandler via WindowManager.update_frame()
 
     def get_action_for_key(self, action_type: str) -> PyDict[str, Any] | None:
-        """Gets the game action dictionary for the selected inventory item."""
-        # (Implementation unchanged from previous step)
+        """Get the game action dictionary for the selected inventory item."""
         selected_data = self._inventory_ui_map.get(self.inventory_cursor)
         if not selected_data or selected_data[0] is None:
             return None
+
         item_id: int = selected_data[0]
         is_equipped: bool = selected_data[1]
         is_attached: bool = selected_data[2]
-        action: PyDict[str, Any] | None = None
         gs = self.window_manager_ref.main_loop.game_state
+
         if action_type == "equip_unequip":
-            action = {"type": "unequip" if is_equipped else "equip", "item_id": item_id}
+            return {"type": "unequip" if is_equipped else "equip", "item_id": item_id}
         elif action_type == "use":
             if not is_equipped:
-                action = {"type": "use", "item_id": item_id}
-          +    elif action_type == "attach":
-+        if is_equipped:
-+            if gs:
-+                gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
-+        elif is_attached:
-+            if gs:
-+                gs.add_message("Item is already attached.", (255, 100, 0))
-+        else:
-+            host_item_id = None
-+            for _, data in self._inventory_ui_map.items():
-                 if data[0] is not None and data[1]:
-                     host_item_id = data[0]
-                     break
-             if host_item_id is None:
-                 if gs:
-                     gs.add_message("No equipped item to attach to.", (255, 100, 0))
-             else:
-                 action = {
-                     "type": "attach",
-                     "item_to_attach_id": item_id,
-                     "target_host_item_id": host_item_id,
-                 }  else:
-                (
-                    gs.add_message("Cannot use equipped items directly.", (255, 100, 0))
-                    if gs
-                    else None
-                )
+                return {"type": "use", "item_id": item_id}
+            if gs:
+                gs.add_message("Cannot use equipped items directly.", (255, 100, 0))
+            return None
         elif action_type == "drop":
-            action = {"type": "drop", "item_id": item_id}
+            return {"type": "drop", "item_id": item_id}
         elif action_type == "attach":
             if is_equipped:
                 if gs:
                     gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
-            elif is_attached:
+                return None
+            if is_attached:
                 if gs:
                     gs.add_message("Item is already attached.", (255, 100, 0))
-            else:
-                # Find an equipped host to attach toelif action_type == "attach":
-        if is_equipped:
-            if gs:
-                gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
-        elif is_attached:
-            if gs:
-                gs.add_message("Item is already attached.", (255, 100, 0))
-        else:
-            # Find an equipped host to attach to
+                return None
             host_item_id = None
             for _, data in self._inventory_ui_map.items():
-                if data[0] is not None and data[1]:  # data[1] == is_equipped
+                if data[0] is not None and data[1]:
                     host_item_id = data[0]
                     break
             if host_item_id is None:
                 if gs:
                     gs.add_message("No equipped item to attach to.", (255, 100, 0))
-            else:
-                action = {
-                    "type": "attach",
-                    "item_to_attach_id": item_id,
-                    "target_host_item_id": host_item_id,
-                }
-
-    elif action_type == "detach":
-        if is_attached:
-            action = {"type": "detach", "item_to_detach_id": item_id}
-        else:
-            if gs:
-                gs.add_message("Item is not attached.", (255, 100, 0))
-
-    return action
-                host_item_id = None
-                for _, data in self._inventory_ui_map.items():
-                    if data[0] is not None and data[1]:  # data[1] == is_equipped
-                        host_item_id = data[0]
-                        break
-                if host_item_id is None:
-                    if gs:
-                        gs.add_message("No equipped item to attach to.", (255, 100, 0))
-                else:
-                    action = {
-                        "type": "attach",
-                        "item_to_attach_id": item_id,
-                        "target_host_item_id": host_item_id,
-                    }
-
+                return None
+            return {
+                "type": "attach",
+                "item_to_attach_id": item_id,
+                "target_host_item_id": host_item_id,
+            }
         elif action_type == "detach":
             if is_attached:
-                action = {"type": "detach", "item_to_detach_id": item_id}
-            else:
-                if gs:
-                    gs.add_message("Item is not attached.", (255, 100, 0))
-
-        return action
+                return {"type": "detach", "item_to_detach_id": item_id}
+            if gs:
+                gs.add_message("Item is not attached.", (255, 100, 0))
+            return None
+        return None
