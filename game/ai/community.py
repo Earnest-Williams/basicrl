@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Tuple
 
+import numpy as np
 import structlog
 
 from game.systems import movement_system
+from game.systems.pathfinding.flowfield import FlowFieldPathfinder
+from game.world.game_map import TILE_TYPES
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     import numpy as np
@@ -14,6 +17,27 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
     from game_rng import GameRNG
 
 log = structlog.get_logger()
+
+
+def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
+    """Return a cached FlowFieldPathfinder tied to the current map."""
+
+    game_map = game_state.game_map
+    tiles_hash = hash(game_map.tiles.tobytes())
+    pf = getattr(game_state, "_pathfinder", None)
+    if pf is None or getattr(game_state, "_pf_tiles_hash", None) != tiles_hash:
+        walkable_ids = [tid for tid, t in TILE_TYPES.items() if t.walkable]
+        passable = np.isin(game_map.tiles, walkable_ids)
+        terrain_cost = np.ones(passable.shape, dtype=np.float32)
+        pf = FlowFieldPathfinder(
+            passable,
+            terrain_cost,
+            game_map.height_map,
+            max_traversable_step=1,
+        )
+        game_state._pathfinder = pf
+        game_state._pf_tiles_hash = tiles_hash
+    return pf
 
 
 def take_turn(
@@ -32,6 +56,14 @@ def take_turn(
     x, y = entity_row["x"], entity_row["y"]
     noise_map, scent_map, los_map = perception
 
+
+    player_pos = game_state.player_position
+    dx = dy = 0
+    if player_pos is not None:
+        pathfinder = _ensure_pathfinder(game_state)
+        pathfinder.compute_field([(player_pos.y, player_pos.x)])
+        dx, dy = pathfinder.get_flow_vector(y, x)
+
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     current_noise = noise_map[y, x]
@@ -43,6 +75,7 @@ def take_turn(
             if noise_map[ny, nx] > best_noise:
                 best_noise = noise_map[ny, nx]
                 move = (dx, dy)
+
 
     if move is None:
         current_scent = scent_map[y, x]

@@ -27,17 +27,14 @@ def line_of_sight(
     y1: int,
     transparency_map: np.ndarray,
 ) -> bool:
-    """Return True if there's an unobstructed line between two points.
 
-    Parameters
-    ----------
-    x0, y0 : int
-        Start coordinates.
-    x1, y1 : int
-        End coordinates.
-    transparency_map : np.ndarray
-        Boolean array where ``True`` indicates a transparent tile.
+    """Return ``True`` if a clear line exists between two points.
+
+    The function expects coordinates in ``(x, y)`` order to align with
+    typical Cartesian usage elsewhere in the codebase and tests.
+
     """
+
     height, width = transparency_map.shape
     if not (
         0 <= x0 < width
