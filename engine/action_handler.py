@@ -16,6 +16,7 @@ from game.entities.components import Position
 from game.game_state import GameState
 from game.items.registry import ItemRegistry
 from game.world.game_map import GameMap
+from game.systems import movement_system
 
 # Import equipment system safely
 try:
@@ -289,15 +290,13 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
         return False
 
     # 5. Perform Move (Only reached if no block, walkable, and height is okay)
-    success = entity_registry.set_position(player_id, Position(new_x, new_y))
+    success = movement_system.try_move(player_id, dx, dy, gs)
     if success:
         log.debug("Player moved successfully", **log_context)
         return True  # Movement successful, turn consumed
     else:
         # This case should be rare if checks passed
-        log.error(
-            "Setting player position failed unexpectedly after checks", **log_context
-        )
+        log.error("Player movement failed unexpectedly after checks", **log_context)
         return False
 
 
