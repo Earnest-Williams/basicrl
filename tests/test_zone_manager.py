@@ -76,3 +76,23 @@ def test_game_state_schedules_far_event():
         assert triggered == []
     gs.advance_turn()
     assert triggered == [5]
+
+
+def test_zone_manager_serialization_roundtrip():
+    manager = ZoneManager(
+        map_width=100,
+        map_height=100,
+        zone_size=10,
+        active_radius=1,
+        passive_interval=3,
+    )
+    called = []
+    manager.schedule_event(50, 50, lambda gs: called.append(1))
+    state = manager.to_dict()
+    registry_copy = dict(manager.event_registry)
+    restored = ZoneManager.from_dict(state, registry_copy)
+    for turn in range(3):
+        restored.process(turn, restored.get_active_zones((5, 5)), None)
+        assert called == []
+    restored.process(3, restored.get_active_zones((5, 5)), None)
+    assert called == [1]

@@ -8,6 +8,7 @@ from PIL import Image
 
 # Use absolute imports for game modules
 from game.game_state import GameState
+from simulation.zone_manager import ZoneManager
 
 # Use relative import for sibling module within the same package ('engine')
 # Import the renderer module and the RenderConfig dataclass
@@ -204,3 +205,18 @@ class MainLoop:
             return Image.new(
                 "RGBA", (max(1, pw), max(1, ph)), (255, 0, 0, 255)
             )  # Red indicates error
+
+    # ------------------------------------------------------------------
+    # Save / Load hooks
+    # ------------------------------------------------------------------
+    def save_state(self) -> Dict[str, Any]:
+        """Return a serialisable snapshot of the main loop state."""
+        return {"zone_manager": self.game_state.zone_manager.to_dict()}
+
+    def load_state(self, data: Dict[str, Any]) -> None:
+        """Restore state produced by :meth:`save_state`."""
+        z_data = data.get("zone_manager")
+        if z_data:
+            self.game_state.zone_manager = ZoneManager.from_dict(
+                z_data, self.game_state.zone_manager.event_registry
+            )
