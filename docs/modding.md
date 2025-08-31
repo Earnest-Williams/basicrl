@@ -25,7 +25,7 @@ The engine loads these files on start, so changes are picked up the next time th
 
 1. Edit `config/items.yaml`.
 2. Create a new entry inside `templates:` with `name`, `glyph`, `item_type`, and optional `attributes` and `effects`.
-3. Use the `flags` list to mark special behavior like `EQUIPPABLE` or `MAGICAL`.
+3. Use the `flags` list to mark special behavior like `EQUIPPABLE` or `MAGICAL`.  Combat-related flags such as `TWO_HANDED` or `OFF_HAND` influence how weapons are treated during damage calculation.
 4. Save the file and load the game to see the new item.
 
 ## Adding effects

@@ -15,6 +15,15 @@ from game.systems.ai_system import dispatch_ai
 from game.ai.perception import gather_perception
 from simulation.zone_manager import ZoneManager
 
+# Import sound system
+try:
+    from game.systems.sound import get_sound_manager, update_music_context
+    SOUND_AVAILABLE = True
+except ImportError:
+    SOUND_AVAILABLE = False
+    def get_sound_manager(): return None
+    def update_music_context(context): pass
+
 
 log = structlog.get_logger()
 
@@ -121,6 +130,11 @@ class GameState:
             "PLAYER_TURN"
         )
         # --- End NEW ---
+        
+        # --- Sound System ---
+        self.sound_manager = get_sound_manager() if SOUND_AVAILABLE else None
+        if self.sound_manager:
+            log.debug("Sound system initialized")
 
         self.add_message("Welcome to BasicRL!", (0, 255, 0))
 
@@ -134,6 +148,10 @@ class GameState:
         )
 
         self.update_fov()  # Initial FOV calculation
+        
+        # Initial sound context update
+        if self.sound_manager:
+            self._update_sound_context()
 
     def update_fov(self) -> None:
         """Calculates Field of View based on player position."""
@@ -334,6 +352,10 @@ class GameState:
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)
+        
+        # Update sound context for situational music
+        if self.sound_manager:
+            self._update_sound_context()
 
     # --- NEW: State transition helper ---
     def change_ui_state(
@@ -345,5 +367,74 @@ class GameState:
             self.ui_state = new_state
         else:
             log.debug(f"UI state already {new_state}, no change.")
+
+    # --- Sound System Integration ---
+    def _update_sound_context(self) -> None:
+        """Update the sound system with current game context for situational music."""
+        if not self.sound_manager:
+            return
+            
+        # Determine current game state
+        game_state = "exploring"  # Default state
+        
+        # Check if player is in combat (nearby hostile entities)
+        player_pos = self.player_position
+        if player_pos:
+            px, py = player_pos
+            # Look for nearby hostile entities within FOV
+            for row in self.entity_registry.entities_df.iter_rows(named=True):
+                if not row.get("is_active", False) or row["entity_id"] == self.player_id:
+                    continue
+                    
+                ex, ey = row.get("x", 0), row.get("y", 0)
+                # Check if entity is within reasonable combat distance and visible
+                distance_sq = (px - ex) ** 2 + (py - ey) ** 2
+                if distance_sq <= (self.fov_radius + 2) ** 2:
+                    if hasattr(self.game_map, 'visible') and self.game_map.visible[ey, ex]:
+                        # Assume any visible nearby entity means combat
+                        game_state = "combat"
+                        break
+        
+        # Determine depth (if available)
+        depth = getattr(self, 'current_depth', 1)
+        
+        # Check for special entity types nearby
+        enemy_types = []
+        if player_pos:
+            px, py = player_pos
+            for row in self.entity_registry.entities_df.iter_rows(named=True):
+                if not row.get("is_active", False) or row["entity_id"] == self.player_id:
+                    continue
+                    
+                ex, ey = row.get("x", 0), row.get("y", 0)
+                distance_sq = (px - ex) ** 2 + (py - ey) ** 2
+                if distance_sq <= self.fov_radius ** 2:
+                    entity_name = row.get("name", "").lower()
+                    if "boss" in entity_name or "dragon" in entity_name or "demon" in entity_name:
+                        enemy_types.append("boss")
+                    elif "elite" in entity_name or "champion" in entity_name:
+                        enemy_types.append("elite")
+        
+        # Build context for sound system
+        context = {
+            "game_state": game_state,
+            "depth": depth,
+            "turn": self.turn_count,
+            "player_hp_percent": 1.0,  # Default
+            "ui_state": self.ui_state.lower()
+        }
+        
+        # Add enemy type if any special enemies nearby
+        if enemy_types:
+            context["enemy_type"] = enemy_types
+        
+        # Get player HP percentage if available
+        player_hp = self.entity_registry.get_entity_component(self.player_id, "hp")
+        player_max_hp = self.entity_registry.get_entity_component(self.player_id, "max_hp")
+        if player_hp is not None and player_max_hp is not None and player_max_hp > 0:
+            context["player_hp_percent"] = player_hp / player_max_hp
+        
+        # Update background music based on context
+        update_music_context(context)
 
     # --- End NEW ---

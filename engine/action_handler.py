@@ -17,6 +17,7 @@ from game.game_state import GameState
 from game.items.registry import ItemRegistry
 from game.world.game_map import GameMap
 from game.systems import movement_system
+from game.systems.death_system import handle_entity_death
 
 # Import equipment system safely
 try:
@@ -169,8 +170,7 @@ def _handle_fall(
                         entity_reg.get_entity_component(entity_id, "name")
                         or "Something"
                     )
-                    gs.add_message(f"The {name} dies from the fall!", (255, 50, 50))
-                    entity_reg.delete_entity(entity_id)  # Mark inactive for now
+                    handle_entity_death(entity_id, gs, f"The {name} dies from the fall!")
                     # Even if the entity dies, the fall action still counts as the turn's action
                     # No need to move the now-inactive entity
                     return True
@@ -342,9 +342,12 @@ def _handle_player_pickup(gs: GameState) -> bool:
     item_reg = gs.item_registry
     capacity = entity_reg.get_entity_component(player_id, "inventory_capacity")
     if capacity is not None:
-        current_inventory_count = item_reg.get_entity_inventory(player_id).height
-        # TODO: Account for stacking or weight-based capacity in the future
-        if current_inventory_count >= capacity:
+        inventory_df = item_reg.get_entity_inventory(player_id)
+        current_inventory_count = (
+            int(inventory_df["quantity"].sum()) if inventory_df.height > 0 else 0
+        )
+        item_quantity = item_reg.get_item_component(item_id, "quantity") or 1
+        if current_inventory_count + item_quantity > capacity:
             log.debug(
                 "Inventory full, aborting pickup",
                 player_id=player_id,
@@ -352,6 +355,21 @@ def _handle_player_pickup(gs: GameState) -> bool:
             )
             gs.add_message("Your inventory is full.", (255, 50, 50))
             return False  # Cannot pickup, no turn consumed
+
+    # --- Weight Capacity Check ---
+    item_quantity = item_reg.get_item_component(item_id, "quantity") or 1
+    item_weight = (
+        item_reg.get_item_static_attribute(item_id, "weight", default=0) * item_quantity
+    )
+    current_weight = (
+        entity_reg.get_entity_component(player_id, "carried_weight") or 0
+    )
+    weight_capacity = (
+        entity_reg.get_entity_component(player_id, "weight_capacity") or 0
+    )
+    if weight_capacity and current_weight + item_weight > weight_capacity:
+        gs.add_message("You are carrying too much to pick that up.", (255, 50, 50))
+        return False
     # --- End Capacity Check ---
 
     # Move item to inventory using ItemRegistry
@@ -362,6 +380,9 @@ def _handle_player_pickup(gs: GameState) -> bool:
         # x, y, equipped_slot, etc., are cleared automatically by move_item
     )
     if success:
+        entity_reg.set_entity_component(
+            player_id, "carried_weight", current_weight + item_weight
+        )
         gs.add_message(f"You pick up the {item_name}.", (200, 200, 200))
         return True  # Pickup successful, turn consumed
     else:
@@ -379,6 +400,7 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
     player_id = gs.player_id
     player_pos = gs.player_position
     item_reg: ItemRegistry = gs.item_registry  # Add type hint
+    entity_reg: EntityRegistry = gs.entity_registry
 
     if player_pos is None:
         log.warning("Drop action failed: player pos not found", player_id=player_id)
@@ -415,6 +437,17 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
     )
 
     if success:
+        item_quantity = item_reg.get_item_component(item_id_to_drop, "quantity") or 1
+        item_weight = (
+            item_reg.get_item_static_attribute(item_id_to_drop, "weight", default=0)
+            * item_quantity
+        )
+        current_weight = (
+            entity_reg.get_entity_component(player_id, "carried_weight") or 0
+        )
+        entity_reg.set_entity_component(
+            player_id, "carried_weight", max(0, current_weight - item_weight)
+        )
         gs.add_message(f"You drop the {item_name}.", (200, 200, 200))
         return True  # Drop successful, turn consumed
     else:

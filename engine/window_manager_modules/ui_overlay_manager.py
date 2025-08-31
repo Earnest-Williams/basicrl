@@ -589,5 +589,25 @@ class UIOverlayManager:
                 )
         elif action_type == "drop":
             action = {"type": "drop", "item_id": item_id}
-        # TODO: Add attach/detach cases
+        elif action_type == "attach":
+            if is_equipped:
+                if gs:
+                    gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
+            else:
+                host_item_id = None
+                for idx, data in self._inventory_ui_map.items():
+                    if data[0] is not None and data[1]:
+                        host_item_id = data[0]
+                        break
+                if host_item_id is None:
+                    if gs:
+                        gs.add_message("No equipped item to attach to.", (255, 100, 0))
+                else:
+                    action = {
+                        "type": "attach",
+                        "item_to_attach_id": item_id,
+                        "target_host_item_id": host_item_id,
+                    }
+        elif action_type == "detach":
+            action = {"type": "detach", "item_to_detach_id": item_id}
         return action

@@ -39,6 +39,8 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "xp": pl.Int32,
     "xp_reward": pl.Int32,
     "inventory_capacity": pl.UInt16,
+    "carried_weight": pl.Float32,
+    "weight_capacity": pl.Float32,
     "status_effects": pl.List(
         pl.Struct({"id": pl.Utf8, "duration": pl.Int16, "intensity": pl.Float32})
     ),
@@ -107,6 +109,8 @@ class EntityRegistry:
         xp: int = 0,
         xp_reward: int = 0,
         inventory_capacity: int = 26,
+        carried_weight: float = 0.0,
+        weight_capacity: float = 0.0,
         mana: float = 0.0,
         max_mana: float = 0.0,
         fullness: float = 100.0,
@@ -179,6 +183,8 @@ class EntityRegistry:
             "xp": [xp],
             "xp_reward": [xp_reward],
             "inventory_capacity": [inventory_capacity],
+            "carried_weight": [carried_weight],
+            "weight_capacity": [weight_capacity],
             "status_effects": [status_effects if status_effects is not None else []],
             "mana": [mana],
             "max_mana": [max_mana],

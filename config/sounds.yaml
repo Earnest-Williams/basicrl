@@ -1,0 +1,211 @@
+# config/sounds.yaml
+# Sound effects and music configuration for BasicRL
+
+# --- General Sound Settings ---
+audio:
+  enabled: true              # Master audio toggle
+  master_volume: 0.7          # Master volume (0.0 to 1.0)
+  sfx_volume: 0.8             # Sound effects volume (0.0 to 1.0)
+  music_volume: 0.6           # Background music volume (0.0 to 1.0)
+  sound_fade_distance: 10     # Distance at which sounds start to fade
+  max_concurrent_sounds: 8    # Maximum simultaneous sound effects
+
+# --- Sound Effects ---
+# Sound effects triggered by game events
+sound_effects:
+  # Movement and interaction
+  player_move:
+    files: ["footstep_stone_01.ogg", "footstep_stone_02.ogg"]
+    volume: 0.5
+    random_pitch: 0.1         # ±10% pitch variation
+    conditions:
+      terrain: ["floor", "corridor"]
+  
+  player_move_water:
+    files: ["splash_small_01.ogg", "splash_small_02.ogg"]
+    volume: 0.6
+    random_pitch: 0.15
+    conditions:
+      terrain: ["water", "shallow_water"]
+  
+  door_open:
+    files: ["door_open_wood.ogg"]
+    volume: 0.7
+    
+  door_close:
+    files: ["door_close_wood.ogg"]
+    volume: 0.7
+    
+  # Combat sounds
+  melee_attack_hit:
+    files: ["sword_hit_01.ogg", "sword_hit_02.ogg", "sword_hit_03.ogg"]
+    volume: 0.8
+    random_pitch: 0.2
+    
+  melee_attack_miss:
+    files: ["sword_whoosh_01.ogg", "sword_whoosh_02.ogg"]
+    volume: 0.6
+    random_pitch: 0.15
+    
+  bow_shoot:
+    files: ["bow_release.ogg"]
+    volume: 0.7
+    
+  arrow_hit:
+    files: ["arrow_hit_flesh.ogg", "arrow_hit_armor.ogg"]
+    volume: 0.8
+    
+  # Damage and healing
+  player_damaged:
+    files: ["grunt_pain_01.ogg", "grunt_pain_02.ogg"]
+    volume: 0.7
+    conditions:
+      target: "player"
+      
+  player_healed:
+    files: ["heal_soft.ogg"]
+    volume: 0.6
+    conditions:
+      target: "player"
+      
+  # Items and inventory
+  item_pickup:
+    files: ["item_pickup.ogg"]
+    volume: 0.5
+    
+  item_drop:
+    files: ["item_drop.ogg"]
+    volume: 0.5
+    
+  potion_drink:
+    files: ["potion_drink.ogg"]
+    volume: 0.6
+    
+  # Magic and special effects
+  spell_cast:
+    files: ["magic_cast_01.ogg", "magic_cast_02.ogg"]
+    volume: 0.8
+    random_pitch: 0.1
+    
+  teleport:
+    files: ["teleport_whoosh.ogg"]
+    volume: 0.9
+    
+  # Environmental
+  level_up:
+    files: ["level_up_fanfare.ogg"]
+    volume: 0.8
+    
+  treasure_found:
+    files: ["treasure_jingle.ogg"]
+    volume: 0.7
+
+# --- Background Music ---
+# Situational background music based on game state
+background_music:
+  # Default exploration music
+  exploration:
+    files: ["exploration_ambient_01.ogg", "exploration_ambient_02.ogg"]
+    volume: 0.4
+    loop: true
+    fade_in_time: 2.0
+    fade_out_time: 3.0
+    conditions:
+      game_state: ["exploring", "idle"]
+      
+  # Combat music
+  combat:
+    files: ["combat_intense_01.ogg", "combat_intense_02.ogg"]
+    volume: 0.6
+    loop: true
+    fade_in_time: 1.0
+    fade_out_time: 2.0
+    priority: 10              # Higher priority than exploration
+    conditions:
+      game_state: ["combat"]
+      
+  # Dungeon depth-based music
+  deep_dungeon:
+    files: ["deep_dungeon_ambient.ogg"]
+    volume: 0.5
+    loop: true
+    fade_in_time: 3.0
+    fade_out_time: 4.0
+    conditions:
+      min_depth: 10
+      game_state: ["exploring"]
+      
+  # Boss encounter music
+  boss_encounter:
+    files: ["boss_music_epic.ogg"]
+    volume: 0.7
+    loop: true
+    fade_in_time: 0.5
+    fade_out_time: 1.0
+    priority: 20              # Highest priority
+    conditions:
+      enemy_type: ["boss", "elite"]
+      game_state: ["combat"]
+
+# --- Sound Event Mappings ---
+# Map game events to sound effects
+event_mappings:
+  # Effect system events
+  "heal_target": "player_healed"
+  "deal_damage": "player_damaged" 
+  "modify_resource": null      # No sound for generic resource changes
+  "recall_ammo": "teleport"    # Magical return sound
+  
+  # Movement events
+  "player_move": "player_move"
+  "entity_move": null         # No sound for non-player movement by default
+  
+  # Item events
+  "item_pickup": "item_pickup"
+  "item_drop": "item_drop"
+  "item_use": null           # Specific items override this
+  "potion_use": "potion_drink"
+  
+  # Combat events
+  "attack_melee": "melee_attack_hit"
+  "attack_ranged": "bow_shoot"
+  "attack_miss": "melee_attack_miss"
+  "spell_cast": "spell_cast"
+  
+  # Special events
+  "level_up": "level_up"
+  "door_open": "door_open"
+  "door_close": "door_close"
+  "treasure_found": "treasure_found"
+
+# --- Situational Modifiers ---
+# Modify sounds based on game context
+situational_modifiers:
+  # Distance-based volume falloff
+  distance_falloff:
+    enabled: true
+    max_distance: 15          # Beyond this distance, no sound
+    falloff_curve: "linear"   # "linear", "exponential", or "logarithmic"
+    
+  # Environmental acoustics
+  environment_effects:
+    cavern:
+      reverb: 0.3             # Echo effect
+      volume_modifier: 1.1    # Sounds carry further
+      
+    surface:
+      reverb: 0.0             # No echo in open air
+      volume_modifier: 0.9    # Sounds dissipate
+      
+    water:
+      low_pass_filter: 0.7    # Muffled underwater sounds
+      volume_modifier: 0.8
+      
+  # Time-based modifiers
+  time_of_day:
+    night:
+      volume_modifier: 0.8    # Quieter at night
+      reverb_modifier: 1.2    # More echo at night
+      
+    day:
+      volume_modifier: 1.0    # Normal volume during day

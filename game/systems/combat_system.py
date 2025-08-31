@@ -10,6 +10,7 @@ import structlog
 # Import roll_dice from its new location
 from utils.helpers import roll_dice
 from game.entities.components import CombatStats
+from game.systems.death_system import handle_entity_death
 
 if TYPE_CHECKING:
     from game_rng import GameRNG  # Assuming this is importable for type hint
@@ -48,35 +49,39 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     damage_dice = DEFAULT_UNARMED_DAMAGE
     weapon_name = "unarmed"
 
-    # Find equipped weapon
+    # Find equipped weapon(s)
     equipped_ids = entity_reg.get_equipped_ids(attacker_id)
     if equipped_ids:
-        # Check main_hand first, then off_hand (simple priority for now)
-        # TODO: Refine to handle two-handed weapons or dual wielding later
-        main_hand_weapon_id = None
-        # Query items registry for equipped items owned by attacker
+        main_hand_weapon_id: int | None = None
+        off_hand_weapon_id: int | None = None
+        two_handed = False
+
         equipped_items = item_reg.get_entity_equipped(attacker_id).filter(
             pl.col("item_id").is_in(equipped_ids)
         )
         if equipped_items.height > 0:
-            main_hand_item = equipped_items.filter(
+            main_hand_df = equipped_items.filter(
                 pl.col("equipped_slot") == "main_hand"
-            ).row(0, named=True, default=None)
+            )
+            off_hand_df = equipped_items.filter(
+                pl.col("equipped_slot") == "off_hand"
+            )
+            main_hand_item = main_hand_df.row(0, named=True) if main_hand_df.height > 0 else None
+            off_hand_item = off_hand_df.row(0, named=True) if off_hand_df.height > 0 else None
+
             if main_hand_item:
-                main_hand_weapon_id = main_hand_item.get("item_id")
+                mid = main_hand_item.get("item_id")
+                if mid is not None and item_reg.item_has_flag(mid, "WEAPON"):
+                    main_hand_weapon_id = mid
+                    two_handed = item_reg.item_has_flag(mid, "TWO_HANDED")
 
-            # Simple fallback to any equipped weapon if main hand empty (could be off_hand weapon)
-            if not main_hand_weapon_id:
-                any_weapon = equipped_items.filter(pl.col("item_type") == "Weapon").row(
-                    0, named=True, default=None
-                )  # Assuming 'item_type' exists
-                if any_weapon:
-                    main_hand_weapon_id = any_weapon.get(
-                        "item_id"
-                    )  # Treat as primary weapon for now
+            if off_hand_item and not two_handed:
+                oid = off_hand_item.get("item_id")
+                if oid is not None and item_reg.item_has_flag(oid, "WEAPON"):
+                    off_hand_weapon_id = oid
 
-        if main_hand_weapon_id:
-            # Retrieve damage_dice attribute from the weapon's template
+        # Determine main-hand weapon data
+        if main_hand_weapon_id is not None:
             weapon_damage_dice_attr = item_reg.get_item_static_attribute(
                 main_hand_weapon_id, "damage_dice", default=None
             )
@@ -85,17 +90,35 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
                 weapon_name = (
                     item_reg.get_item_component(main_hand_weapon_id, "name") or "weapon"
                 )
-                log.debug("Attacker using weapon", weapon=weapon_name, dice=damage_dice)
+                log.debug(
+                    "Attacker using weapon",
+                    weapon=weapon_name,
+                    dice=damage_dice,
+                    off_hand_weapon=off_hand_weapon_id,
+                    two_handed=two_handed,
+                )
             else:
                 log.warning(
                     "Equipped weapon has no damage_dice attribute",
                     item_id=main_hand_weapon_id,
                 )
+
+        off_hand_dice = None
+        if off_hand_weapon_id is not None:
+            off_hand_dice = item_reg.get_item_static_attribute(
+                off_hand_weapon_id, "damage_dice", default=None
+            )
     else:
         log.debug("Attacker is unarmed")
 
     # --- Calculate Damage ---
     raw_damage = roll_dice(damage_dice, rng)
+    if 'two_handed' in locals() and two_handed:
+        raw_damage = int(raw_damage * 1.5)
+    elif 'off_hand_dice' in locals() and off_hand_dice:
+        off_raw = roll_dice(off_hand_dice, rng)
+        raw_damage += max(0, off_raw // 2)
+        raw_damage = max(0, raw_damage - 1)
     attacker_strength = entity_reg.get_entity_component(attacker_id, "strength") or 0
     defender_defense = entity_reg.get_entity_component(defender_id, "defense") or 0
     defender_armor = entity_reg.get_entity_component(defender_id, "armor") or 0
@@ -174,20 +197,11 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     # Handle Death [Source [source 53]]
     if new_hp <= 0:
         log.info(f"{defender_name} died.", defender_id=defender_id)
-        if game_map.visible[dy, dx]:
-            gs.add_message(f"The {defender_name} dies!", (255, 100, 100))
-        # Award XP to attacker
+        # Award XP to attacker before removing entity
         xp_reward = entity_reg.get_entity_component(defender_id, "xp_reward") or 0
         if xp_reward:
             current_xp = entity_reg.get_entity_component(attacker_id, "xp") or 0
             entity_reg.set_entity_component(attacker_id, "xp", current_xp + xp_reward)
             if attacker_id == gs.player_id and game_map.visible[dy, dx]:
                 gs.add_message(f"You gain {xp_reward} XP.", (0, 255, 255))
-        # Drop inventory and equipped items
-        inv_items = item_reg.get_entity_inventory(defender_id)
-        eq_items = item_reg.get_entity_equipped(defender_id)
-        for item in inv_items.iter_rows(named=True):
-            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
-        for item in eq_items.iter_rows(named=True):
-            item_reg.move_item(item["item_id"], "ground", x=dx, y=dy)
-        entity_reg.delete_entity(defender_id)
+        handle_entity_death(defender_id, gs)
