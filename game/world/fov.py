@@ -42,10 +42,6 @@ CLOSE_RANGE_DIVISOR: int = 8
 FAR_RANGE_DIVISOR: int = 16
 _THRESHOLD_AT_CUTOFF: int = CLOSE_RANGE_SQ_THRESHOLD // CLOSE_RANGE_DIVISOR
 MAX_SECTORS: int = 10000  # Safety limit for sector processing
-# Memory fade parameters
-MEMORY_DURATION: float = 60.0
-MEMORY_SIGMOID_MIDPOINT: float = MEMORY_DURATION / 2.0
-MEMORY_SIGMOID_STEEPNESS: float = 6.0 / MEMORY_DURATION
 
 # --- Numba Helper Functions ---
 @numba.njit(cache=True, inline="always")
@@ -348,6 +344,9 @@ def update_memory_fade(
     needs_update_mask: np.ndarray,
     prev_visible: np.ndarray,
     memory_strength: np.ndarray,
+    steepness: float,
+    midpoint: float,
+    duration: float,
 ) -> None:
     """Sigmoid-based fading of remembered tiles.
 
@@ -356,9 +355,6 @@ def update_memory_fade(
     invisible and pruned when tiles become visible again or their intensity
     reaches zero.
     """
-
-    steepness = MEMORY_SIGMOID_STEEPNESS
-    midpoint = MEMORY_SIGMOID_MIDPOINT
 
     # Remove tiles that no longer need fading
     needs_update_mask[visible] = False
@@ -384,6 +380,7 @@ def update_memory_fade(
     midpoint_scaled = midpoint * scale
     exponent = decay_rate * (elapsed_time - midpoint_scaled)
 
+
     new_intensity = np.zeros_like(elapsed_time, dtype=np.float32)
     mask = exponent < 70.0
     safe_exp = np.exp(np.minimum(exponent[mask], 70.0))
@@ -392,8 +389,11 @@ def update_memory_fade(
 
     memory_intensity[ys, xs] = np.maximum(0.0, new_intensity)
 
+
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
+
+
 
 
 @numba.njit(cache=True)

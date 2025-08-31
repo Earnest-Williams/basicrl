@@ -31,6 +31,8 @@ from engine.action_handler import _handle_player_pickup
 from game.game_state import GameState
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def test_pickup_fails_when_inventory_full():
     game_map = GameMap(5, 5)
@@ -56,6 +58,7 @@ def test_pickup_fails_when_inventory_full():
         entity_templates={},
         effect_definitions={},
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
 
     player_id = gs.player_id
