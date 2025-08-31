@@ -25,7 +25,7 @@ DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
 def _roll_dice(dice_str: str | None, rng: GameRNG | None) -> int:
     if not dice_str:
         return 0
-    if not rng:
+    if rng is None:
         log.warning("Dice roll attempted without RNG context!")
         return 0
     match = DICE_PATTERN.match(dice_str)
@@ -102,7 +102,7 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
     gs: "GameState" = context.get("game_state")
     rng: GameRNG | None = context.get("rng")
     target_id = context.get("target_entity_id", context.get("source_entity_id"))
-    if not gs or target_id is None or not rng:
+    if gs is None or target_id is None or rng is None:
         log.warning(
             "Heal effect missing context", target_id=target_id, has_rng=bool(rng)
         )
@@ -162,7 +162,7 @@ def modify_resource(context: Dict[str, Any], params: Dict[str, Any]):
     base_change = params.get("base_change", 0)
     rng: GameRNG | None = context.get("rng")
 
-    if not gs or target_id is None or not resource_name:
+    if gs is None or target_id is None or not resource_name:
         log.warning(
             "Modify resource missing required info", target=target_id, res=resource_name
         )
@@ -242,7 +242,7 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
     gs: "GameState" = context.get("game_state")
     projectile_item_id = context.get("projectile_item_id")
     source_entity_id = context.get("source_entity_id")
-    if not gs or projectile_item_id is None or source_entity_id is None:
+    if gs is None or projectile_item_id is None or source_entity_id is None:
         log.warning(
             "Recall ammo missing required context",
             item=projectile_item_id,
@@ -298,7 +298,7 @@ def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
     base_intensity = params.get("base_intensity")  # Can be None
     rng: GameRNG | None = context.get("rng")
 
-    if not gs or target_id is None or not status_id:
+    if gs is None or target_id is None or not status_id:
         log.warning(
             "ApplyStatus missing required info", target=target_id, status=status_id
         )
@@ -401,7 +401,7 @@ def apply_status_in_aoe(context: Dict[str, Any], params: Dict[str, Any]):
     gs: "GameState" = context.get("game_state")
     center_pos = context.get("target_pos")
     radius = params.get("radius", 1)
-    if not gs or center_pos is None or radius <= 0:
+    if gs is None or center_pos is None or radius <= 0:
         log.warning(
             "ApplyStatusAOE missing context/params", center=center_pos, radius=radius
         )
@@ -430,7 +430,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
     dice_str = params.get("dice")
     base_damage = params.get("base_damage", 0)
 
-    if not gs or target_id is None or not rng:
+    if gs is None or target_id is None or rng is None:
         log.warning("DealDamage missing context", target=target_id, has_rng=bool(rng))
         return
 
@@ -542,7 +542,7 @@ def deal_damage_in_aoe(context: Dict[str, Any], params: Dict[str, Any]):
     radius = params.get("radius", 1)
     source_id = context.get("source_entity_id")  # Pass source for damage messages
 
-    if not gs or center_pos is None or radius <= 0:
+    if gs is None or center_pos is None or radius <= 0:
         log.warning(
             "DealDamageAOE missing context/params", center=center_pos, radius=radius
         )
@@ -569,7 +569,7 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
     gs: "GameState" = context.get("game_state")
     source_entity_id = context.get("source_entity_id")
     direction = context.get("target_direction")
-    if not gs or source_entity_id is None or direction is None:
+    if gs is None or source_entity_id is None or direction is None:
         log.warning("DigTunnel missing context")
         return
 
@@ -623,7 +623,7 @@ def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
     linked_positions_param = params.get("linked_positions")
     target_map_override = params.get("target_map")
 
-    if not gs or target_pos is None:
+    if gs is None or target_pos is None:
         log.warning("CreatePortal missing context", pos=target_pos)
         return
 
@@ -689,7 +689,7 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
     chance = params.get("chance", 100)
     entity_template_id = params.get("entity_template")  # ID string, e.g., "goblin"
 
-    if not gs or target_pos is None or not entity_template_id or not rng:
+    if gs is None or target_pos is None or not entity_template_id or rng is None:
         log.warning(
             "AttemptSpawn missing context",
             pos=target_pos,
