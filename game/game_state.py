@@ -168,11 +168,14 @@ class GameState:
                 if new_duration > 0:
                     updated_effects.append({**effect, "duration": new_duration})
                 else:
+                    effect_id = effect.get("id")
                     log.debug(
                         "Status effect expired",
                         entity_id=entity_id,
-                        effect=effect.get("id"),
+                        effect=effect_id,
                     )
+                    entity_name = row.get("name", f"Entity {entity_id}")
+                    self.add_message(f"{entity_name}'s {effect_id} wears off.")
 
             if updated_effects != status_effects:
                 self.entity_registry.set_entity_component(
