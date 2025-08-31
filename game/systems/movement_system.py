@@ -57,5 +57,12 @@ def try_move(entity_id: int, dx: int, dy: int, gs: GameState) -> bool:
     if not game_map.is_walkable(dest_x, dest_y):
         return False
 
-    return entity_reg.set_position(entity_id, Position(dest_x, dest_y))
+    moved = entity_reg.set_position(entity_id, Position(dest_x, dest_y))
+    if moved:
+        # Moving entities generate noise at their destination
+        try:
+            gs.noise_events.append((dest_x, dest_y, 10.0))
+        except AttributeError:
+            pass
+    return moved
 

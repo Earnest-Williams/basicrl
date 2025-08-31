@@ -89,6 +89,9 @@ class GameState:
         self.fov_radius = player_fov_radius
         self.message_log: list[tuple[str, tuple[int, int, int]]] = []
         self.turn_count: int = 0
+        # Perception event queues processed by gather_perception
+        self.noise_events: list[tuple[int, int, float]] = []
+        self.scent_events: list[tuple[int, int, float]] = []
         # Track light sources (player has a default white light)
         self.light_sources: list[LightSource] = self.game_map.light_sources
         self.light_sources.append(
@@ -178,6 +181,11 @@ class GameState:
         """Advances the game turn counter and performs turn-based updates."""
         self.turn_count += 1
         log.debug("Turn advanced", turn=self.turn_count)
+        # Player leaves a scent each turn at their current position
+        player_pos = self.player_position
+        if player_pos:
+            px, py = player_pos
+            self.scent_events.append((px, py, 5.0))
         # --- Status Effect Duration Update ---
         # Iterate through active entities, decrementing status effect durations
         # and removing any expired effects.
