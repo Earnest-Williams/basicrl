@@ -3,6 +3,7 @@ from typing import Dict, Iterator, List, NamedTuple, Tuple, Union
 
 import numpy as np
 import structlog
+from collections import deque
 
 try:
     from utils.game_rng import GameRNG
@@ -529,8 +530,39 @@ def _generate_cavern_level(
         game_map.ceiling_map[y, x] = DEFAULT_ROOM_CEILING_OFFSET
     if floor_positions.size == 0:
         raise RuntimeError("Cavern generation produced no walkable tiles")
-    start_y, start_x = floor_positions[0]
+    start_y, start_x = _find_largest_floor_component(game_map)
     return int(start_x), int(start_y)
+
+
+def _find_largest_floor_component(game_map: GameMap) -> Tuple[int, int]:
+    """Return a tile from the largest connected region of floor tiles."""
+    floor_mask = game_map.tiles == TILE_ID_FLOOR
+    height, width = floor_mask.shape
+    visited = np.zeros((height, width), dtype=bool)
+    largest: List[Tuple[int, int]] = []
+    for y, x in np.argwhere(floor_mask):
+        if visited[y, x]:
+            continue
+        component: List[Tuple[int, int]] = []
+        queue = deque([(y, x)])
+        visited[y, x] = True
+        while queue:
+            cy, cx = queue.popleft()
+            component.append((cy, cx))
+            for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+                if (
+                    0 <= ny < height
+                    and 0 <= nx < width
+                    and floor_mask[ny, nx]
+                    and not visited[ny, nx]
+                ):
+                    visited[ny, nx] = True
+                    queue.append((ny, nx))
+        if len(component) > len(largest):
+            largest = component
+    if not largest:
+        raise RuntimeError("Cavern generation produced no walkable tiles")
+    return largest[0]
 
 
 def _apply_prefab(game_map: GameMap, x: int, y: int, prefab: List[str]) -> Tuple[int, int]:
@@ -618,7 +650,7 @@ def generate_dungeon(
     game_map: GameMap,
     map_width: int,
     map_height: int,
-    seed: Union[int, None] = None,
+    seed: int | None = None,
     algorithm: str = "bsp",
 ) -> Tuple[int, int]:
     """Entry point for dungeon generation selecting different algorithms."""
