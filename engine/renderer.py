@@ -689,8 +689,10 @@ def _render_entities(
                 dest_slice_x = slice(px_start_x, px_start_x + tile_w)
 
                 # Get the pixel block in the output array corresponding to this tile
-                 # Use direct indexing [cons_ey, cons_ex] to get the tile location, then slice within that tile
-                 target_pixel_block = output_image_array[px_start_y : px_start_y + tile_h, px_start_x : px_start_x + tile_w]
+                # Use direct indexing [cons_ey, cons_ex] to get the tile location, then slice within that tile
+                target_pixel_block = output_image_array[
+                    px_start_y : px_start_y + tile_h, px_start_x : px_start_x + tile_w
+                ]
 
                 # Get the alpha channel of the entity glyph
                 entity_alpha_channel = entity_tile_rgba_array[:, :, 3]
