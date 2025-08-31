@@ -337,18 +337,22 @@ def _handle_player_pickup(gs: GameState) -> bool:
 
     log.debug("Attempting pickup", item_id=item_id, name=item_name)
 
-    # --- TODO: Re-implement inventory capacity check here ---
-    # entity_reg = gs.entity_registry
-    # item_reg = gs.item_registry
-    # capacity = entity_reg.get_entity_component(player_id, "inventory_capacity")
-    # if capacity is not None:
-    #     current_inventory_count = item_reg.get_entity_inventory(player_id).height
-    #     # Note: This doesn't account for stacking yet. Needs more complex logic
-    #     #       if capacity is weight-based or slot-based with stacking.
-    #     if current_inventory_count >= capacity:
-    #         gs.add_message("Your inventory is full.", (255, 50, 50))
-    #         return False # Cannot pickup, no turn consumed
-    # --- End TODO ---
+    # --- Inventory Capacity Check ---
+    entity_reg = gs.entity_registry
+    item_reg = gs.item_registry
+    capacity = entity_reg.get_entity_component(player_id, "inventory_capacity")
+    if capacity is not None:
+        current_inventory_count = item_reg.get_entity_inventory(player_id).height
+        # TODO: Account for stacking or weight-based capacity in the future
+        if current_inventory_count >= capacity:
+            log.debug(
+                "Inventory full, aborting pickup",
+                player_id=player_id,
+                capacity=capacity,
+            )
+            gs.add_message("Your inventory is full.", (255, 50, 50))
+            return False  # Cannot pickup, no turn consumed
+    # --- End Capacity Check ---
 
     # Move item to inventory using ItemRegistry
     success = gs.item_registry.move_item(
