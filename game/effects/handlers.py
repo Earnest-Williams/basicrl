@@ -21,11 +21,22 @@ except ImportError:
     def play_sound(effect_name: str, context=None): return False
 
 if TYPE_CHECKING:
-
     # Corrected relative import path assuming handlers.py is inside effects folder
     from ..game_state import GameState
 
 log = structlog.get_logger()
+
+
+def is_visible_to_player(entity_id: int | None, gs: "GameState") -> bool:
+    """Return True if ``entity_id`` is within the player's current FOV."""
+    if entity_id is None:
+        return False
+    pos = gs.entity_registry.get_position(entity_id)
+    if not pos:
+        return False
+    if not gs.game_map.in_bounds(pos.x, pos.y):
+        return False
+    return bool(gs.game_map.visible[pos.y, pos.x])
 
 # --- Dice Rolling Utility ---
 DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
@@ -62,7 +73,7 @@ def _get_entities_in_aoe(
     center_pos: Tuple[int, int], radius: int, gs: "GameState"
 ) -> List[int]:
     """Finds active entity IDs within a specified radius of a center point."""
-    target_entities = []
+    target_entities: List[int] = []
     radius_sq = radius * radius
     cx, cy = center_pos
 
@@ -148,7 +159,7 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
             player_can_see = target_id == gs.player_id or (
                 target_pos and gs.game_map.visible[target_pos.y, target_pos.x]
             )
-            
+
             # Play healing sound effect
             sound_context = {
                 "target": "player" if target_id == gs.player_id else "other",
@@ -156,7 +167,7 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
                 "visible": player_can_see
             }
             handle_event("heal_target", sound_context)
-            
+
             if player_can_see:
                 if target_id == gs.player_id:
                     gs.add_message(
@@ -214,10 +225,6 @@ def modify_resource(context: Dict[str, Any], params: Dict[str, Any]):
 
         new_value = max(0.0, new_value)  # Assume resources don't go below 0
 
-        # Cast back to the original type if needed, or keep as float? Assume float for now.
-        # target_dtype = gs.entity_registry.entities_df.schema[resource_name]
-        # final_value = target_dtype.cast(new_value) # Example casting
-
         success = gs.entity_registry.set_entity_component(
             target_id, resource_name, new_value
         )
@@ -229,7 +236,6 @@ def modify_resource(context: Dict[str, Any], params: Dict[str, Any]):
                 change=change,
                 new_value=new_value,
             )
-            # Add message for player? (e.g., "You feel less hungry.", "Your mana regenerates.")
         else:
             log.error(
                 "Failed to set new resource value",
@@ -291,14 +297,14 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
             item=projectile_item_id,
             owner=source_entity_id,
         )
-        
+
         # Play recall sound effect
         sound_context = {
             "item_type": "projectile",
             "target": "player" if source_entity_id == gs.player_id else "other"
         }
         handle_event("recall_ammo", sound_context)
-        
+
         if source_entity_id == gs.player_id:
             item_name = (
                 gs.item_registry.get_item_component(projectile_item_id, "name")
@@ -408,17 +414,18 @@ def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
             status_id=status_id,
         )
     else:
-        # Add message? e.g., "The <target> starts burning!"
+        # Messaging based on visibility
         target_name = (
             gs.entity_registry.get_entity_component(target_id, "name") or "Something"
         )
-        # TODO: Check visibility
         if target_id == gs.player_id:
-            gs.add_message(f"You feel {status_id}!", (255, 50, 50))  # Example color
+            gs.add_message(f"You feel {status_id}!", (255, 50, 50))
         else:
-            gs.add_message(
-                f"The {target_name} is afflicted by {status_id}!", (200, 100, 100)
-            )
+            msg = f"The {target_name} is afflicted by {status_id}!"
+            if is_visible_to_player(target_id, gs):
+                gs.add_message(msg, (200, 100, 100))
+            else:
+                gs.queue_message(target_id, msg, (200, 100, 100))
 
 
 # --- Implemented AOE ---
@@ -515,43 +522,49 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            target_pos = gs.entity_registry.get_position(target_id)
-            source_pos = (
-                gs.entity_registry.get_position(source_id) if source_id is not None else None
-            )
+
+            # Visibility using helper
+            source_visible = is_visible_to_player(source_id, gs)
+            target_visible = is_visible_to_player(target_id, gs)
             player_can_see = (
-                target_id == gs.player_id
-                or source_id == gs.player_id
-                or (target_pos and gs.game_map.visible[target_pos.y, target_pos.x])
-                or (source_pos and gs.game_map.visible[source_pos.y, source_pos.x])
+                (source_id == gs.player_id)
+                or (target_id == gs.player_id)
+                or source_visible
+                or target_visible
             )
-            
+
             # Play damage sound effect
             sound_context = {
                 "target": "player" if target_id == gs.player_id else "other",
                 "damage_type": damage_type,
                 "amount": amount_damaged,
                 "visible": player_can_see,
-                "fatal": new_hp <= 0
+                "fatal": new_hp <= 0,
             }
             handle_event("deal_damage", sound_context)
-            
-            if player_can_see:
-                if target_id == gs.player_id:
-                    gs.add_message(
-                        f"The {source_name} hits you for {amount_damaged} damage!",
-                        (255, 0, 0),
-                    )
-                elif source_id == gs.player_id:
-                    gs.add_message(
-                        f"You hit the {target_name} for {amount_damaged} damage!",
-                        (0, 255, 0),
-                    )
-                else:  # Mob vs Mob
-                    gs.add_message(
-                        f"The {source_name} hits the {target_name} for {amount_damaged}.",
-                        (200, 200, 0),
-                    )
+
+            # Messaging
+            if target_id == gs.player_id:
+                gs.add_message(
+                    f"The {source_name} hits you for {amount_damaged} damage!",
+                    (255, 0, 0),
+                )
+            elif source_id == gs.player_id:
+                gs.add_message(
+                    f"You hit the {target_name} for {amount_damaged} damage!",
+                    (0, 255, 0),
+                )
+            elif player_can_see:
+                gs.add_message(
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                    (200, 200, 0),
+                )
+            else:
+                gs.queue_message(
+                    target_id,
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                    (200, 200, 0),
+                )
 
             # --- Handle Death ---
             if new_hp <= 0:
@@ -560,9 +573,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 )
                 handle_entity_death(target_id, gs)
                 # Maybe add 'target_is_living': False to context for trigger checks?
-                context["target_is_living"] = (
-                    False  # Update context for subsequent effects in chain
-                )
+                context["target_is_living"] = False
         else:
             log.error("Failed to set new HP for damage target", target_id=target_id)
 
@@ -606,9 +617,9 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
         log.warning("DigTunnel missing context")
         return
 
-    # Import locally only if needed? Or assume pre-imported TILE_IDs
+    # Corrected import path
     try:
-        from ..game.world.game_map import TILE_ID_FLOOR, TILE_ID_WALL
+        from ..world.game_map import TILE_ID_FLOOR, TILE_ID_WALL
     except ImportError:
         log.error("Could not import TILE_ID constants for digging.")
         return
@@ -619,9 +630,9 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
         return
 
     length = params.get("tunnel_length", 1)
-    cx, cy = start_pos
+    cx, cy = start_pos.x, start_pos.y
     dx, dy = direction
-    log.debug("Executing Dig Tunnel", start=start_pos, dir=direction, len=length)
+    log.debug("Executing Dig Tunnel", start=(cx, cy), dir=direction, len=length)
     map_changed = False
     source_height_val = (
         gs.game_map.height_map[cy, cx] if gs.game_map.in_bounds(cx, cy) else 0

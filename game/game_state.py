@@ -107,6 +107,8 @@ class GameState:
 
         self.fov_radius = player_fov_radius
         self.message_log: list[tuple[str, tuple[int, int, int]]] = []
+        # Messages generated while their subjects are outside FOV are stored here.
+        self.message_queue: list[tuple[int, str, tuple[int, int, int]]] = []
         self.turn_count: int = 0
         # Perception event queues processed by gather_perception
         self.noise_events: list[tuple[int, int, float]] = []
@@ -191,6 +193,9 @@ class GameState:
             log.warning("Cannot update FOV: Player position not found.")
             self.game_map.visible[:] = False  # Clear visibility if no player
 
+        # Deliver any queued messages for entities that just became visible.
+        self.flush_message_queue()
+
     @property
     def map_width(self) -> int:
         return self._map_width
@@ -214,6 +219,28 @@ class GameState:
         # MAX_LOG_LENGTH = 100
         # if len(self.message_log) > MAX_LOG_LENGTH:
         #     self.message_log = self.message_log[-MAX_LOG_LENGTH:]
+
+    def queue_message(
+        self, entity_id: int, text: str, color: tuple[int, int, int] = (255, 255, 255)
+    ) -> None:
+        """Queue a message to display when ``entity_id`` becomes visible."""
+        self.message_queue.append((entity_id, text, color))
+        log.debug(
+            "Message queued", entity_id=entity_id, message=text, color=color
+        )
+
+    def flush_message_queue(self) -> None:
+        """Deliver queued messages whose entities are now visible."""
+        if not self.message_queue:
+            return
+        remaining: list[tuple[int, str, tuple[int, int, int]]] = []
+        for ent_id, text, color in self.message_queue:
+            pos = self.entity_registry.get_position(ent_id)
+            if pos and self.game_map.visible[pos.y, pos.x]:
+                self.add_message(text, color)
+            else:
+                remaining.append((ent_id, text, color))
+        self.message_queue = remaining
 
     def schedule_low_detail_update(
         self, x: int, y: int, callback: Callable[["GameState"], None]
