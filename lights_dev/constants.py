@@ -24,8 +24,8 @@ UNSEEN = " "
 
 # --- Memory Fade ---
 MEMORY_DURATION = 60.0
-MEMORY_SIGMOID_MIDPOINT = MEMORY_DURATION / 2.0
-MEMORY_SIGMOID_STEEPNESS = 6.0 / MEMORY_DURATION
+# Linear decay: intensity decreases from 1.0 to 0.0 over MEMORY_DURATION seconds.
+MEMORY_DECAY_RATE = 1.0 / MEMORY_DURATION
 MEMORY_LEVEL_COUNT = 5
 MEMORY_WALL_LEVELS = ["▓", "▒", "░", "⋅", " "]
 MEMORY_PILLAR_LEVELS = ["▤", "▥", "▫", "◦", " "]
