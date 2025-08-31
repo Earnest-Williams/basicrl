@@ -110,12 +110,7 @@ class MainLoop:
         if player_acted:
             log.debug("Player action resulted in turn", action_type=action.get("type"))
             gs.advance_turn()
-            player_pos = gs.player_position
-            if player_pos:
-                gs.update_fov()
-            else:
-                log.warning("Player position lost after action, clearing FOV.")
-                gs.game_map.visible[:] = False
+            # FOV recalculated inside GameState.advance_turn
             # Trigger redraw via WindowManager after state changes
             self.window.update_frame()
             return True

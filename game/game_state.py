@@ -118,11 +118,9 @@ class GameState:
                 log.warning("Player out of bounds, cannot compute FOV.", pos=(px, py))
                 self.game_map.visible[:] = False  # Clear visibility if player is OOB
                 return
-            # Ensure origin height is passed correctly
-            origin_height = int(self.game_map.height_map[py, px])
             self.game_map.compute_fov(
                 px, py, self.fov_radius
-            )  # compute_fov now handles explored
+            )  # compute_fov handles explored and origin height internally
             # Post-check: Ensure origin is always visible if FOV somehow clears it
             if not self.game_map.visible[py, px]:
                 log.warning(
@@ -205,6 +203,9 @@ class GameState:
                 self.entity_registry.set_entity_component(
                     entity_id, "status_effects", updated_effects
                 )
+
+        # Recalculate FOV so perception and rendering use up-to-date visibility
+        self.update_fov()
 
         # --- AI processing call ---
         log.debug("Gathering perception data for AI")

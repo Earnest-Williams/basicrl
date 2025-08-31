@@ -25,6 +25,7 @@ def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, 
     game_map = game_state.game_map
     noise_map = np.zeros_like(game_map.tiles, dtype=np.int32)
     scent_map = np.zeros_like(game_map.tiles, dtype=np.int32)
+    # LOS uses the latest visibility grid populated by GameState.update_fov
     los_map = game_map.visible.copy()
     log.debug("Perception maps generated", shape=noise_map.shape)
     return noise_map, scent_map, los_map
