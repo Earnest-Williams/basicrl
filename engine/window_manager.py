@@ -41,33 +41,6 @@ DEFAULT_RESIZE_DEBOUNCE_MS = 100
 DEFAULT_INITIAL_WINDOW_WIDTH = 1024
 DEFAULT_INITIAL_WINDOW_HEIGHT = 768
 
-# lerp_color function
-def lerp_color(self, color1: tuple, color2: tuple, t: float) -> tuple:
-    """
-    Linearly interpolate between two RGB colors.
-    
-    Args:
-        color1: Starting RGB color tuple
-        color2: Ending RGB color tuple
-        t: Interpolation factor (0.0 to 1.0)
-    
-    Returns:
-        Interpolated RGB color tuple
-    """
-    # Ensure t is clamped between 0 and 1
-    t = max(0.0, min(1.0, t))
-    
-    # Interpolate each color component
-    r = int(color1[0] + (color2[0] - color1[0]) * t)
-    g = int(color1[1] + (color2[1] - color1[1]) * t)
-    b = int(color1[2] + (color2[2] - color1[2]) * t)
-    
-    # Clamp values between 0 and 255
-    r = max(0, min(255, r))
-    g = max(0, min(255, g))
-    b = max(0, min(255, b))
-    
-    return (r, g, b)
 
 
 class WindowManager(QWidget):
@@ -162,6 +135,25 @@ class WindowManager(QWidget):
         self.ui_overlay_manager = UIOverlayManager(self)
 
         log.debug("WindowManager __init__ complete")
+
+
+    @staticmethod
+    def lerp_color(color1: tuple, color2: tuple, t: float) -> tuple:
+        """Linearly interpolate between two RGB colors."""
+        # Ensure t is clamped between 0 and 1
+        t = max(0.0, min(1.0, t))
+
+        # Interpolate each color component
+        r = int(color1[0] + (color2[0] - color1[0]) * t)
+        g = int(color1[1] + (color2[1] - color1[1]) * t)
+        b = int(color1[2] + (color2[2] - color1[2]) * t)
+
+        # Clamp values between 0 and 255
+        r = max(0, min(255, r))
+        g = max(0, min(255, g))
+        b = max(0, min(255, b))
+
+        return (r, g, b)
 
 
     def _update_render_coord_cache(self, vp_pixel_w: int, vp_pixel_h: int) -> None:
