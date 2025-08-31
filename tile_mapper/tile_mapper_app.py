@@ -3,11 +3,14 @@
 import sys
 import traceback
 
+import structlog
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 # Import the main window class
 # Assuming flat structure, adjust path if needed (e.g., from .tile_mapper_gui import ...)
 from tile_mapper_gui import MainWindow
+
+log = structlog.get_logger(__name__)
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -19,22 +22,17 @@ if __name__ == "__main__":
     # --- Catch startup errors ---
     main_window = None
     try:
-        print("Initializing MainWindow...")
+        log.info("Initializing MainWindow")
         main_window = MainWindow()  # Config is loaded inside MainWindow.__init__
-        print("Showing MainWindow...")
+        log.info("Showing MainWindow")
         main_window.show()
-        print("Starting application event loop...")
+        log.info("Starting application event loop")
         exit_code = app.exec()
-        print(f"Application finished with exit code {exit_code}.")
+        log.info("Application finished", exit_code=exit_code)
         sys.exit(exit_code)
 
-    except Exception as e:
-        print("\n--- CRITICAL STARTUP ERROR ---", file=sys.stderr)
-        print(
-            f"An error occurred during application initialization: {e}", file=sys.stderr
-        )
-        print("Traceback:", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)  # Print traceback to stderr
+    except Exception:
+        log.exception("Application initialization failed")
 
         # Attempt to show error message box
         try:
@@ -51,6 +49,6 @@ if __name__ == "__main__":
             error_msg.setDetailedText(tb_text)
             error_msg.exec()
         except Exception as box_e:
-            print(f"Could not display error message box: {box_e}", file=sys.stderr)
+            log.error("Could not display error message box", error=str(box_e))
 
         sys.exit(1)  # Exit with error code

@@ -88,7 +88,6 @@ def _generate_bf_func(code, tape_size=30000):
     lines.append(f"{indent}return ''.join(output_stream.getvalue())")
 
     full_code = "\n".join(lines)
-    # print("Generated BF Code:\n", full_code) # For debugging generated code
     namespace = {}
     try:
         exec(full_code, namespace)
@@ -204,8 +203,6 @@ class BrainfuckRunner:
 
             return {"success": True, "output": output}
         except Exception as e:
-
-            # print(f"Brainfuck execution error: {e}\n{traceback.format_exc()}") # More detailed error
             return {"success": False, "error": str(e)}
         # No finally needed as StringIO closes automatically
 
@@ -416,7 +413,7 @@ class MacroManager:
                     if bf_output:
                         # Convert Brainfuck output to game commands
                         # Note: BF output might not be valid game commands!
-                        print(f"Brainfuck output: {bf_output}")  # Log BF output
+                        log.debug("Brainfuck output", output=bf_output)
                         return self.execute_command_sequence(bf_output)
                     else:
                         return "Brainfuck program executed with no command output."
@@ -427,8 +424,6 @@ class MacroManager:
                         "is_error": True,
                     }
             except Exception as e:
-
-                # print(f"Error processing Brainfuck line: {e}\n{traceback.format_exc()}")
                 return {"error": f"Brainfuck Processing Error: {e}", "is_error": True}
 
         # Otherwise, assume it's a sequence of game commands

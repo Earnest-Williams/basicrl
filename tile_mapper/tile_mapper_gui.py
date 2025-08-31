@@ -3,7 +3,8 @@
 
 import math
 import os
-import traceback
+
+import structlog
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette
@@ -37,6 +38,8 @@ from tile_mapper_dialogs import (
     MapSelectionDialog,
 )  # EditTileDialog used in palette, MapSelectionDialog used here
 from tile_mapper_widgets import TileEditorWidget, TilePaletteWidget
+
+log = structlog.get_logger(__name__)
 
 
 # --- Main Application Window ---
@@ -467,7 +470,7 @@ class MainWindow(QMainWindow):
             )  # Use imported alias
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Load error:\n{e}")
-            traceback.print_exc()
+            log.exception("Load error")
 
     def _combine_maps(self, loaded_maps_dict, tiling_mode, grid_rows=1, grid_cols=1):
         """Combines multiple maps. Uses self.app_config for default tile."""
@@ -537,7 +540,9 @@ class MainWindow(QMainWindow):
                 if r < len(rs) and c < len(cs):
                     px, py = cs[c], rs[r]
                 else:
-                    print(f"Warn: Skipping map '{k}' (grid index error).")
+                    log.warning(
+                        "Skipping map due to grid index error", map=k
+                    )
                     continue
 
             # Efficient copy
@@ -652,7 +657,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Not found: {fpath}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Load text error: {e}")
-            traceback.print_exc()
+            log.exception("Load text error")
 
     def center_map_view(self):
         """Centers the map view."""
@@ -668,7 +673,7 @@ class MainWindow(QMainWindow):
             h_bar.setValue(min(int(cx), h_bar.maximum()))
             v_bar.setValue(min(int(cy), v_bar.maximum()))
         except Exception as e:
-            print(f"Error centering: {e}")
+            log.error("Error centering", error=str(e))
 
     def center_map_view_if_needed(self):
         """Calls center_map_view via QTimer."""
