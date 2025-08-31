@@ -36,7 +36,13 @@ lighting:
   min_fov_level: 0.25     # Minimum light level for tiles just inside FOV radius (0.0 to 1.0)
   falloff_power: 1.5      # Controls how quickly light dims with distance (higher = faster falloff)
   colored_lights: true    # Enable colored light rendering
-  memory_fade: true       # Enable fading of remembered tiles
+
+# -- Memory Fade Parameters --
+memory_fade:
+  enabled: true         # Enable fading of remembered tiles
+  duration: 60.0        # Time for tiles to fully fade (in turns)
+  midpoint: 30.0        # Midpoint of the fade curve
+  steepness: 0.1        # Steepness of the sigmoid fade
 
 # -- Height Visualization --
 height_visualization:

@@ -26,6 +26,8 @@ from game.world.game_map import GameMap
 from game.game_state import GameState
 from game.systems.combat_system import handle_melee_attack
 
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+
 
 def create_game_state():
     gm = GameMap(width=10, height=10)
@@ -39,6 +41,7 @@ def create_game_state():
         item_templates={},
         effect_definitions={},
         rng_seed=1,
+        memory_fade_config=MEMORY_FADE_CFG,
     )
     return gs
 
