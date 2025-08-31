@@ -30,6 +30,7 @@ class GameState:
         player_start_hp: int,
         player_fov_radius: int,
         item_templates: Dict[str, Any],
+        entity_templates: Dict[str, Any],
         effect_definitions: Dict[str, Any],
         rng_seed: int | None,
         ai_config: Dict[str, Any] | None = None,
@@ -52,6 +53,11 @@ class GameState:
 
         self.entity_registry: EntityRegistry = EntityRegistry()
         log.debug("EntityRegistry initialized")
+
+        # Store loaded entity templates in a simple registry
+        from game.entities.template_registry import EntityTemplateRegistry
+
+        self.entity_templates = EntityTemplateRegistry(entity_templates)
 
         self.item_registry: ItemRegistry = ItemRegistry(item_templates)
         self.effect_definitions: Dict[str, Any] = effect_definitions

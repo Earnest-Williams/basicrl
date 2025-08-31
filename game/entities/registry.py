@@ -43,6 +43,8 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "max_fullness": pl.Float32,
     "equipped_item_ids": pl.List(pl.UInt64),
     "body_plan": pl.Object,
+    "linked_positions": pl.List(pl.Struct({"x": pl.Int16, "y": pl.Int16})),
+    "target_map": pl.Utf8,
 }
 
 
@@ -162,6 +164,8 @@ class EntityRegistry:
             "max_fullness": [max_fullness],
             "equipped_item_ids": [[]],
             "body_plan": [body_plan],
+            "linked_positions": [[]],
+            "target_map": [None],
         }
         try:
             new_entity_df = pl.DataFrame(entity_data, schema=ENTITY_SCHEMA)
@@ -222,11 +226,8 @@ class EntityRegistry:
                 # For list types, accessing the first element of the Series
                 # and then converting to list should yield the Python list.
                 # Polars Series.item() often returns the first element directly.
-                list_value = result_series.item()  # Get the list element
-                # Ensure it's actually a list (it should be if schema is correct)
-                return (
-                    list_value if isinstance(list_value, list) else []
-                )  # Return empty list if type mismatch
+                list_value = result_series.to_list()[0]
+                return list_value if isinstance(list_value, list) else []
             else:
                 # For other types, .item() should return the scalar value
                 return result_series.item()

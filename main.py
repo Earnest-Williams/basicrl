@@ -44,6 +44,7 @@ FONTS_DIR = SCRIPT_DIR / "fonts"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 ITEMS_CONFIG_FILE = CONFIG_DIR / "items.yaml"
 EFFECTS_CONFIG_FILE = CONFIG_DIR / "effects.yaml"
+ENTITIES_CONFIG_FILE = CONFIG_DIR / "entities.yaml"
 KEYBINDINGS_FILE = CONFIG_DIR / "keybindings.toml"
 SETTINGS_FILE = CONFIG_DIR / "settings.toml"
 # --- End Paths ---
@@ -154,12 +155,25 @@ def main() -> None:
     try:
         # --- Load Configurations ---
         config = load_yaml_config(CONFIG_FILE, "Main")
-        item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get( "templates", {} )
-        effect_definitions = load_yaml_config(EFFECTS_CONFIG_FILE, "Effects").get( "effects", {} )
+        item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get(
+            "templates", {}
+        )
+        entity_templates = load_yaml_config(ENTITIES_CONFIG_FILE, "Entities").get(
+            "templates", {}
+        )
+        effect_definitions = load_yaml_config(EFFECTS_CONFIG_FILE, "Effects").get(
+            "effects", {}
+        )
         keybindings_config = load_toml_config(KEYBINDINGS_FILE, "Keybindings")
         settings_config = load_toml_config(SETTINGS_FILE, "Settings")
-        log.info( "Configurations loaded", items=len(item_templates), effects=len(effect_definitions),
-                  keybindings=len(keybindings_config.get("bindings", {})), settings=len(settings_config) )
+        log.info(
+            "Configurations loaded",
+            items=len(item_templates),
+            entities=len(entity_templates),
+            effects=len(effect_definitions),
+            keybindings=len(keybindings_config.get("bindings", {})),
+            settings=len(settings_config),
+        )
 
         # --- Extract Config Values ---
         # (Extraction logic unchanged)
@@ -211,10 +225,15 @@ def main() -> None:
 
         log.info("Initializing game state...")
         game_state = GameState(
-            existing_map=game_map, player_start_pos=player_start_pos,
-            player_glyph=player_glyph, player_start_hp=player_start_hp,
-            player_fov_radius=player_fov_radius, item_templates=item_templates,
-            effect_definitions=effect_definitions, rng_seed=rng_seed_to_pass,
+            existing_map=game_map,
+            player_start_pos=player_start_pos,
+            player_glyph=player_glyph,
+            player_start_hp=player_start_hp,
+            player_fov_radius=player_fov_radius,
+            item_templates=item_templates,
+            entity_templates=entity_templates,
+            effect_definitions=effect_definitions,
+            rng_seed=rng_seed_to_pass,
             ai_config=ai_config,
         )
 
