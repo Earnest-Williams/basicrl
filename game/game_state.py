@@ -5,6 +5,7 @@ import structlog
 from game_rng import GameRNG  # Assuming this path is correct
 
 from game.entities.registry import EntityRegistry
+from game.entities.components import Position
 from game.items.registry import ItemRegistry
 
 # Assuming these imports are correct relative to game_state.py
@@ -129,7 +130,7 @@ class GameState:
         return self._map_height
 
     @property
-    def player_position(self) -> Union[Tuple[int, int], None]:
+    def player_position(self) -> Position | None:
         """Gets the current player position from the EntityRegistry."""
         return self.entity_registry.get_position(self.player_id)
 
