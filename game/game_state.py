@@ -160,7 +160,6 @@ class GameState:
                     self.turn_count,
                     self.memory_fade_steepness,
                     self.memory_fade_midpoint,
-                    self.memory_fade_duration,
                 )
             # Keep player light source in sync with position
             try:

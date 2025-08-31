@@ -346,7 +346,6 @@ def update_memory_fade(
     memory_strength: np.ndarray,
     steepness: float,
     midpoint: float,
-    duration: float,
 ) -> None:
     """Sigmoid-based fading of remembered tiles.
 
