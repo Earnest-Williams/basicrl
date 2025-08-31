@@ -56,6 +56,7 @@ def take_turn(
     x, y = entity_row["x"], entity_row["y"]
     noise_map, scent_map, los_map = perception
 
+
     player_pos = game_state.player_position
     dx = dy = 0
     if player_pos is not None:
@@ -63,6 +64,39 @@ def take_turn(
         pathfinder.compute_field([(player_pos.y, player_pos.x)])
         dx, dy = pathfinder.get_flow_vector(y, x)
 
+    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+    current_noise = noise_map[y, x]
+    best_noise = current_noise
+    move = None
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < noise_map.shape[1] and 0 <= ny < noise_map.shape[0]:
+            if noise_map[ny, nx] > best_noise:
+                best_noise = noise_map[ny, nx]
+                move = (dx, dy)
+
+
+    if move is None:
+        current_scent = scent_map[y, x]
+        best_scent = current_scent
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < scent_map.shape[1] and 0 <= ny < scent_map.shape[0]:
+                if scent_map[ny, nx] > best_scent:
+                    best_scent = scent_map[ny, nx]
+                    move = (dx, dy)
+
+    if move is None:
+        if hasattr(rng, "randint"):
+            idx = rng.randint(0, len(directions) - 1)
+            move = directions[idx]
+        else:
+            import random
+
+            move = random.choice(directions)
+
+    dx, dy = move
     moved = movement_system.try_move(entity_id, dx, dy, game_state)
 
     log.debug(

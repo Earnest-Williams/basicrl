@@ -12,7 +12,7 @@ from game.systems.pathfinding.flowfield import FlowFieldPathfinder
 from game.world.game_map import TILE_TYPES
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
-    import numpy as np
+    import numpy as np<<<<<<< codex/implement-flow-field-guided-movement-for-ai
     from game.game_state import GameState
     from game_rng import GameRNG
     from polars.type_aliases import IntoExpr
@@ -71,6 +71,41 @@ def take_turn(
         pathfinder.compute_field([(player_pos.y, player_pos.x)])
         dx, dy = pathfinder.get_flow_vector(y, x)
 
+
+    # React to noise first
+    current_noise = noise_map[y, x]
+    best_noise = current_noise
+    move = None
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < noise_map.shape[1] and 0 <= ny < noise_map.shape[0]:
+            if noise_map[ny, nx] > best_noise:
+                best_noise = noise_map[ny, nx]
+                move = (dx, dy)
+
+
+    # If no noisy direction, follow scent
+    if move is None:
+        current_scent = scent_map[y, x]
+        best_scent = current_scent
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < scent_map.shape[1] and 0 <= ny < scent_map.shape[0]:
+                if scent_map[ny, nx] > best_scent:
+                    best_scent = scent_map[ny, nx]
+                    move = (dx, dy)
+
+    # Default to random movement
+    if move is None:
+        if hasattr(rng, "randint"):
+            idx = rng.randint(0, len(directions) - 1)
+            move = directions[idx]
+        else:
+            import random
+
+            move = random.choice(directions)
+
+    dx, dy = move
     moved = movement_system.try_move(entity_id, dx, dy, game_state)
 
     log.debug(

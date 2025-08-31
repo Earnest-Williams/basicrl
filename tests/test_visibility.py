@@ -54,8 +54,8 @@ def test_compute_with_wall_blocks_visibility():
     )
     assert visible[origin[1], origin[0]]
     assert not visible[origin[1], 3]
-    assert not line_of_sight(origin[0], origin[1], 3, origin[1], transparent)
-    assert line_of_sight(origin[0], origin[1], 0, origin[1], transparent)
+    assert not line_of_sight(origin[1], origin[0], origin[1], 3, transparent)
+    assert line_of_sight(origin[1], origin[0], origin[1], 0, transparent)
 
 
 def test_compute_negative_range_only_origin_visible():

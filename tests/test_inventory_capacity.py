@@ -53,6 +53,7 @@ def test_pickup_fails_when_inventory_full():
         player_start_hp=10,
         player_fov_radius=8,
         item_templates=item_templates,
+        entity_templates={},
         effect_definitions={},
         rng_seed=1,
     )

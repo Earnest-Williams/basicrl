@@ -18,7 +18,7 @@ except ImportError:
 
 log = structlog.get_logger()
 
-# ENTITY_SCHEMA (Unchanged)
+# ENTITY_SCHEMA
 ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "entity_id": pl.UInt32,
     "is_active": pl.Boolean,
@@ -33,6 +33,11 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "blocks_movement": pl.Boolean,
     "hp": pl.Int16,
     "max_hp": pl.Int16,
+    "strength": pl.Int16,
+    "defense": pl.Int16,
+    "armor": pl.Int16,
+    "xp": pl.Int32,
+    "xp_reward": pl.Int32,
     "inventory_capacity": pl.UInt16,
     "status_effects": pl.List(
         pl.Struct({"id": pl.Utf8, "duration": pl.Int16, "intensity": pl.Float32})
@@ -43,6 +48,13 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "max_fullness": pl.Float32,
     "equipped_item_ids": pl.List(pl.UInt64),
     "body_plan": pl.Object,
+
+    "resistances": pl.Object,
+    "vulnerabilities": pl.Object,
+
+    "linked_positions": pl.List(pl.Struct({"x": pl.Int16, "y": pl.Int16})),
+    "target_map": pl.Utf8,
+
 }
 
 
@@ -89,6 +101,11 @@ class EntityRegistry:
         ai_type: str | None = None,
         hp: int = 1,
         max_hp: int = 1,
+        strength: int = 0,
+        defense: int = 0,
+        armor: int = 0,
+        xp: int = 0,
+        xp_reward: int = 0,
         inventory_capacity: int = 26,
         mana: float = 0.0,
         max_mana: float = 0.0,
@@ -96,6 +113,8 @@ class EntityRegistry:
         max_fullness: float = 100.0,
         status_effects: list | None = None,
         initial_body_plan: Dict[str, int] | None = None,
+        resistances: Dict[str, float] | None = None,
+        vulnerabilities: Dict[str, float] | None = None,
     ) -> int:
         # (Implementation unchanged - uses direct schema on creation)
         new_id = self._get_next_id()
@@ -154,6 +173,11 @@ class EntityRegistry:
             "blocks_movement": [blocks_movement],
             "hp": [hp],
             "max_hp": [max_hp],
+            "strength": [strength],
+            "defense": [defense],
+            "armor": [armor],
+            "xp": [xp],
+            "xp_reward": [xp_reward],
             "inventory_capacity": [inventory_capacity],
             "status_effects": [status_effects if status_effects is not None else []],
             "mana": [mana],
@@ -162,6 +186,15 @@ class EntityRegistry:
             "max_fullness": [max_fullness],
             "equipped_item_ids": [[]],
             "body_plan": [body_plan],
+
+            "resistances": [resistances if resistances is not None else {}],
+            "vulnerabilities": [
+                vulnerabilities if vulnerabilities is not None else {}
+            ],
+
+            "linked_positions": [[]],
+            "target_map": [None],
+
         }
         try:
             new_entity_df = pl.DataFrame(entity_data, schema=ENTITY_SCHEMA)
@@ -218,15 +251,12 @@ class EntityRegistry:
             target_dtype = ENTITY_SCHEMA[component_name]
 
             # Extract value, handling List types specifically
-            if isinstance(target_dtype, pl.List):
+            if isinstance(target_dtype, pl.List):<<<<<<< codex/add-los-checks-in-target-selection
                 # For list types, accessing the first element of the Series
                 # and then converting to list should yield the Python list.
                 # Polars Series.item() often returns the first element directly.
-                list_value = result_series.item()  # Get the list element
-                # Ensure it's actually a list (it should be if schema is correct)
-                return (
-                    list_value if isinstance(list_value, list) else []
-                )  # Return empty list if type mismatch
+                list_value = result_series.to_list()[0]
+                return list_value if isinstance(list_value, list) else []
             else:
                 # For other types, .item() should return the scalar value
                 return result_series.item()

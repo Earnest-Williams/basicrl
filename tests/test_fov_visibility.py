@@ -49,6 +49,7 @@ def create_game_state():
         player_start_hp=10,
         player_fov_radius=4,
         item_templates={},
+        entity_templates={},
         effect_definitions={},
         rng_seed=42,
     )

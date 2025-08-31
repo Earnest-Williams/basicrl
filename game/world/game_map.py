@@ -96,6 +96,13 @@ class GameMap:
         self.last_seen_time: np.ndarray = np.zeros(
             (height, width), dtype=np.float32, order="C"
         )
+        # Perception layers reused across turns
+        self.noise_map: np.ndarray = np.zeros(
+            (height, width), dtype=np.float32, order="C"
+        )
+        self.scent_map: np.ndarray = np.zeros(
+            (height, width), dtype=np.float32, order="C"
+        )
         self.light_sources: list[LightSource] = []
         log.debug("GameMap arrays initialized", shape=(height, width))
 

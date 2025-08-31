@@ -5,9 +5,11 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import structlog
+import polars as pl
 
 # Imports for type hinting and GameRNG
 from game_rng import GameRNG
+from ..world import line_of_sight
 
 if TYPE_CHECKING:
 
@@ -72,10 +74,15 @@ def _get_entities_in_aoe(
         potential_targets = potential_targets.with_columns(
             dist_sq=((pl.col("x") - cx) ** 2 + (pl.col("y") - cy) ** 2)
         ).filter(pl.col("dist_sq") <= radius_sq)
-        target_entities = potential_targets["entity_id"].to_list()
+        candidate_ids = potential_targets["entity_id"].to_list()
 
-    # TODO: Optional LOS check from center_pos to each entity in target_entities
-    # Requires game_map visibility logic
+        transparency = gs.game_map.transparent
+        for entity_id in candidate_ids:
+            pos = gs.entity_registry.get_position(entity_id)
+            if not pos:
+                continue
+            if line_of_sight(cy, cx, pos.y, pos.x, transparency):
+                target_entities.append(entity_id)
 
     log.debug(
         "AOE Query results",
@@ -128,13 +135,20 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            if target_id == gs.player_id:
-                gs.add_message(f"You heal for {amount_healed} HP.", (0, 255, 0))
-            else:
-                # TODO: Check visibility before showing message
-                gs.add_message(
-                    f"The {target_name} heals for {amount_healed} HP.", (0, 180, 0)
-                )
+            target_pos = gs.entity_registry.get_position(target_id)
+            player_can_see = target_id == gs.player_id or (
+                target_pos and gs.game_map.visible[target_pos.y, target_pos.x]
+            )
+            if player_can_see:
+                if target_id == gs.player_id:
+                    gs.add_message(
+                        f"You heal for {amount_healed} HP.", (0, 255, 0)
+                    )
+                else:
+                    gs.add_message(
+                        f"The {target_name} heals for {amount_healed} HP.",
+                        (0, 180, 0),
+                    )
         else:
             log.error("Failed to set new HP for heal target", target_id=target_id)
 
@@ -425,9 +439,27 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
         log.debug("Damage calculated as zero or less", raw=raw_damage)
         return
 
-    # TODO: Implement damage resistance/vulnerability checks based on damage_type
-    # final_damage = calculate_final_damage(raw_damage, damage_type, target_id, gs)
-    final_damage = raw_damage  # Placeholder
+    resistances: Dict[str, float] = {}
+    vulnerabilities: Dict[str, float] = {}
+    try:
+        resistances = (
+            gs.entity_registry.get_entity_component(target_id, "resistances") or {}
+        )
+    except ValueError:
+        pass
+    try:
+        vulnerabilities = (
+            gs.entity_registry.get_entity_component(target_id, "vulnerabilities") or {}
+        )
+    except ValueError:
+        pass
+
+    multiplier = 1.0
+    if isinstance(resistances, dict):
+        multiplier *= 1 - float(resistances.get(damage_type, 0))
+    if isinstance(vulnerabilities, dict):
+        multiplier *= 1 + float(vulnerabilities.get(damage_type, 0))
+    final_damage = max(0, int(raw_damage * multiplier))
 
     current_hp = gs.entity_registry.get_entity_component(target_id, "hp")
     if current_hp is None:
@@ -457,22 +489,32 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            # TODO: Check visibility
-            if target_id == gs.player_id:
-                gs.add_message(
-                    f"The {source_name} hits you for {amount_damaged} damage!",
-                    (255, 0, 0),
-                )
-            elif source_id == gs.player_id:
-                gs.add_message(
-                    f"You hit the {target_name} for {amount_damaged} damage!",
-                    (0, 255, 0),
-                )
-            else:  # Mob vs Mob
-                gs.add_message(
-                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
-                    (200, 200, 0),
-                )
+            target_pos = gs.entity_registry.get_position(target_id)
+            source_pos = (
+                gs.entity_registry.get_position(source_id) if source_id is not None else None
+            )
+            player_can_see = (
+                target_id == gs.player_id
+                or source_id == gs.player_id
+                or (target_pos and gs.game_map.visible[target_pos.y, target_pos.x])
+                or (source_pos and gs.game_map.visible[source_pos.y, source_pos.x])
+            )
+            if player_can_see:
+                if target_id == gs.player_id:
+                    gs.add_message(
+                        f"The {source_name} hits you for {amount_damaged} damage!",
+                        (255, 0, 0),
+                    )
+                elif source_id == gs.player_id:
+                    gs.add_message(
+                        f"You hit the {target_name} for {amount_damaged} damage!",
+                        (0, 255, 0),
+                    )
+                else:  # Mob vs Mob
+                    gs.add_message(
+                        f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                        (200, 200, 0),
+                    )
 
             # --- Handle Death ---
             if new_hp <= 0:
@@ -573,37 +615,45 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
         gs.game_map.update_tile_transparency()  # Crucial after changing tiles
 
 
-# --- Implemented Spawning (Placeholders for templates) ---
 def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
     """Creates a portal entity at the target location."""
     gs: "GameState" = context.get("game_state")
     target_pos = context.get("target_pos")
-    portal_template_id = params.get(
-        "portal_template", "default_portal"
-    )  # Needs definition
-    linked_pos_param = params.get(
-        "linked_position"
-    )  # e.g., [10, 15] or target map name
+    portal_template_id = params.get("portal_template", "default_portal")
+    linked_positions_param = params.get("linked_positions")
+    target_map_override = params.get("target_map")
 
     if not gs or target_pos is None:
         log.warning("CreatePortal missing context", pos=target_pos)
         return
 
-    # --- Placeholder: Assume a simple portal entity ---
-    portal_glyph = params.get("glyph", 62)  # '>'
-    portal_color = params.get("color", (255, 0, 255))  # Magenta
-    portal_name = params.get("name", "Portal")
-    blocks = params.get("blocks_movement", False)
-    # --- End Placeholder ---
+    template_data = gs.entity_templates.get_template(portal_template_id)
+    if not template_data:
+        log.error(
+            "CreatePortal failed: Unknown template",
+            template=portal_template_id,
+        )
+        return
+
+    portal_glyph = template_data.get("glyph", params.get("glyph", 62))
+    portal_color = tuple(
+        template_data.get("color", params.get("color", (255, 0, 255)))
+    )
+    portal_name = template_data.get("name", params.get("name", "Portal"))
+    blocks = template_data.get(
+        "blocks_movement", params.get("blocks_movement", False)
+    )
+    linked_positions = linked_positions_param or template_data.get(
+        "linked_positions", []
+    )
+    target_map = target_map_override or template_data.get("target_map")
 
     log.info(
         "Creating portal",
         template=portal_template_id,
         pos=target_pos,
-        link=linked_pos_param,
+        link=linked_positions,
     )
-    # TODO: Add actual template lookup here
-    # template_data = gs.entity_templates.get(portal_template_id)
 
     # Check if tile is blocked
     if not gs.game_map.is_walkable(target_pos[0], target_pos[1]):
@@ -625,9 +675,8 @@ def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
     )
     if new_id is not None:
         log.info("Portal entity created", entity_id=new_id, pos=target_pos)
-        # TODO: Set portal-specific components (e.g., linked_pos, target_map) using set_entity_component
-        # Requires adding these components to ENTITY_SCHEMA
-        # gs.entity_registry.set_entity_component(new_id, "linked_position", linked_pos_param)
+        gs.entity_registry.set_entity_component(new_id, "linked_positions", linked_positions)
+        gs.entity_registry.set_entity_component(new_id, "target_map", target_map)
     else:
         log.error("Failed to create portal entity", pos=target_pos)
 
@@ -654,26 +703,13 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
         log.debug("AttemptSpawn failed chance roll", chance=chance, roll=roll)
         return
 
-    # --- Placeholder: Assume simple templates ---
-    # TODO: Replace with actual lookup from loaded entity templates (requires new config file/loader)
-    templates = {
-        "goblin": {"glyph": ord("g"), "color": (0, 128, 0), "hp": 10, "name": "Goblin"},
-        "orc": {"glyph": ord("O"), "color": (0, 255, 0), "hp": 25, "name": "Orc"},
-        "rat": {
-            "glyph": ord("r"),
-            "color": (128, 128, 128),
-            "hp": 5,
-            "name": "Giant Rat",
-        },
-    }
-    template_data = templates.get(entity_template_id)
+    template_data = gs.entity_templates.get_template(entity_template_id)
     if not template_data:
         log.error(
             "AttemptSpawn failed: Unknown entity template ID",
             template=entity_template_id,
         )
         return
-    # --- End Placeholder ---
 
     log.info("Attempting to spawn entity", template=entity_template_id, pos=target_pos)
 
@@ -685,16 +721,15 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
         log.debug("Cannot spawn entity: location blocked by entity", pos=target_pos)
         return
 
-    # Create the entity using data from the (placeholder) template
     new_id = gs.entity_registry.create_entity(
         x=target_pos[0],
         y=target_pos[1],
-        glyph=template_data["glyph"],
-        color_fg=template_data["color"],
-        name=template_data["name"],
-        blocks_movement=True,  # Assume most spawned entities block
-        hp=template_data["hp"],
-        max_hp=template_data["hp"],
+        glyph=template_data.get("glyph", ord("?")),
+        color_fg=tuple(template_data.get("color", (255, 255, 255))),
+        name=template_data.get("name", entity_template_id),
+        blocks_movement=template_data.get("blocks_movement", True),
+        hp=template_data.get("hp", 1),
+        max_hp=template_data.get("hp", 1),
     )
     if new_id is not None:
         log.info(
