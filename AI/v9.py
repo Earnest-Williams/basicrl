@@ -130,7 +130,7 @@ class Habit:
         return False
 
 
-@dataclass
+@dataclass(frozen=True)
 class OutcomeResult:
     """Container for outcome evaluations."""
 
