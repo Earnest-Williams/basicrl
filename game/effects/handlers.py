@@ -18,6 +18,18 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
+
+def is_visible_to_player(entity_id: int | None, gs: "GameState") -> bool:
+    """Return True if ``entity_id`` is within the player's current FOV."""
+    if entity_id is None:
+        return False
+    pos = gs.entity_registry.get_position(entity_id)
+    if not pos:
+        return False
+    if not gs.game_map.in_bounds(pos.x, pos.y):
+        return False
+    return bool(gs.game_map.visible[pos.y, pos.x])
+
 # --- Dice Rolling Utility ---
 DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
 
@@ -382,17 +394,18 @@ def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
             status_id=status_id,
         )
     else:
-        # Add message? e.g., "The <target> starts burning!"
+        # Messaging based on visibility
         target_name = (
             gs.entity_registry.get_entity_component(target_id, "name") or "Something"
         )
-        # TODO: Check visibility
         if target_id == gs.player_id:
-            gs.add_message(f"You feel {status_id}!", (255, 50, 50))  # Example color
+            gs.add_message(f"You feel {status_id}!", (255, 50, 50))
         else:
-            gs.add_message(
-                f"The {target_name} is afflicted by {status_id}!", (200, 100, 100)
-            )
+            msg = f"The {target_name} is afflicted by {status_id}!"
+            if is_visible_to_player(target_id, gs):
+                gs.add_message(msg, (200, 100, 100))
+            else:
+                gs.queue_message(target_id, msg, (200, 100, 100))
 
 
 # --- Implemented AOE ---
@@ -489,40 +502,39 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.entity_registry.get_entity_component(target_id, "name")
                 or "Something"
             )
-            target_pos = gs.entity_registry.get_position(target_id)
-            source_pos = (
-                gs.entity_registry.get_position(source_id) if source_id is not None else None
-            )
-            player_can_see = (
-                target_id == gs.player_id
-                or source_id == gs.player_id
-                or (target_pos and gs.game_map.visible[target_pos.y, target_pos.x])
-                or (source_pos and gs.game_map.visible[source_pos.y, source_pos.x])
-            )
-            if player_can_see:
-                if target_id == gs.player_id:
-                    gs.add_message(
-                        f"The {source_name} hits you for {amount_damaged} damage!",
-                        (255, 0, 0),
-                    )
-                elif source_id == gs.player_id:
-                    gs.add_message(
-                        f"You hit the {target_name} for {amount_damaged} damage!",
-                        (0, 255, 0),
-                    )
-                else:  # Mob vs Mob
-                    gs.add_message(
-                        f"The {source_name} hits the {target_name} for {amount_damaged}.",
-                        (200, 200, 0),
-                    )
+            source_visible = is_visible_to_player(source_id, gs)
+            target_visible = is_visible_to_player(target_id, gs)
+            if target_id == gs.player_id:
+                gs.add_message(
+                    f"The {source_name} hits you for {amount_damaged} damage!",
+                    (255, 0, 0),
+                )
+            elif source_id == gs.player_id:
+                gs.add_message(
+                    f"You hit the {target_name} for {amount_damaged} damage!",
+                    (0, 255, 0),
+                )
+            elif source_visible or target_visible:
+                gs.add_message(
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                    (200, 200, 0),
+                )
+            else:
+                gs.queue_message(
+                    target_id,
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
+                    (200, 200, 0),
+                )
 
             # --- Handle Death ---
             if new_hp <= 0:
                 log.info(
                     "Entity died", target_id=target_id, name=target_name, hp=new_hp
                 )
-                # TODO: Check visibility
-                gs.add_message(f"The {target_name} dies!", (255, 100, 100))
+                death_msg = f"The {target_name} dies!"
+                if target_id == gs.player_id or is_visible_to_player(target_id, gs):
+                    gs.add_message(death_msg, (255, 100, 100))
+                # Skip message if target not visible; dead entities won't become visible
                 # Handle death: drop items, remove from map, etc.
                 # For now, just mark as inactive
                 gs.entity_registry.delete_entity(target_id)
