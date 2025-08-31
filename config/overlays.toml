@@ -1,0 +1,33 @@
+# config/overlays.toml
+#
+# Overlay definition schema so mods can add HUD panels, dialogs, or image-based
+# overlays. Each ``[[overlay]]`` table represents a single overlay entry.
+#
+# Required fields:
+#   id   - Unique identifier for the overlay.
+#   type - One of "debug", "height_key", "inventory", or "image".
+#
+# Optional fields for image overlays:
+#   path     - Path to an image file (relative to this config file).
+#   position - [x, y] pixel coordinates where the image will be drawn.
+#   enabled  - Boolean, defaults to true.
+#
+# Example custom image overlay:
+# [[overlay]]
+# id = "logo"
+# type = "image"
+# path = "assets/ui/logo.png"
+# position = [5, 5]
+#
+# Default overlays:
+[[overlay]]
+id = "debug"
+type = "debug"
+
+[[overlay]]
+id = "height_key"
+type = "height_key"
+
+[[overlay]]
+id = "inventory"
+type = "inventory"

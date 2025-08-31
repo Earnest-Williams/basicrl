@@ -104,6 +104,10 @@ class GameMap:
             (height, width), dtype=np.float32, order="C"
         )
         self.light_sources: list[LightSource] = []
+        # Vertical transitions like stairs or shafts
+        self.vertical_transitions: list[dict[str, int | str]] = []
+        # Environmental storytelling hooks (annotations on the map)
+        self.story_hooks: list[dict[str, str | int]] = []
         log.debug("GameMap arrays initialized", shape=(height, width))
 
     def update_tile_transparency(self) -> None:

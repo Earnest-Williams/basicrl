@@ -19,8 +19,12 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 
 log = structlog.get_logger()
 
+
 # Cardinal directions used for simple movement heuristics when planning
 # cannot determine a better action.
+
+# Possible movement directions (x, y offsets)
+
 directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
