@@ -184,7 +184,7 @@ class GameState:
 
         # --- AI processing call ---
         log.debug("Invoking AI dispatcher")
-        dispatch_ai(self)
+        dispatch_ai(self, self.rng_instance)
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)
