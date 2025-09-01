@@ -60,7 +60,7 @@ class Bounds:
         return self.range + self.duration + self.target
 
 
-@dataclass
+@dataclass(frozen=True)
 class Balances:
     """Represents costs or counterweights for a work.
 
