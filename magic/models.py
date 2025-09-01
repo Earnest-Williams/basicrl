@@ -72,7 +72,7 @@ class Balances:
     risk: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class Flow:
     """Raw power channelled into a work."""
 
