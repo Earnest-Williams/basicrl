@@ -277,7 +277,8 @@ class MacroManager:
                 if macro_name in seen_macros:
                     # Prevent direct recursion within this expansion path
                     log.warning(
-                        "Detected recursion for macro; stopping expansion", macro=macro_name
+                        "Detected recursion for macro; stopping expansion",
+                        macro=macro_name,
                     )
                     current_expansion += macro_name  # Keep the macro name as is
                 elif macro_name in self.macros:
@@ -412,20 +413,30 @@ class MacroManager:
                 from magic import executor as magic_executor
 
                 parsed_work = work_parser.parse(work_source)
-            except Exception as e:  # pragma: no cover - imported modules may be optional
+            except (
+                Exception
+            ) as e:  # pragma: no cover - imported modules may be optional
                 return {"error": f"Work Parsing Error: {e}", "is_error": True}
+
+            try:
+                from magic.models import compile_ledger_work
+
+                compiled_work = compile_ledger_work(parsed_work)
+            except Exception as e:
+                log.exception("Work Compilation Error")
+                return {"error": f"Work Compilation Error: {e}", "is_error": True}
 
             # Determine if the work is Set or Spoken
             seat_obj = getattr(parsed_work, "seat", None)
             if seat_obj is not None:
                 seat_key = getattr(seat_obj, "value", str(seat_obj))
-                self.work_registry[seat_key] = {"work": parsed_work, "seat": seat_obj}
+                self.work_registry[seat_key] = {"work": compiled_work, "seat": seat_obj}
                 return f"Set work registered at seat {seat_key}"
 
             if not self.game_state:
                 return "Error: Game state not available."
 
-            magic_executor.execute_work(parsed_work, self.game_state)
+            magic_executor.execute_work(compiled_work, self.game_state)
             return "Spoken work executed"
 
         # Check if the expanded line looks like Brainfuck code
