@@ -1,4 +1,4 @@
-# simple_rl/auto - GOAP AI Simulation Environment
+# prototypes/auto - GOAP AI Simulation Environment
 
 ## Purpose
 

@@ -37,7 +37,7 @@ The engine loads these files on start, so changes are picked up the next time th
 
 ## Plugging in new AI
 
-AI behaviours live under the `AI/` folder.  Create a new module that implements the desired behaviour and expose a class or function entry point.  Entity templates can reference this behaviour via fields in `entities.yaml` or by custom game code that selects an AI implementation per entity.
+AI behaviours live under the `prototypes/AI/` folder. Create a new module that implements the desired behaviour and expose a class or function entry point. Entity templates can reference this behaviour via fields in `entities.yaml` or by custom game code that selects an AI implementation per entity.
 
 ## Custom generation algorithms
 
