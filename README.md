@@ -58,6 +58,7 @@ pytest
 Some tests currently require optional dependencies like NumPy, Polars, and structlog.
 
 ## Contributing
+
  
 This project is private and not open to external contributions or use at this time.
 
