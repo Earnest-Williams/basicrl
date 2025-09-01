@@ -4,7 +4,7 @@
 
 This module provides the `GameRNG` class, a high-performance, deterministic Random Number Generator (RNG) specifically designed for simulation and game development needs within the `simple_rl` project. It replaces the standard `random` module to ensure reproducibility, offer advanced features, and optimize performance for random number generation tasks.
 
-This is a foundational component used by various parts of the project (e.g., `simple_rl/Dungeon`, AI systems) to ensure that procedural generation and stochastic events are consistent and repeatable given the same initial seed and sequence of operations.
+This is a foundational component used by various parts of the project (e.g., `prototypes/Dungeon`, AI systems) to ensure that procedural generation and stochastic events are consistent and repeatable given the same initial seed and sequence of operations.
 
 ## Key Features
 

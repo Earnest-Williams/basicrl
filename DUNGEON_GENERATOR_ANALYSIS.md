@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Cave System Generator** (located in the `Dungeon/` directory) is the primary procedural generation system for creating complex underground environments in basicrl. Unlike the BSP (Binary Space Partitioning) generator used for structured rooms, this system creates organic cave networks that simulate natural geological formations.
+The **Cave System Generator** (located in the `prototypes/Dungeon/` directory) is the primary procedural generation system for creating complex underground environments in basicrl. Unlike the BSP (Binary Space Partitioning) generator used for structured rooms, this system creates organic cave networks that simulate natural geological formations.
 
 ## Goals
 

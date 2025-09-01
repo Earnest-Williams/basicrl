@@ -41,7 +41,7 @@ AI behaviours live under the `AI/` folder.  Create a new module that implements 
 
 ## Custom generation algorithms
 
-Dungeon generation is managed by the modules in the `Dungeon/` directory.  To introduce a new generation algorithm, add a Python module implementing the generator and update the launch code (e.g. `main.py`) to call it instead of the default pipeline.  Generators should return a data structure compatible with the engine's map loader so that entities and items can be placed on the resulting map.
+Dungeon generation is managed by the modules in the `prototypes/Dungeon/` directory.  To introduce a new generation algorithm, add a Python module implementing the generator and update the launch code (e.g. `main.py`) to call it instead of the default pipeline.  Generators should return a data structure compatible with the engine's map loader so that entities and items can be placed on the resulting map.
 
 ## Testing mods
 

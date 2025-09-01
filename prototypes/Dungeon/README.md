@@ -1,4 +1,4 @@
-# simple_rl/Dungeon - Procedural Cave System Generator
+# prototypes/Dungeon - Procedural Cave System Generator
 
 ## Purpose
 

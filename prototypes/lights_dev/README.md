@@ -16,7 +16,7 @@ The components developed here are intended for eventual integration into the mai
 * **`dungeon_data.py`:** Defines the `Dungeon` **Numba jitclass**. This high-performance data structure holds the core grid arrays (`tiles`, `visible`, `memory_intensity`, `last_seen_time`) and is passed to Numba-accelerated functions.
 * **`constants.py`:** Contains constants specific to this R&D environment, including rendering characters, True Color RGB values, memory fade parameters, and the `LIGHT_LEVEL_DATA` structure mapping light intensity to gameplay visibility checks.
 * **`dungeon_generator.py`:** A **simple** procedural dungeon generator (creating U-shaped rooms) used specifically for creating basic test maps *for this lighting/FOV experiment*. It operates directly on the `Dungeon` jitclass.
-* **`Dungeon/` (Subfolder):** Contains a *variant* of the main dungeon generation pipeline (`core.py`, `processor.py`, `shaper.py`, `run.sh`). This variant is used **solely for generating more complex test maps** within the `lights_dev` context. **Crucially, this version of `core.py` uses the standard `random` module**, not the project's `GameRNG`, meaning its output is non-deterministic unless explicitly seeded externally. It produces intermediate JSON files (`generated_cave_contextual.json`, `processed_cave_data.json`) and includes debug logging (`run_log.txt`).
+* **`prototypes/Dungeon/` Directory:** Contains a *variant* of the main dungeon generation pipeline (`core.py`, `processor.py`, `shaper.py`, `run.sh`). This variant is used **solely for generating more complex test maps** within the `lights_dev` context. **Crucially, this version of `core.py` uses the standard `random` module**, not the project's `GameRNG`, meaning its output is non-deterministic unless explicitly seeded externally. It produces intermediate JSON files (`generated_cave_contextual.json`, `processed_cave_data.json`) and includes debug logging (`run_log.txt`).
 
 ## Key Mechanics & Implementation
 
@@ -30,7 +30,7 @@ The components developed here are intended for eventual integration into the mai
 * **Python:** 3.x
 * **Core Libraries:** `numpy`, `numba`
 * **Optional:** `readchar` (for interactive mode in `main_game.py`)
-* **`Dungeon/` Subfolder Dependencies:** `numpy`, `scipy`, `scikit-image`, `polars`, `perlin-noise` (for some shaping features).
+* **`prototypes/Dungeon/` Dependencies:** `numpy`, `scipy`, `scikit-image`, `polars`, `perlin-noise` (for some shaping features).
 
 ## Status & Integration
 
