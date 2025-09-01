@@ -1,0 +1,16 @@
+# Mapping from species and intelligence values to AI behaviour.
+# Species names map to adapter identifiers used by game.ai.get_adapter.
+species_mapping:
+  insect: insect
+  bird: bird
+  mammal: mammal
+  reptile: reptile
+  plant: plant
+  human: community
+
+# Mapping from intelligence score to GOAP planning depth.
+# Values correspond to tiers of actions unlocked in game.ai.goap.ACTION_TIERS.
+intelligence_tiers:
+  1: 1
+  2: 2
+  3: 3

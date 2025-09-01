@@ -2,6 +2,8 @@ import types
 import sys
 import polars as pl
 import numpy as np
+from pathlib import Path
+import yaml
 
 # Provide deterministic RNG
 module = types.ModuleType('game_rng')
@@ -28,6 +30,9 @@ def create_game_state():
     gm = GameMap(width=5, height=5)
     gm.tiles[:] = TILE_ID_FLOOR
     gm.update_tile_transparency()
+    cfg_path = Path(__file__).resolve().parent.parent / "config" / "ai_mappings.yaml"
+    with cfg_path.open() as f:
+        ai_cfg = yaml.safe_load(f)
     gs = GameState(
         existing_map=gm,
         player_start_pos=(2, 2),
@@ -37,6 +42,7 @@ def create_game_state():
         item_templates={},
         effect_definitions={},
         rng_seed=1,
+        ai_config=ai_cfg,
         memory_fade_config=MEMORY_FADE_CFG,
     )
     gs.game_map.visible[:, :] = True
