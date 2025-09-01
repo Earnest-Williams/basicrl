@@ -1,15 +1,6 @@
 import sys
 import types
-
-# Stub out game_rng for deterministic behaviour
-module = types.ModuleType("game_rng")
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-    def get_int(self, a, b):
-        return a
-module.GameRNG = DummyRNG
-sys.modules["game_rng"] = module
+from game_rng import GameRNG
 
 # Stub ai_system to satisfy GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")

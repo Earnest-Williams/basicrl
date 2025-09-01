@@ -1,21 +1,6 @@
-import types
-import sys
-
-# Provide a minimal game_rng module for tests
-module = types.ModuleType('game_rng')
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-
-    def randint(self, a, b):
-        return a
-
-module.GameRNG = DummyRNG
-sys.modules['game_rng'] = module
-
 import numpy as np
 import pytest
+from game_rng import GameRNG
 import game.world.fov as MyVisibility
 from game.world.fov import line_of_sight
 
