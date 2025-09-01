@@ -1,3 +1,4 @@
+# Workflow temporarily disabled pending dependency split, numba support, and removal of continue-on-error.
 name: CI
 
 on:
