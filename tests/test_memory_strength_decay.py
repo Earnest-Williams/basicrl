@@ -1,8 +1,3 @@
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
 from game.world.game_map import GameMap, MAX_MEMORY_STRENGTH
 
 
