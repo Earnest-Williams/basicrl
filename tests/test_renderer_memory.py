@@ -1,30 +1,7 @@
 import sys
 import types
 import numpy as np
-
-# Provide a minimal game_rng module for tests
-module = types.ModuleType("game_rng")
-
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-        self.noise_seed = seed or 0
-
-    def randint(self, a, b):
-        return a
-
-    def noise_2d(self, x, y, scale=1.0, seed_offset=0):
-        val = (x * 73856093 ^ y * 19349663 ^ seed_offset * 83492791 ^ self.noise_seed) & 0xFFFFFFFF
-        return (val / 0xFFFFFFFF) * 2.0 - 1.0
-
-
-module.GameRNG = DummyRNG
-sys.modules["game_rng"] = module
-
-# Ensure dependent modules use this DummyRNG
-for _mod in ["game.game_state", "engine.renderer", "game.world.game_map", "engine"]:
-    sys.modules.pop(_mod, None)
+from game_rng import GameRNG
 
 # Provide a minimal ai_system module for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")

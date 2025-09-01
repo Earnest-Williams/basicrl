@@ -3,23 +3,7 @@ import types
 
 import numpy as np
 import polars as pl
-
-# Minimal game_rng module
-module = types.ModuleType("game_rng")
-
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-
-    def randint(self, a, b):
-        return a
-
-    def get_int(self, a, b):
-        return a
-
-module.GameRNG = DummyRNG
-sys.modules["game_rng"] = module
+from game_rng import GameRNG
 
 # Minimal ai_system module for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")

@@ -1,23 +1,10 @@
 import sys
 import types
-
+import sys
 import numpy as np
 import polars as pl
-
-# Dummy RNG module
-module = types.ModuleType("game_rng")
-
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-
-    def randint(self, a, b):
-        return a
-
-
-module.GameRNG = DummyRNG
-sys.modules["game_rng"] = module
+import types
+from game_rng import GameRNG
 
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState

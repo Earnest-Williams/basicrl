@@ -1,18 +1,6 @@
-import types
 import sys
-
-# Provide a minimal game_rng module for tests
-module = types.ModuleType('game_rng')
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-
-    def randint(self, a, b):
-        return a
-
-module.GameRNG = DummyRNG
-sys.modules['game_rng'] = module
+import types
+from game_rng import GameRNG
 
 # Provide a minimal game.systems.ai_system module for tests
 ai_module = types.ModuleType('game.systems.ai_system')

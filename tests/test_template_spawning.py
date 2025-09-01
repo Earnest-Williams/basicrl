@@ -1,21 +1,6 @@
 import sys
 import types
-
-# Provide a minimal game_rng module for tests
-module = types.ModuleType('game_rng')
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-
-    def randint(self, a, b):
-        return a
-
-    def get_int(self, a, b):
-        return a
-
-module.GameRNG = DummyRNG
-sys.modules['game_rng'] = module
+from game_rng import GameRNG
 
 # Provide a minimal game.systems.ai_system module for tests
 ai_module = types.ModuleType('game.systems.ai_system')
@@ -91,7 +76,7 @@ def test_attempt_spawn_entity_uses_template():
         }
     }
     gs = _make_game_state(templates)
-    rng = type('R', (), {'get_int': lambda self, a, b: a})()
+    rng = GameRNG(seed=1)
     context = {'game_state': gs, 'target_pos': (2, 2), 'rng': rng}
     params = {'entity_template': 'goblin', 'chance': 100}
     attempt_spawn_entity(context, params)

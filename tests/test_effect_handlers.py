@@ -1,17 +1,4 @@
-import types
-import sys
-
-# Stub game_rng for deterministic behavior
-module = types.ModuleType("game_rng")
-
-class DummyRNG:
-    def __init__(self, seed=None):
-        self.initial_seed = seed
-    def get_int(self, a, b):
-        return a
-
-module.GameRNG = DummyRNG
-sys.modules["game_rng"] = module
+from game_rng import GameRNG
 
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
