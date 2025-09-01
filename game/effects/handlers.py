@@ -772,6 +772,8 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
         color_fg=tuple(template_data.get("color", (255, 255, 255))),
         name=template_data.get("name", entity_template_id),
         blocks_movement=template_data.get("blocks_movement", True),
+        species=template_data.get("species"),
+        intelligence=template_data.get("intelligence", 1),
         hp=template_data.get("hp", 1),
         max_hp=template_data.get("hp", 1),
     )

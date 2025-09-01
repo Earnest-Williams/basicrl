@@ -169,6 +169,7 @@ def take_turn(
     rng: 'GameRNG',
     perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
     plan_depth: int = 1,
+    **kwargs,
 ) -> None:
     """Execute one turn for an entity using the GOAP AI system.
 

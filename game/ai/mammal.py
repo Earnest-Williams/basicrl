@@ -35,6 +35,7 @@ def take_turn(
     game_state: "GameState",
     rng: "GameRNG",
     perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
+    **kwargs,
 ) -> None:
     """Execute one turn for a pack-hunting mammal."""
     entity_id = entity_row["entity_id"]
