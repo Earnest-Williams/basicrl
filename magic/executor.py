@@ -13,7 +13,7 @@ from typing import Callable, Iterable, Set
 from .wards import Counterseal, Ward, is_blocked
 
 
-@dataclass
+@dataclass(frozen=True)
 class Work:
     """Simple container representing a magical Work.
 
