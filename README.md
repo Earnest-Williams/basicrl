@@ -2,6 +2,8 @@
 
 **BasicRL** is an experimental Python-based roguelike engine focused on deep systemic simulation, high performance, and modding. It aims to serve both as the foundation for a feature-rich single‑player game and as a sandbox for experimenting with heuristic and machine‑learned AI.
 
+> **Note:** This repository is private and experimental. It is not open for external use or contributions.
+
 ## Features
 
 - **Engine Core** – PySide6 window manager, tile renderer, and main loop built for deterministic turn-based simulation.
@@ -57,13 +59,8 @@ Some tests currently require optional dependencies like NumPy, Polars, and struc
 
 ## Contributing
 
-Pull requests are welcome! Please ensure new code is well‑documented and covered by tests when possible.
-
-1. Fork and clone the repository.
-2. Create a Python 3.11 virtual environment and install dependencies.
-3. Make your changes on a feature branch.
-4. Run `ruff` and `pytest`, and add/update documentation.
-5. Submit a pull request describing your changes and testing steps.
+ 
+This project is private and not open to external contributions or use at this time.
 
 ## License
 
@@ -71,4 +68,4 @@ This project's license is pending.
 
 ---
 
-BasicRL is a work in progress. Feedback, ideas, and contributions are encouraged.
+BasicRL is a private, experimental work in progress. External contributions or use are not permitted.
