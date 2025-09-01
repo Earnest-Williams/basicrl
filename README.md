@@ -23,7 +23,7 @@ Planned milestones include:
 - Combat, stealth, magic, and saving/loading systems.
 - Modding guides and contributor documentation.
 
-See `basicrl_project.txt` for a detailed task list and vision statement.
+See `notes/basicrl_project.txt` for a detailed task list and vision statement.
 
 ## Installation
 

@@ -171,7 +171,7 @@ CONVERGENCE_R_MIN/MAX = 5.0/20.0
 ### 5. Integration with Game Systems
 **Current State**: Produces standalone maps
 **Needed**:
-- Integration with height/ceiling map systems (referenced in `to implement.txt`)
+- Integration with height/ceiling map systems (referenced in `notes/to implement.txt`)
 - Pathfinding cost integration
 - Entity spawn point determination
 - Resource/treasure placement algorithms
