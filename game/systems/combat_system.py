@@ -10,6 +10,7 @@ import structlog
 # Import roll_dice from its new location
 from utils.helpers import roll_dice
 from game.entities.components import CombatStats
+from game.effects.handlers import apply_status
 from game.systems.death_system import handle_entity_death
 
 if TYPE_CHECKING:
@@ -24,7 +25,12 @@ log = structlog.get_logger(__name__)
 DEFAULT_UNARMED_DAMAGE = "1d2"  # Damage if attacker has no weapon
 
 
-def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
+def handle_melee_attack(
+    attacker_id: int,
+    defender_id: int,
+    gs: "GameState",
+    damage_type: str = "physical",
+):
     """
     Processes a melee attack from attacker_id to defender_id.
     Calculates damage, applies it, handles messages, and checks for death.
@@ -123,7 +129,15 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
     defender_defense = entity_reg.get_entity_component(defender_id, "defense") or 0
     defender_armor = entity_reg.get_entity_component(defender_id, "armor") or 0
     modified_damage = raw_damage + attacker_strength - defender_defense - defender_armor
-    final_damage = max(0, modified_damage)  # Ensure damage isn't negative
+
+    resistances = entity_reg.get_entity_component(defender_id, "resistances") or {}
+    vulnerabilities = entity_reg.get_entity_component(defender_id, "vulnerabilities") or {}
+    multiplier = 1.0
+    if isinstance(resistances, dict):
+        multiplier *= 1 - float(resistances.get(damage_type, 0))
+    if isinstance(vulnerabilities, dict):
+        multiplier *= 1 + float(vulnerabilities.get(damage_type, 0))
+    final_damage = max(0, int(modified_damage * multiplier))
 
     # --- Apply Damage & Check Death ---
     defender_stats = CombatStats(
@@ -194,14 +208,34 @@ def handle_melee_attack(attacker_id: int, defender_id: int, gs: "GameState"):
             log.error("Failed to set defender HP after attack", defender_id=defender_id)
             # Continue to death check anyway, HP might conceptually be 0
 
+    # Apply on-hit status effects
+    if damage_dealt > 0 and new_hp > 0:
+        status_sources: list[int] = []
+        if 'main_hand_weapon_id' in locals() and main_hand_weapon_id is not None:
+            status_sources.append(main_hand_weapon_id)
+        if 'off_hand_weapon_id' in locals() and off_hand_weapon_id is not None:
+            status_sources.append(off_hand_weapon_id)
+        for wid in status_sources:
+            effects = item_reg.get_item_static_attribute(
+                wid, "on_hit_status_effects", default=[]
+            ) or []
+            for effect_params in effects:
+                context = {
+                    "game_state": gs,
+                    "source_entity_id": attacker_id,
+                    "target_entity_id": defender_id,
+                    "rng": rng,
+                }
+                try:
+                    apply_status(context, effect_params)
+                except Exception as e:
+                    log.error(
+                        "Failed to apply on-hit status",
+                        error=str(e),
+                        effect=effect_params,
+                    )
+
     # Handle Death [Source [source 53]]
     if new_hp <= 0:
         log.info(f"{defender_name} died.", defender_id=defender_id)
-        # Award XP to attacker before removing entity
-        xp_reward = entity_reg.get_entity_component(defender_id, "xp_reward") or 0
-        if xp_reward:
-            current_xp = entity_reg.get_entity_component(attacker_id, "xp") or 0
-            entity_reg.set_entity_component(attacker_id, "xp", current_xp + xp_reward)
-            if attacker_id == gs.player_id and game_map.visible[dy, dx]:
-                gs.add_message(f"You gain {xp_reward} XP.", (0, 255, 255))
-        handle_entity_death(defender_id, gs)
+        handle_entity_death(defender_id, gs, killer_id=attacker_id)

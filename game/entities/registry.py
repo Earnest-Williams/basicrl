@@ -56,6 +56,8 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "resistances": pl.Object,
     "vulnerabilities": pl.Object,
 
+    "drop_table": pl.Object,
+
     "linked_positions": pl.List(pl.Struct({"x": pl.Int16, "y": pl.Int16})),
     "target_map": pl.Utf8,
 
@@ -123,6 +125,7 @@ class EntityRegistry:
         initial_body_plan: Dict[str, int] | None = None,
         resistances: Dict[str, float] | None = None,
         vulnerabilities: Dict[str, float] | None = None,
+        drop_table: list[dict] | None = None,
     ) -> int:
         # (Implementation unchanged - uses direct schema on creation)
         new_id = self._get_next_id()
@@ -203,6 +206,8 @@ class EntityRegistry:
             "vulnerabilities": [
                 vulnerabilities if vulnerabilities is not None else {}
             ],
+
+            "drop_table": [drop_table if drop_table is not None else []],
 
             "linked_positions": [[]],
             "target_map": [None],
