@@ -1,3 +1,5 @@
+> **Internal Use Only:** This document is intended for internal contributors and is not for external distribution.
+
 # Contributing
 
 Thank you for your interest in improving BasicRL.  This document describes how to set up a development environment and the expectations for testing changes.
