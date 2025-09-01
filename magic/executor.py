@@ -39,7 +39,7 @@ class Substance(str, Enum):
     AETHER = "aether"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Work:
     """Represents a single magical working."""
 
