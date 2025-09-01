@@ -1,35 +1,22 @@
 # utils/helpers.py
 import re
-from typing import TYPE_CHECKING, Union # *** MODIFIED: Added Union ***
+from typing import Union
 
-import structlog  # Added for logging potential errors
+import structlog
 
-# Assuming GameRNG might be defined elsewhere, handle potential import
+log = structlog.get_logger(__name__)
+
 try:
-    # Adjust import path based on actual location of GameRNG
     from game_rng import GameRNG
-except ImportError:
-    # Fallback if GameRNG is not directly importable this way
-    # This might happen if game_rng.py is not in python path correctly
-    # Or if it's intended to be passed explicitly always.
-    # For now, we add a check in _roll_dice.
-    GameRNG = None
-
-if TYPE_CHECKING:
-    # Conditional import for type checkers
-    if GameRNG is None:
-        from typing import Any
-
-        GameRNG = Any  # Provide a fallback type hint
-
-log = structlog.get_logger(__name__)  # Use module logger
+except Exception as e:  # pragma: no cover - critical import failure
+    log.critical("GameRNG type could not be imported", error=str(e))
+    raise
 
 # --- Dice Rolling Utility (Moved from effects.handlers) ---
 DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
 
 
 # Make it a public function
-# *** MODIFIED: Replaced | with Union[] ***
 def roll_dice(dice_str: Union[str, None], rng: Union["GameRNG", None]) -> int:
     """
     Rolls dice based on a string format (e.g., "1d6", "2d4+1").
@@ -39,12 +26,6 @@ def roll_dice(dice_str: Union[str, None], rng: Union["GameRNG", None]) -> int:
     if not dice_str:
         return 0
     if rng is None:
-        # Check if GameRNG was imported successfully, otherwise raise error
-        if GameRNG is None:
-            log.critical(
-                "GameRNG type could not be imported, cannot roll dice without RNG instance."
-            )
-            raise TypeError("GameRNG instance is required for roll_dice.")
         log.error("Dice roll attempted without RNG instance!")
         raise ValueError("RNG instance is required for roll_dice.")
 
