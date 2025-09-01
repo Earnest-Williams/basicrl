@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -33,6 +33,8 @@ class CombatStats:
     max_mana: float = 0.0
     fullness: float = 0.0
     max_fullness: float = 0.0
+    art_ranks: Dict[str, int] = field(default_factory=dict)
+    substance_ranks: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
