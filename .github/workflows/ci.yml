@@ -13,7 +13,7 @@ jobs:
       matrix:
         python: ["3.10", "3.11"]
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 30
