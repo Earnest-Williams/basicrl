@@ -161,18 +161,17 @@ def _handle_fall(
             if current_hp is not None:
                 new_hp = max(0, current_hp - damage)
                 entity_reg.set_entity_component(entity_id, "hp", new_hp)
-                # TODO: Check visibility for message?
-                gs.add_message(f"You take {damage} falling damage!", (255, 0, 0))
+                if game_map.visible[start_y, start_x]:
+                    gs.add_message(
+                        f"You take {damage} falling damage!", (255, 0, 0)
+                    )
                 if new_hp <= 0:
-                    # TODO: Handle entity death properly (drops, removal etc)
                     log.info("Entity died from fall damage", entity_id=entity_id)
                     name = (
                         entity_reg.get_entity_component(entity_id, "name")
                         or "Something"
                     )
                     handle_entity_death(entity_id, gs, f"The {name} dies from the fall!")
-                    # Even if the entity dies, the fall action still counts as the turn's action
-                    # No need to move the now-inactive entity
                     return True
             else:
                 log.warning(
