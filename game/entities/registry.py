@@ -63,6 +63,11 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "linked_positions": pl.List(pl.Struct({"x": pl.Int16, "y": pl.Int16})),
     "target_map": pl.Utf8,
 
+    # New resource-tracking components
+    "seal_tags": pl.List(pl.Utf8),
+    "font_sources": pl.List(pl.Utf8),
+    "vent_targets": pl.List(pl.Utf8),
+
 }
 
 
@@ -217,6 +222,11 @@ class EntityRegistry:
 
             "linked_positions": [[]],
             "target_map": [None],
+
+            # Resource tracking components default to empty lists
+            "seal_tags": [[]],
+            "font_sources": [[]],
+            "vent_targets": [[]],
 
         }
         try:
