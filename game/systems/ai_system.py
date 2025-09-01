@@ -40,14 +40,25 @@ def dispatch_ai(
     def _invoke(row):
         species = row.get("species")
         intelligence = row.get("intelligence")
-        ai_type = (
-            row.get("ai_type")
-            or species
-            or game_state.ai_config.get("default", "goap")
-        )
+        species_map = game_state.ai_config.get("species_mapping", {})
+        goap_tiers = game_state.ai_config.get("intelligence_tiers", {})
+
+        ai_type = row.get("ai_type")
+        plan_depth = None
+        if not ai_type:
+            if species and species in species_map:
+                ai_type = species_map[species]
+            elif intelligence is not None:
+                ai_type = "goap"
+        if not ai_type:
+            ai_type = game_state.ai_config.get("default", "goap")
+
         adapter = get_adapter(ai_type)
         if adapter is goap.take_turn:
-            plan_depth = intelligence if intelligence is not None else 1
+            if intelligence is not None:
+                plan_depth = goap_tiers.get(intelligence, intelligence)
+            if plan_depth is None:
+                plan_depth = 1
             adapter = goap.get_goap_adapter(plan_depth)
         log.debug(
             "Dispatching AI",
@@ -55,6 +66,7 @@ def dispatch_ai(
             species=species,
             intelligence=intelligence,
             entity_id=row.get("entity_id"),
+            plan_depth=plan_depth,
         )
         adapter(
             row,
