@@ -1,8 +1,4 @@
-import os
-import sys
 import pytest
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from engine import action_handler
 from game.world.game_map import GameMap

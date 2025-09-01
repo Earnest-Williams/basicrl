@@ -1,12 +1,8 @@
-import os
 import sys
 import types
 
 import numpy as np
 import polars as pl
-
-# Ensure project root on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Minimal game_rng module
 module = types.ModuleType("game_rng")

@@ -1,12 +1,8 @@
 """Tests for the sound system."""
-import sys
 import os
 import tempfile
 import yaml
 from pathlib import Path
-
-# Ensure project root on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import pytest
 

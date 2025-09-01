@@ -1,9 +1,7 @@
 import sys
 import os
+import sys
 import types
-
-# Ensure project root is on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Stub out game_rng for deterministic behavior
 module = types.ModuleType("game_rng")

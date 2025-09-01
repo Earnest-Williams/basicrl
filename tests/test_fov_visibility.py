@@ -1,10 +1,6 @@
 import numpy as np
-import os
 import sys
 import types
-
-# Ensure project root is on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Provide a minimal game_rng module for tests
 module = types.ModuleType("game_rng")

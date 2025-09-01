@@ -1,11 +1,7 @@
 import numpy as np
 import pytest
 import sys
-import os
 import types
-
-# Ensure project root on path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from game.world.fov import update_memory_fade
 

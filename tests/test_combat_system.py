@@ -1,9 +1,5 @@
-import os
 import sys
 import types
-
-# Ensure project root is on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Stub game_rng module for deterministic dice
 module = types.ModuleType('game_rng')

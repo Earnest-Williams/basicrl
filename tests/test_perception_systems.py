@@ -1,10 +1,5 @@
-import os
-import sys
 import numpy as np
 import polars as pl
-
-# Ensure project root on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from game.constants import FeatureType, FlowType, MAX_FLOWS
 from game_rng import GameRNG

@@ -1,10 +1,6 @@
-import os
 import sys
 import types
 import pytest
-
-# Ensure project root is on sys.path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Stub game_rng for deterministic dice rolls
 module = types.ModuleType("game_rng")
