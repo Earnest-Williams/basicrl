@@ -35,6 +35,6 @@ The goal is to enable agents (particularly monsters or NPCs with heightened sens
 ## Integration & Status
 
 * The perception data (noise cost maps, scent maps) generated here is intended to be consumed by AI systems (primarily `simple_rl/auto`) to influence behavior and pathfinding decisions.
-* The `FeatureType` enum defined here needs to be synchronized with the final feature set produced by the main `simple_rl/Dungeon` generator once that is finalized.
+* The `FeatureType` enum defined here needs to be synchronized with the final feature set produced by the main `prototypes/Dungeon` generator once that is finalized.
 * Line-of-sight checks rely on `game.world.los.line_of_sight`, a Bresenham implementation optionally accelerated with Numba.
 * The core perception logic is functional but may require further tuning and integration with specific agent capabilities.

@@ -21,6 +21,10 @@ import sys
 import time
 from collections import deque
 from typing import List, Optional, Set, Tuple
+from pathlib import Path
+
+# Ensure project root on path for shared modules
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 import numba
 import numpy as np
