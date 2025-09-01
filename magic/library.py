@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class Work:
     """Representation of a magical Work.
 
