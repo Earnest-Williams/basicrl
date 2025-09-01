@@ -37,10 +37,10 @@ Alternatively, an `environment.yml` is provided for Conda users.
 
 ## Running the game
 
-After installing dependencies, launch the prototype game loop:
+After installing dependencies, launch the prototype game loop via the wrapper script:
 
 ```bash
-python main.py
+./run.sh
 ```
 
 The window will display a procedurally generated dungeon where you can move the @‑like player, pick up items, and view a basic inventory.

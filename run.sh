@@ -4,7 +4,6 @@ set -euo pipefail
 # Determine paths
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROJECT_NAME="$(basename "$PROJECT_ROOT")"
-PARENT_DIR="$(dirname "$PROJECT_ROOT")"
 
 # --- Check for active conda/mamba environment ---
 if [ -z "${CONDA_PREFIX:-}" ]; then
@@ -16,8 +15,7 @@ else
   fi
 fi
 
-# --- Run main as a module ---
-echo "Running: python -m $PROJECT_NAME.main $@"
-# Ensure project modules resolve without fallback imports
-PYTHONPATH="$PARENT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
-  python -m "$PROJECT_NAME.main" "$@"
+# --- Run the game ---
+echo "Running: python main.py $@"
+cd "$PROJECT_ROOT"
+python main.py "$@"
