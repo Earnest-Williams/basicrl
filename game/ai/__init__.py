@@ -12,7 +12,18 @@ from typing import Callable, Dict
 
 import structlog
 
-from . import goap, community, simple, ml_policy, strategy
+from . import (
+    goap,
+    community,
+    simple,
+    ml_policy,
+    strategy,
+    insect,
+    bird,
+    mammal,
+    reptile,
+    plant,
+)
 
 if True:
     from typing import TYPE_CHECKING
@@ -31,6 +42,11 @@ ADAPTERS: Dict[str, Callable] = {
     "simple": simple.take_turn,
     "ml_policy": ml_policy.take_turn,
     "strategy": strategy.dispatch_strategy,
+    "insect": insect.take_turn,
+    "bird": bird.take_turn,
+    "mammal": mammal.take_turn,
+    "reptile": reptile.take_turn,
+    "plant": plant.take_turn,
 }
 
 
