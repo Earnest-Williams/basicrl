@@ -217,3 +217,9 @@ __all__ = [
     "execute_work",
     "register_handler",
 ]
+
+# Import game effect handlers to populate the registry before any work runs
+try:  # pragma: no cover - defensive import
+    import game.effects  # noqa: F401
+except ImportError:  # pragma: no cover - game package may be optional
+    log.debug("game.effects package not available; skipping handler registration")
