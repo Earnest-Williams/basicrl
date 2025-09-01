@@ -12,8 +12,14 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-# --- Use relative imports for project modules ---
-from game_rng import GameRNG  # ImportError will propagate if module is missing
+# --- Use project GameRNG directly ---
+try:
+    from game_rng import GameRNG
+except ImportError as e:  # pragma: no cover - fail fast if unavailable
+    raise SystemExit(
+        "GameRNG module is required for auto.simulation. Ensure game_rng.py is present"
+    ) from e
+
 
 
 # --- NumPy for potential future use ---

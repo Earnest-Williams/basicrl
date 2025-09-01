@@ -26,72 +26,13 @@ import numba
 import numpy as np
 
 # --- Import Project Modules ---
-# Assuming these are in the same directory or accessible via PYTHONPATH
 try:
     import constants
-    from dungeon_data import (
-        Dungeon,
-    )  # Assuming Dungeon is correctly imported from dungeon_data
-
+    from dungeon_data import Dungeon
     import dungeon_generator
-
-    # Import GameRNG
     from game_rng import GameRNG
-except ImportError as e:
-    print(f"Failed to import project modules or GameRNG: {e}", file=sys.stderr)
-    # Define dummies if needed for basic script parsing, but execution will fail
-    WALL_ID, FLOOR_ID, PILLAR_ID = 0, 1, 2
-
-    class Dungeon:  # type: ignore # noqa
-        def __init__(self, w, h):
-            self.width = w
-            self.height = h
-            self.tiles = np.zeros((h, w))
-
-    class GameRNG:  # type: ignore # noqa
-        def get_int(self, a, b):
-            return (a + b) // 2
-
-        def choice(self, seq):
-            return seq[0] if seq else None
-
-        def shuffle(self, seq):
-            pass
-
-        def get_float(self, a=0.0, b=1.0):
-            return (a + b) / 2.0
-
-        def weighted_choice(self, items, weights):
-            return items[0] if items else None
-
-    # Dummy dungeon generator
-    class dungeon_generator:  # type: ignore # noqa
-        def dungeon_generate_map_u_shape(dungeon, rng):
-            pass
-
-    # Dummy constants
-    class constants:  # type: ignore # noqa
-        DEFAULT_ENTITY_CATEGORY = "medium"
-        TORCH_COLOR_RGB = (0, 0, 0)
-        ORB_COLOR_RGB = (0, 0, 0)
-        MAX_LOS_DISTANCE = 10
-        MAX_LIGHT_LEVEL_FOR_VIS_CHECK = 5
-        LIGHT_LEVEL_DATA = {}
-        AMBIENT_COLOR_RGB = (0, 0, 0)
-        MEMORY_COLOR = ""
-        COLOR = {"RESET": ""}
-        UNSEEN = "."
-        PLAYER_CHAR = "@"
-        LIGHT_CHAR = "*"
-        VISIBLE_WALL = "#"
-        VISIBLE_PILLAR = "O"
-        VISIBLE_FLOOR = "."
-        MEMORY_LEVEL_COUNT = 5
-        MEMORY_WALL_LEVELS = [" "] * 5
-        MEMORY_PILLAR_LEVELS = [" "] * 5
-        MEMORY_FLOOR_LEVELS = [" "] * 5
-        MEMORY_DECAY_RATE = 1.0
-        TILE_ID_TO_CATEGORY = {}
+except ImportError as e:  # pragma: no cover - fail fast if dependencies missing
+    raise SystemExit(f"Failed to import required project modules: {e}") from e
 
 # Expose decay rate as a plain global for Numba
 MEMORY_DECAY_RATE = constants.MEMORY_DECAY_RATE
