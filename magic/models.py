@@ -84,7 +84,7 @@ class Flow:
         return self.strength
 
 
-@dataclass
+@dataclass(frozen=True)
 class Seals:
     """Restrictions or conditions placed on a work.
 
