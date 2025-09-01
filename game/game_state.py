@@ -321,6 +321,46 @@ class GameState:
         if self.player_fuel == 0:
             self.add_message("Your light flickers out!", (255, 255, 0))
 
+    # --- Resource helper methods ---
+    def _list_component_has(self, entity_id: int, component: str, value: str) -> bool:
+        """Generic helper to check membership in a list component."""
+        items = self.entity_registry.get_entity_component(entity_id, component)
+        return bool(items and value in items)
+
+    def _list_component_consume(self, entity_id: int, component: str, value: str) -> bool:
+        """Generic helper to remove a value from a list component if present."""
+        items = self.entity_registry.get_entity_component(entity_id, component)
+        if not items or value not in items:
+            return False
+        updated = list(items)
+        updated.remove(value)
+        self.entity_registry.set_entity_component(entity_id, component, updated)
+        return True
+
+    def has_seal_tag(self, entity_id: int, tag: str) -> bool:
+        """Return ``True`` if ``entity_id`` possesses ``tag`` in its seal tags."""
+        return self._list_component_has(entity_id, "seal_tags", tag)
+
+    def consume_seal_tag(self, entity_id: int, tag: str) -> bool:
+        """Consume ``tag`` from ``entity_id``'s seal tags, if present."""
+        return self._list_component_consume(entity_id, "seal_tags", tag)
+
+    def has_font_source(self, entity_id: int, source: str) -> bool:
+        """Check whether ``entity_id`` has the specified font source available."""
+        return self._list_component_has(entity_id, "font_sources", source)
+
+    def consume_font_source(self, entity_id: int, source: str) -> bool:
+        """Consume a font source from the entity, returning ``True`` on success."""
+        return self._list_component_consume(entity_id, "font_sources", source)
+
+    def has_vent_target(self, entity_id: int, target: str) -> bool:
+        """Check whether ``entity_id`` has the specified vent target."""
+        return self._list_component_has(entity_id, "vent_targets", target)
+
+    def consume_vent_target(self, entity_id: int, target: str) -> bool:
+        """Consume a vent target from the entity, returning ``True`` on success."""
+        return self._list_component_consume(entity_id, "vent_targets", target)
+
     def schedule_timed_event(
         self, delay: int, callback: Callable[["GameState"], None]
     ) -> None:
