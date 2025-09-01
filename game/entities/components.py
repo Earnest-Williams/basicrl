@@ -54,7 +54,7 @@ class FontSources:
     sources: List[str] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class VentTargets:
     """Targets that vents or releases can be applied to."""
     targets: List[str] = field(default_factory=list)
