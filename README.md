@@ -25,12 +25,12 @@ See `basicrl_project.txt` for a detailed task list and vision statement.
 
 ## Installation
 
-BasicRL targets **Python 3.11**. All runtime and development dependencies are pinned in `requirements.txt`.
+BasicRL targets **Python 3.11**. Runtime dependencies are pinned in `requirements.txt` and development tools live in `requirements-dev.txt`.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 Alternatively, an `environment.yml` is provided for Conda users.

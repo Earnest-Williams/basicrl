@@ -12,9 +12,9 @@ Thank you for your interest in improving BasicRL.  This document describes how t
    ```
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt -r requirements-dev.txt
    ```
-   A `environment.yml` is also provided for Conda users.
+   An `environment.yml` is also provided for Conda users.
 
 ## Development workflow
 
