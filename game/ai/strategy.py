@@ -90,6 +90,7 @@ def dispatch_strategy(
     game_state: 'GameState',
     rng: 'GameRNG',
     perception: Tuple['np.ndarray','np.ndarray','np.ndarray'],
+    **kwargs,
 ) -> None:
     """Dispatch behaviour based on the entity's ``strategy_state``."""
     state = entity_row.get('strategy_state')

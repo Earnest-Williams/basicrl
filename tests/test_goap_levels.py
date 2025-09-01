@@ -19,20 +19,9 @@ class DummyRNG:
 module.GameRNG = DummyRNG
 sys.modules["game_rng"] = module
 
-# Minimal ai_system for GameState imports
-ai_module = types.ModuleType("game.systems.ai_system")
-
-
-def dispatch_ai(*args, **kwargs):
-    return None
-
-
-ai_module.dispatch_ai = dispatch_ai
-sys.modules["game.systems.ai_system"] = ai_module
-
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
-from game.ai import goap
+from game.systems.ai_system import dispatch_ai
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
@@ -76,10 +65,10 @@ def test_plan_depth_one_defaults_to_move():
         color_fg=(255, 0, 0),
         name="Enemy",
         ai_type="goap",
+        intelligence=1,
     )
     row = _enemy_row(gs, enemy_id)
-    adapter = goap.get_goap_adapter(1)
-    adapter(row, gs, gs.rng_instance, perception(gs))
+    dispatch_ai([row], gs, gs.rng_instance, perception(gs))
     assert gs._last_goap_action == "_action_move_attack"
     assert not hasattr(gs, "last_coordination")
 
@@ -93,12 +82,12 @@ def test_plan_depth_two_can_seek_cover():
         color_fg=(255, 0, 0),
         name="Enemy",
         ai_type="goap",
+        intelligence=2,
     )
     row = _enemy_row(gs, enemy_id)
     los = np.ones((gs.map_height, gs.map_width), dtype=bool)
     los[2, 1] = False  # cover tile
-    adapter = goap.get_goap_adapter(2)
-    adapter(row, gs, gs.rng_instance, perception(gs, los))
+    dispatch_ai([row], gs, gs.rng_instance, perception(gs, los))
     pos = gs.entity_registry.get_position(enemy_id)
     assert (pos.x, pos.y) == (1, 2)
     assert gs._last_goap_action == "_action_seek_cover"
@@ -114,9 +103,9 @@ def test_plan_depth_three_coordinates():
         color_fg=(255, 0, 0),
         name="Enemy",
         ai_type="goap",
+        intelligence=3,
     )
     row = _enemy_row(gs, enemy_id)
-    adapter = goap.get_goap_adapter(3)
-    adapter(row, gs, gs.rng_instance, perception(gs))
+    dispatch_ai([row], gs, gs.rng_instance, perception(gs))
     assert gs._last_goap_action == "_action_coordinate"
     assert gs.last_coordination == enemy_id

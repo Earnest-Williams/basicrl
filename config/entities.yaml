@@ -15,15 +15,21 @@ templates:
     color: [0, 128, 0]
     hp: 10
     name: "Goblin"
+    species: "mammal"
+    intelligence: 1
 
   orc:
     glyph: 79       # 'O'
     color: [0, 255, 0]
     hp: 25
     name: "Orc"
+    species: "mammal"
+    intelligence: 2
 
   rat:
     glyph: 114      # 'r'
     color: [128, 128, 128]
     hp: 5
     name: "Giant Rat"
+    species: "mammal"
+    intelligence: 1

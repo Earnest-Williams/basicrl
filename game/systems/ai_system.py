@@ -13,7 +13,7 @@ from typing import Iterable, TYPE_CHECKING, Tuple
 import structlog
 from multiprocessing.dummy import Pool as ThreadPool
 
-from game.ai import get_adapter
+from game.ai import get_adapter, goap
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     import numpy as np
@@ -38,10 +38,32 @@ def dispatch_ai(
         entity_rows = list(entities)
 
     def _invoke(row):
-        ai_type = row.get("ai_type") or game_state.ai_config.get("default", "goap")
+        species = row.get("species")
+        intelligence = row.get("intelligence")
+        ai_type = (
+            row.get("ai_type")
+            or species
+            or game_state.ai_config.get("default", "goap")
+        )
         adapter = get_adapter(ai_type)
-        log.debug("Dispatching AI", ai_type=ai_type, entity_id=row.get("entity_id"))
-        adapter(row, game_state, rng, perception)
+        if adapter is goap.take_turn:
+            plan_depth = intelligence if intelligence is not None else 1
+            adapter = goap.get_goap_adapter(plan_depth)
+        log.debug(
+            "Dispatching AI",
+            ai_type=ai_type,
+            species=species,
+            intelligence=intelligence,
+            entity_id=row.get("entity_id"),
+        )
+        adapter(
+            row,
+            game_state,
+            rng,
+            perception,
+            species=species,
+            intelligence=intelligence,
+        )
 
     for i in range(0, len(entity_rows), batch_size):
         batch = entity_rows[i : i + batch_size]
