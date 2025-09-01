@@ -16,7 +16,7 @@ sys.modules["game.systems.ai_system"] = ai_module
 from game.world.game_map import GameMap
 from game.game_state import GameState
 from game.ai.perception import gather_perception
-from engine import renderer
+from engine.render_base_layers import prepare_base_layers
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
@@ -76,7 +76,7 @@ def test_renderer_uses_visibility():
     tile_bg_colors = np.zeros((max_defined_tile_id + 1, 3), dtype=np.uint8)
     tile_indices_render = np.zeros(max_defined_tile_id + 1, dtype=np.uint16)
 
-    result = renderer._prepare_base_layers(
+    result = prepare_base_layers(
         gm,
         viewport_x=0,
         viewport_y=0,

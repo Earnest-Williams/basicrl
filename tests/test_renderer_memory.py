@@ -16,7 +16,13 @@ sys.modules["game.systems.ai_system"] = ai_module
 
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
-from engine import renderer
+from engine.render_base_layers import prepare_base_layers
+from engine.render_lighting import (
+    apply_memory_fade,
+    MEMORY_FLOOR_GLYPHS,
+    MEMORY_LEVEL_COUNT,
+    NOISY_MEMORY_FLOOR_GLYPHS,
+)
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
@@ -69,7 +75,7 @@ def test_memory_fade_blend_and_glyph_substitution():
         map_memory_vp,
         map_tiles_vp,
         (vp_h, vp_w),
-    ) = renderer._prepare_base_layers(
+    ) = prepare_base_layers(
         gm,
         viewport_x=0,
         viewport_y=0,
@@ -86,7 +92,7 @@ def test_memory_fade_blend_and_glyph_substitution():
     glyphs = glyph_indices.copy()
     fade_color = np.array([100, 100, 100], dtype=np.uint8)
 
-    renderer._apply_memory_fade(
+    apply_memory_fade(
         final_fg,
         final_bg,
         glyphs,
@@ -102,7 +108,7 @@ def test_memory_fade_blend_and_glyph_substitution():
 
     assert (final_fg[py, px] == np.array([150, 150, 150], dtype=np.uint8)).all()
     assert (final_bg[py, px] == np.array([55, 55, 55], dtype=np.uint8)).all()
-    expected_glyph = renderer.MEMORY_FLOOR_GLYPHS[2]
+    expected_glyph = MEMORY_FLOOR_GLYPHS[2]
     assert glyphs[py, px] == expected_glyph
 
 
@@ -135,7 +141,7 @@ def test_memory_fade_variance_and_noise_deterministic():
         map_memory_vp,
         map_tiles_vp,
         (vp_h, vp_w),
-    ) = renderer._prepare_base_layers(
+    ) = prepare_base_layers(
         gm,
         viewport_x=0,
         viewport_y=0,
@@ -153,7 +159,7 @@ def test_memory_fade_variance_and_noise_deterministic():
     baseline_fg = base_fg.copy()
     baseline_bg = base_bg.copy()
     baseline_glyphs = glyph_indices.copy()
-    renderer._apply_memory_fade(
+    apply_memory_fade(
         baseline_fg,
         baseline_bg,
         baseline_glyphs,
@@ -171,7 +177,7 @@ def test_memory_fade_variance_and_noise_deterministic():
     final_fg = base_fg.copy()
     final_bg = base_bg.copy()
     glyphs = glyph_indices.copy()
-    renderer._apply_memory_fade(
+    apply_memory_fade(
         final_fg,
         final_bg,
         glyphs,
@@ -190,7 +196,7 @@ def test_memory_fade_variance_and_noise_deterministic():
     final_fg2 = base_fg.copy()
     final_bg2 = base_bg.copy()
     glyphs2 = glyph_indices.copy()
-    renderer._apply_memory_fade(
+    apply_memory_fade(
         final_fg2,
         final_bg2,
         glyphs2,
@@ -212,5 +218,5 @@ def test_memory_fade_variance_and_noise_deterministic():
 
     # Colour differs from baseline and glyph uses noisy set
     assert not np.array_equal(final_fg[py, px], baseline_fg[py, px])
-    level = int((1.0 - gm.memory_intensity[py, px]) * renderer.MEMORY_LEVEL_COUNT)
-    assert glyphs[py, px] == renderer.NOISY_MEMORY_FLOOR_GLYPHS[level]
+    level = int((1.0 - gm.memory_intensity[py, px]) * MEMORY_LEVEL_COUNT)
+    assert glyphs[py, px] == NOISY_MEMORY_FLOOR_GLYPHS[level]
