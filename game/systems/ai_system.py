@@ -8,9 +8,10 @@ can mix multiple decision making systems.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple
+from typing import Iterable, TYPE_CHECKING, Tuple
 
 import structlog
+from multiprocessing.dummy import Pool as ThreadPool
 
 from game.ai import get_adapter
 
@@ -23,22 +24,27 @@ log = structlog.get_logger()
 
 
 def dispatch_ai(
-    entity_row,
+    entities,
     game_state: "GameState",
     rng: "GameRNG",
     perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
+    batch_size: int = 4,
 ) -> None:
-    """Dispatch to the correct AI adapter for ``entity_row``.
+    """Execute AI adapters for a batch of entities in parallel."""
 
-    Parameters mirror the adapter interface so tests may monkeypatch this
-    function.  The ``ai_type`` is read from the entity metadata with a
-    fallback to the ``GameState`` default configuration.
-    """
+    if not isinstance(entities, Iterable) or hasattr(entities, "get"):
+        entity_rows = [entities]
+    else:
+        entity_rows = list(entities)
 
-    ai_type = entity_row.get("ai_type") or game_state.ai_config.get("default", "goap")
-    adapter = get_adapter(ai_type)
-    log.debug(
-        "Dispatching AI", ai_type=ai_type, entity_id=entity_row.get("entity_id")
-    )
-    adapter(entity_row, game_state, rng, perception)
+    def _invoke(row):
+        ai_type = row.get("ai_type") or game_state.ai_config.get("default", "goap")
+        adapter = get_adapter(ai_type)
+        log.debug("Dispatching AI", ai_type=ai_type, entity_id=row.get("entity_id"))
+        adapter(row, game_state, rng, perception)
+
+    for i in range(0, len(entity_rows), batch_size):
+        batch = entity_rows[i : i + batch_size]
+        with ThreadPool(len(batch)) as pool:
+            pool.map(_invoke, batch)
 

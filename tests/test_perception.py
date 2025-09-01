@@ -14,6 +14,9 @@ class DummyRNG:
     def randint(self, a, b):
         return a
 
+    def get_int(self, a, b):
+        return a
+
 
 module.GameRNG = DummyRNG
 sys.modules["game_rng"] = module
