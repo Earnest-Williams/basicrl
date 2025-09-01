@@ -42,7 +42,7 @@ class Inventory:
     items: List[int] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class SealTags:
     """Tags that can be consumed to unlock seals or similar mechanics."""
     tags: List[str] = field(default_factory=list)
