@@ -48,7 +48,7 @@ class SealTags:
     tags: List[str] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class FontSources:
     """Sources providing fonts or glyph sets for entities."""
     sources: List[str] = field(default_factory=list)
