@@ -40,20 +40,31 @@ try:
     from game.game_state import GameState
     from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
     from game.world.fov import compute_light_color_array
+except ImportError:
+    # Attempt fallback imports if needed
+    try:
+        from basicrl.game.game_state import GameState
+        from basicrl.game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
+        from basicrl.game.world.fov import compute_light_color_array
+    except ImportError:
+        GameState = object  # Define dummies if import fails
+        GameMap = object
+        compute_light_color_array = lambda *args, **kwargs: None
+        structlog.get_logger().error(
+            "CRITICAL: Failed to import GameState or GameMap in renderer."
+        )
+
+# Require GameRNG; abort if unavailable
+try:
     from game_rng import GameRNG
 except ImportError:
-     # Attempt fallback imports if needed
-     try:
-          from basicrl.game.game_state import GameState
-          from basicrl.game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
-          from basicrl.game.world.fov import compute_light_color_array
-          from basicrl.game_rng import GameRNG
-     except ImportError:
-          GameState = object # Define dummies if import fails
-          GameMap = object
-          compute_light_color_array = lambda *args, **kwargs: None
-          GameRNG = object
-          structlog.get_logger().error("CRITICAL: Failed to import GameState or GameMap in renderer.")
+    try:
+        from basicrl.game_rng import GameRNG
+    except ImportError as exc:
+        structlog.get_logger().critical(
+            "CRITICAL: Failed to import GameRNG in renderer."
+        )
+        raise SystemExit from exc
 
 
 if TYPE_CHECKING:
