@@ -2,6 +2,7 @@
 from typing import Any, Callable, Dict, Literal, Set, Tuple, Union
 
 import structlog
+import heapq
 from game_rng import GameRNG  # Assuming this path is correct
 
 from game.entities.registry import EntityRegistry
@@ -105,6 +106,7 @@ class GameState:
             glyph=player_glyph,
         )
 
+        self.base_fov_radius = player_fov_radius
         self.fov_radius = player_fov_radius
         self.message_log: list[tuple[str, tuple[int, int, int]]] = []
         # Messages generated while their subjects are outside FOV are stored here.
@@ -119,11 +121,15 @@ class GameState:
             LightSource(player_start_x, player_start_y, player_fov_radius, (255, 255, 255))
         )
         self.player_light_index: int = 0
+        self.player_max_fuel: int = 100
+        self.player_fuel: int = self.player_max_fuel
 
         # Track simulation zones for coarse updates when entities are far away
         self.zone_manager: ZoneManager = ZoneManager(
             self._map_width, self._map_height
         )
+        self.timed_events: list[tuple[int, int, Callable[["GameState"], None]]] = []
+        self._next_timed_event_id: int = 0
 
         # --- NEW: UI State ---
         self.ui_state: Literal["PLAYER_TURN", "INVENTORY_VIEW", "TARGETING"] = (
@@ -285,6 +291,66 @@ class GameState:
                 entity_id, "status_effects", updated_effects
             )
 
+    def _process_resources_for_entity(self, entity_id: int) -> None:
+        """Reduce generic per-turn resources like fullness or fuel."""
+        for res in ("fullness", "fuel"):
+            try:
+                value = self.entity_registry.get_entity_component(entity_id, res)
+            except ValueError:
+                continue
+            if value is None:
+                continue
+            new_val = max(0, value - 1)
+            self.entity_registry.set_entity_component(entity_id, res, new_val)
+            if res == "fullness" and entity_id == self.player_id and new_val <= 0:
+                self.add_message("You are starving!", (255, 255, 0))
+
+    def _consume_player_fuel(self) -> None:
+        """Decrease player torch fuel and adjust light radius."""
+        if self.player_max_fuel <= 0:
+            return
+        if self.player_fuel > 0:
+            self.player_fuel -= 1
+        ratio = self.player_fuel / self.player_max_fuel
+        new_radius = max(1, round(self.base_fov_radius * ratio))
+        self.fov_radius = new_radius
+        try:
+            self.light_sources[self.player_light_index].radius = new_radius
+        except (IndexError, AttributeError):
+            pass
+        if self.player_fuel == 0:
+            self.add_message("Your light flickers out!", (255, 255, 0))
+
+    def schedule_timed_event(
+        self, delay: int, callback: Callable[["GameState"], None]
+    ) -> None:
+        """Schedule ``callback`` to run after ``delay`` turns."""
+        trigger_turn = self.turn_count + max(0, delay)
+        heapq.heappush(
+            self.timed_events,
+            (trigger_turn, self._next_timed_event_id, callback),
+        )
+        self._next_timed_event_id += 1
+
+    def process_turn(self) -> None:
+        """Handle per-turn updates like status effects and resources."""
+        # Timed events scheduled for this turn
+        while self.timed_events and self.timed_events[0][0] <= self.turn_count:
+            _, _, cb = heapq.heappop(self.timed_events)
+            try:
+                cb(self)
+            except Exception as err:
+                log.error("Timed event callback failed", error=str(err))
+
+        for row in self.entity_registry.entities_df.iter_rows(named=True):
+            if not row.get("is_active", False):
+                continue
+            entity_id = row["entity_id"]
+            self._process_status_effects_for_entity(entity_id)
+            self._process_resources_for_entity(entity_id)
+
+        self._consume_player_fuel()
+
     def _process_zone(self, zone: Tuple[int, int]) -> None:
         """Aggregate update for all entities within ``zone``.
 
@@ -298,7 +364,6 @@ class GameState:
             if self.zone_manager.get_zone(row.get("x"), row.get("y")) != zone:
                 continue
             entity_id = row["entity_id"]
-            self._process_status_effects_for_entity(entity_id)
             if entity_id == self.player_id:
                 continue
             dispatch_ai(row, self, self.rng_instance, None)
@@ -307,6 +372,10 @@ class GameState:
         """Advances the game turn counter and performs turn-based updates."""
         self.turn_count += 1
         log.debug("Turn advanced", turn=self.turn_count)
+
+        # Handle generic per-turn processing
+        self.process_turn()
+
         player_pos = self.player_position
         if player_pos:
             px, py = player_pos
@@ -316,16 +385,18 @@ class GameState:
             player_pos
         )
 
-        # Update nearby entities immediately and schedule distant zones for later
+        # Schedule distant zones for AI updates
         for row in self.entity_registry.entities_df.iter_rows(named=True):
             if not row.get("is_active", False):
                 continue
             entity_id = row["entity_id"]
+            if entity_id == self.player_id:
+                continue
             zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
-            if zone in active_zones:
-                self._process_status_effects_for_entity(entity_id)
-            else:
-                self.zone_manager.schedule_zone_event(zone, lambda gs, z=zone: gs._process_zone(z))
+            if zone not in active_zones:
+                self.zone_manager.schedule_zone_event(
+                    zone, lambda gs, z=zone: gs._process_zone(z)
+                )
 
         # Recalculate FOV so perception and rendering use up-to-date visibility
         self.update_fov()
