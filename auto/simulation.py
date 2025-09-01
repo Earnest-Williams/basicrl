@@ -12,25 +12,13 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-# --- Use relative imports for project modules ---
+# --- Use project GameRNG directly ---
 try:
     from game_rng import GameRNG
-except ImportError:
-    log.warning("Could not import GameRNG. Using dummy implementation.")
-
-    # Define dummy if needed for standalone testing, but main path needs real one
-    class GameRNG:  # type: ignore # noqa
-        def get_int(self, a, b):
-            return (a + b) // 2
-
-        def choice(self, seq):
-            return seq[0] if seq else None
-
-        def shuffle(self, seq):
-            pass
-
-        def get_float(self, a=0.0, b=1.0):
-            return (a + b) / 2.0
+except ImportError as e:  # pragma: no cover - fail fast if unavailable
+    raise SystemExit(
+        "GameRNG module is required for auto.simulation. Ensure game_rng.py is present"
+    ) from e
 
 
 # --- NumPy for potential future use ---
