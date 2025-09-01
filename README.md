@@ -62,7 +62,7 @@ Pull requests are welcome! Please ensure new code is well‑documented and cover
 1. Fork and clone the repository.
 2. Create a Python 3.11 virtual environment and install dependencies.
 3. Make your changes on a feature branch.
-4. Run `pytest` and add/update documentation.
+4. Run `ruff` and `pytest`, and add/update documentation.
 5. Submit a pull request describing your changes and testing steps.
 
 ## License
