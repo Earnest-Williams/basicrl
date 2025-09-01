@@ -51,3 +51,9 @@ dist/
 out/
 tmp/
 .cache/
+
+# Generated run artifacts
+main.lprof
+run_log.txt
+simulation_output.txt
+generated_dungeon.arrow
