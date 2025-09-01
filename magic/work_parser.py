@@ -4,15 +4,17 @@ import re
 from typing import List, Tuple
 
 from .models import (
-    Art,
-    Balances,
-    Bounds,
-    Flow,
-    Intent,
-    Provisions,
-    Seals,
-    Seat,
-    Tending,
+    ArtClause,
+    BalancesClause,
+    BoundsClause,
+    FlowClause,
+    IntentClause,
+    ProvisionsClause,
+    SealsClause,
+    SeatClause,
+    TendingClause,
+    WorkDecl,
+    compile_ledger_work,
     Work,
 )
 
@@ -49,7 +51,12 @@ def tokenize(source: str) -> List[Token]:
 
 
 def parse(source: str) -> Work:
-    """Parse a ledger work declaration into structured dataclasses.
+    """Parse a ledger work declaration and compile it into a ``Work``.
+
+    The function first constructs a :class:`~magic.models.WorkDecl` AST composed of
+    clause dataclasses (:class:`ArtClause`, :class:`BoundsClause`, etc.).  The
+    resulting declaration is then converted into an engine-level
+    :class:`~magic.models.Work` using :func:`compile_ledger_work`.
 
     Parameters
     ----------
@@ -59,7 +66,7 @@ def parse(source: str) -> Work:
     Returns
     -------
     Work
-        Parsed representation of the work.
+        Executable representation of the work compiled from the declaration.
     """
 
     tokens = tokenize(source)
@@ -80,36 +87,36 @@ def parse(source: str) -> Work:
         return value
 
     expect_keyword("ART")
-    art = Art(read_value())
+    art = ArtClause(read_value())
     expect_keyword("BOUNDS")
-    bounds = Bounds(read_value())
+    bounds = BoundsClause(read_value())
     expect_keyword("BALANCES")
-    balances = Balances(read_value())
+    balances = BalancesClause(read_value())
     expect_keyword("FLOW")
-    flow = Flow(read_value())
+    flow = FlowClause(read_value())
     expect_keyword("SEALS")
-    seals = Seals(read_value())
+    seals = SealsClause(read_value())
     expect_keyword("PROVISIONS")
-    provisions = Provisions(read_value())
+    provisions = ProvisionsClause(read_value())
     expect_keyword("INTENT")
-    intent = Intent(read_value())
+    intent = IntentClause(read_value())
 
-    seat = None
-    tending = None
+    seat: SeatClause | None = None
+    tending: TendingClause | None = None
     if index < len(tokens):
         if tokens[index] == ("KEYWORD", "SEAT"):
             index += 1
-            seat = Seat(read_value())
+            seat = SeatClause(read_value())
         elif tokens[index] == ("KEYWORD", "TENDING"):
             index += 1
-            tending = Tending(read_value())
+            tending = TendingClause(read_value())
         else:
             raise ValueError(f"Unexpected clause {tokens[index][1]}")
 
     if index != len(tokens):
         raise ValueError("Unexpected trailing tokens")
 
-    return Work(
+    decl = WorkDecl(
         art=art,
         bounds=bounds,
         balances=balances,
@@ -120,3 +127,13 @@ def parse(source: str) -> Work:
         seat=seat,
         tending=tending,
     )
+
+    work = compile_ledger_work(decl)
+
+    # Preserve optional clauses for callers that care about them (e.g., scripting)
+    if seat is not None:
+        setattr(work, "seat", seat)
+    if tending is not None:
+        setattr(work, "tending", tending)
+
+    return work
