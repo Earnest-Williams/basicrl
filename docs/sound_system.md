@@ -290,9 +290,9 @@ This will show:
 3. Disable environmental effects if not needed
 4. Consider disabling audio entirely for better performance
 
-## Integration with Mods
+## Internal Configuration
 
-The sound system is fully compatible with the modding system:
+The sound system can be extended internally via configuration files; external mods are unsupported:
 
 1. **Custom Sounds**: Add new sound effects to `config/sounds.yaml`
 2. **Custom Music**: Add new background music tracks

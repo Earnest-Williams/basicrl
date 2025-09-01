@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in improving BasicRL.  This document describes how to set up a development environment and the expectations for testing changes.
+This document is intended for internal development of BasicRL. External contributions are not accepted. It describes how to set up a development environment and the expectations for testing changes.
 
 ## Environment setup
 

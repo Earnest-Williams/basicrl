@@ -1,6 +1,6 @@
 # BasicRL
 
-**BasicRL** is an experimental Python-based roguelike engine focused on deep systemic simulation, high performance, and modding. It aims to serve both as the foundation for a feature-rich single‑player game and as a sandbox for experimenting with heuristic and machine‑learned AI.
+**BasicRL** is an experimental Python-based roguelike engine focused on deep systemic simulation and high performance. It aims to serve both as the foundation for a feature-rich single‑player game and as a sandbox for experimenting with heuristic and machine‑learned AI. The engine's content is driven by internal configuration files; external mods are unsupported.
 
 > **Note:** This repository is private and experimental. It is not open for external use or contributions.
 
@@ -11,7 +11,7 @@
 - **Procedural Generation** – BSP dungeon generator producing rooms, corridors, and basic height data.
 - **Entity & Item Systems** – Body-plan driven equipment slots, attachable items, resources like fuel and durability, and effect execution.
 - **Lighting & FOV** – Numba-accelerated shadowcasting with optional colored lights and height visualization.
-- **Modding Friendly** – YAML/TOML configuration for tilesets, items, entities, keybindings, and rules. Designed to let modders extend content without touching engine code.
+- **Internal Configuration** – YAML/TOML files define tilesets, items, entities, keybindings, and rules for in-house development. External modding is unsupported.
 - **Future AI/ML Integration** – GOAP-style adapters with a planned AI dispatcher to allow swapping in heuristic or machine-learned policies per entity.
 
 ## Roadmap
@@ -21,7 +21,7 @@ Planned milestones include:
 - Expanded dungeon generation (caves, multi-level maps, above-ground prefabs).
 - Proximity-based world simulation tiers.
 - Combat, stealth, magic, and saving/loading systems.
-- Modding guides and contributor documentation.
+- Internal tooling and documentation.
 
 See `basicrl_project.txt` for a detailed task list and vision statement.
 
