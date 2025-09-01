@@ -95,7 +95,7 @@ class Seals:
     power: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class Work:
     """A magical working combining arts, substances and other modifiers."""
 
