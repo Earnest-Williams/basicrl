@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import numpy as np
 import structlog
 
+from game.world.los import line_of_sight
+
 if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from polars import series
     from game.game_state import GameState
 
 log = structlog.get_logger()
@@ -62,3 +65,48 @@ def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, 
     los_map = game_map.visible.copy()
     log.debug("Perception maps generated", shape=noise_map.shape)
     return noise_map, scent_map, los_map
+
+
+def find_visible_enemies(
+    entity_row: 'series',
+    game_state: 'GameState',
+    los_map: np.ndarray,
+) -> List['series']:
+    """Return a list of enemies visible to ``entity_row``.
+
+    Entities are considered enemies if they belong to a different faction.
+    Visibility is determined using both the provided ``los_map`` and a
+    line-of-sight check against the game map's transparency grid.
+    """
+
+    ex, ey = entity_row.get("x"), entity_row.get("y")
+    faction = entity_row.get("faction")
+    game_map = game_state.game_map
+    enemies: List['series'] = []
+
+    for other in game_state.entity_registry.entities_df.iter_rows(named=True):
+        if other.get("entity_id") == entity_row.get("entity_id"):
+            continue
+        if not other.get("is_active", False):
+            continue
+        if faction is not None and other.get("faction") == faction:
+            continue
+        ox, oy = other.get("x"), other.get("y")
+        if ox is None or oy is None:
+            continue
+        if not game_map.in_bounds(ox, oy):
+            continue
+        if not los_map[oy, ox]:
+            continue
+        if line_of_sight(ex, ey, ox, oy, game_map.transparent):
+            enemies.append(other)
+
+    log.debug(
+        "Visible enemies located",
+        entity_id=entity_row.get("entity_id"),
+        count=len(enemies),
+    )
+    return enemies
+
+
+__all__ = ["gather_perception", "find_visible_enemies"]

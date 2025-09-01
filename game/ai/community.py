@@ -58,34 +58,39 @@ def take_turn(
 
 
     player_pos = game_state.player_position
+    move = None
     dx = dy = 0
     if player_pos is not None:
         pathfinder = _ensure_pathfinder(game_state)
         pathfinder.compute_field([(player_pos.y, player_pos.x)])
-        dx, dy = pathfinder.get_flow_vector(y, x)
+        pdx, pdy = pathfinder.get_flow_vector(y, x)
+        nx, ny = x + pdx, y + pdy
+        if not (0 <= nx < game_state.map_width and 0 <= ny < game_state.map_height):
+            pdx = 0 if player_pos.x == x else (-1 if player_pos.x < x else 1)
+            pdy = 0 if player_pos.y == y else (-1 if player_pos.y < y else 1)
+        move = (pdx, pdy)
 
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     current_noise = noise_map[y, x]
     best_noise = current_noise
-    move = None
-    for dx, dy in directions:
-        nx, ny = x + dx, y + dy
+    for ndx, ndy in directions:
+        nx, ny = x + ndx, y + ndy
         if 0 <= nx < noise_map.shape[1] and 0 <= ny < noise_map.shape[0]:
             if noise_map[ny, nx] > best_noise:
                 best_noise = noise_map[ny, nx]
-                move = (dx, dy)
+                move = (ndx, ndy)
 
 
     if move is None:
         current_scent = scent_map[y, x]
         best_scent = current_scent
-        for dx, dy in directions:
-            nx, ny = x + dx, y + dy
+        for ndx, ndy in directions:
+            nx, ny = x + ndx, y + ndy
             if 0 <= nx < scent_map.shape[1] and 0 <= ny < scent_map.shape[0]:
                 if scent_map[ny, nx] > best_scent:
                     best_scent = scent_map[ny, nx]
-                    move = (dx, dy)
+                    move = (ndx, ndy)
 
     if move is None:
         if hasattr(rng, "randint"):

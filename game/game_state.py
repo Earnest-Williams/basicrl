@@ -301,9 +301,7 @@ class GameState:
             self._process_status_effects_for_entity(entity_id)
             if entity_id == self.player_id:
                 continue
-            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
-            adapter = get_adapter(ai_type)
-            adapter(row, self, self.rng_instance, None)
+            dispatch_ai(row, self, self.rng_instance, None)
 
     def advance_turn(self) -> None:
         """Advances the game turn counter and performs turn-based updates."""
@@ -337,19 +335,18 @@ class GameState:
         perception = gather_perception(self)
 
         log.debug("Processing AI-controlled entities")
+        ai_rows = []
         for row in self.entity_registry.entities_df.iter_rows(named=True):
             if not row.get("is_active", False):
                 continue
             if row["entity_id"] == self.player_id:
                 continue
-
             zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
             if zone not in active_zones:
                 continue
-            ai_type = row.get("ai_type") or self.ai_config.get("default", "goap")
-            adapter = get_adapter(ai_type)
-            adapter(row, self, self.rng_instance, perception)
-            dispatch_ai(row, self, self.rng_instance, perception)
+            ai_rows.append(row)
+        if ai_rows:
+            dispatch_ai(ai_rows, self, self.rng_instance, perception)
 
 
         # Process any queued low-detail zone updates

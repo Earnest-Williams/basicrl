@@ -39,6 +39,7 @@ def create_game_state(item_templates=None):
         rng_seed=1,
         memory_fade_config=MEMORY_FADE_CFG,
     )
+    gs.rng_instance = DummyRNG()
     return gs
 
 

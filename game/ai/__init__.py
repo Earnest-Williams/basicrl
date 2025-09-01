@@ -12,7 +12,7 @@ from typing import Callable, Dict
 
 import structlog
 
-from . import goap, community, simple, ml_policy
+from . import goap, community, simple, ml_policy, strategy
 
 if True:
     from typing import TYPE_CHECKING
@@ -30,6 +30,7 @@ ADAPTERS: Dict[str, Callable] = {
     "community": community.take_turn,
     "simple": simple.take_turn,
     "ml_policy": ml_policy.take_turn,
+    "strategy": strategy.dispatch_strategy,
 }
 
 
