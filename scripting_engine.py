@@ -225,6 +225,8 @@ class MacroManager:
             game_state  # Ensure this is updated if game_state changes (e.g., on load)
         )
         self.bf_runner = BrainfuckRunner()
+        # Registry for set Works keyed by Seat identifier
+        self.work_registry = {}
 
     def define(self, name, sequence):
         """
@@ -395,6 +397,36 @@ class MacroManager:
                 self.macros[expanded_line], expansion_limit=10
             )
             return self.execute_command_sequence(final_sequence)
+
+        # Handle ledger Work declarations
+        lower_line = expanded_line.lower()
+        if lower_line.startswith("work ") or lower_line.startswith("run work"):
+            work_source = (
+                expanded_line[5:].strip()
+                if lower_line.startswith("work ")
+                else expanded_line[8:].strip()
+            )
+
+            try:
+                from magic import work_parser
+                from magic import executor as magic_executor
+
+                parsed_work = work_parser.parse(work_source)
+            except Exception as e:  # pragma: no cover - imported modules may be optional
+                return {"error": f"Work Parsing Error: {e}", "is_error": True}
+
+            # Determine if the work is Set or Spoken
+            seat_obj = getattr(parsed_work, "seat", None)
+            if seat_obj is not None:
+                seat_key = getattr(seat_obj, "value", str(seat_obj))
+                self.work_registry[seat_key] = {"work": parsed_work, "seat": seat_obj}
+                return f"Set work registered at seat {seat_key}"
+
+            if not self.game_state:
+                return "Error: Game state not available."
+
+            magic_executor.execute_work(parsed_work, self.game_state)
+            return "Spoken work executed"
 
         # Check if the expanded line looks like Brainfuck code
         # Use a stricter check: must contain BF chars and potentially brackets
