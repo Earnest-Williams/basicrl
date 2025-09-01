@@ -1,5 +1,6 @@
 import sys
 import types
+import polars as pl
 
 # Stub game_rng module for deterministic dice
 module = types.ModuleType('game_rng')
@@ -8,6 +9,11 @@ class DummyRNG:
         self.initial_seed = seed
     def get_int(self, a, b):
         return a
+    def get_float(self, a=0.0, b=1.0):
+        return a
+    def loot_table(self, table, count=1, unique=False):
+        items = list(table.keys())
+        return items[:count]
 module.GameRNG = DummyRNG
 sys.modules['game_rng'] = module
 
@@ -173,3 +179,74 @@ def test_two_handed_bonus_damage():
 
     # Two-handed bonus multiplies base 2 damage by 1.5 -> 3
     assert er.get_entity_component(defender, 'hp') == 7
+
+
+def test_damage_types_resistance_and_vulnerability():
+    gs = create_game_state()
+    er = gs.entity_registry
+    attacker = er.create_entity(
+        x=1,
+        y=1,
+        glyph=ord('a'),
+        color_fg=(255, 0, 0),
+        name='Orc',
+        hp=5,
+        max_hp=5,
+        strength=3,
+    )
+    defender = er.create_entity(
+        x=1,
+        y=2,
+        glyph=ord('d'),
+        color_fg=(0, 255, 0),
+        name='Goblin',
+        hp=10,
+        max_hp=10,
+        resistances={'fire': 0.5},
+        vulnerabilities={'ice': 0.5},
+    )
+    gs.game_map.visible[:, :] = True
+    handle_melee_attack(attacker, defender, gs, damage_type='fire')
+    assert er.get_entity_component(defender, 'hp') == 8
+    er.set_entity_component(defender, 'hp', 10)
+    handle_melee_attack(attacker, defender, gs, damage_type='ice')
+    assert er.get_entity_component(defender, 'hp') == 4
+
+
+def test_xp_and_loot_on_death():
+    templates = {
+        'coin': {
+            'name': 'Coin',
+            'glyph': 36,
+            'color_fg': [255, 255, 0],
+            'item_type': 'misc',
+            'flags': [],
+            'attributes': {},
+            'effects': {},
+        }
+    }
+    gs = create_game_state(item_templates=templates)
+    er = gs.entity_registry
+    ir = gs.item_registry
+
+    attacker = er.create_entity(x=1, y=1, glyph=ord('a'), color_fg=(255, 0, 0), name='Hero', hp=5, max_hp=5, xp=0)
+    drop_table = [{'template_id': 'coin', 'chance': 1.0}]
+    defender = er.create_entity(
+        x=1,
+        y=2,
+        glyph=ord('d'),
+        color_fg=(0, 255, 0),
+        name='Goblin',
+        hp=1,
+        max_hp=1,
+        xp_reward=5,
+        drop_table=drop_table,
+    )
+    gs.game_map.visible[:, :] = True
+    handle_melee_attack(attacker, defender, gs)
+    assert er.get_entity_component(attacker, 'xp') == 5
+    ground = ir.items_df.filter(
+        (pl.col('location_type') == 'ground') & (pl.col('x') == 1) & (pl.col('y') == 2)
+    )
+    assert ground.height == 1
+    assert ground.select('template_id').item() == 'coin'
