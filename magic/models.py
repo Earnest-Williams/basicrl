@@ -41,7 +41,7 @@ class Substance(Enum):
     SPIRIT = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Bounds:
     """Limitations applied to a magical work.
 
