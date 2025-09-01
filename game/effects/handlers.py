@@ -11,6 +11,7 @@ import polars as pl
 from game_rng import GameRNG
 from ..world import line_of_sight
 from ..systems.death_system import handle_entity_death
+from magic.models import Art, Substance
 
 # Import sound system for audio feedback
 try:
@@ -802,3 +803,36 @@ EFFECT_LOGIC_HANDLERS: Dict[str, callable] = {
     "create_portal": create_portal,
     "attempt_spawn_entity": attempt_spawn_entity,
 }
+
+# --- Art/Substance Dispatcher -------------------------------------------------
+
+# The game's upcoming magic system describes effects using a pair of enums:
+# ``Art`` and ``Substance``.  For simple prototypes we map those pairs to the
+# existing effect handlers above.  When a pair has no mapping we return a
+# default no-op function and log a warning so the caller knows the work had no
+# effect.
+
+
+def _no_op_effect(context: Dict[str, Any], params: Dict[str, Any] | None = None) -> None:
+    """Fallback effect when no mapping exists."""
+    log.debug("No-op effect executed", context=context)
+
+
+ART_SUBSTANCE_DISPATCHER: Dict[Tuple[Art, Substance], callable] = {
+    # Example mappings – these can be expanded as more of the magic system is
+    # implemented.
+    (Art.CREATE, Substance.WATER): heal_target,
+    (Art.DESTROY, Substance.FIRE): deal_damage,
+}
+
+
+def get_art_substance_handler(art: Art, substance: Substance) -> callable:
+    """Return an effect handler for the given ``(Art, Substance)`` pair."""
+    handler = ART_SUBSTANCE_DISPATCHER.get((art, substance))
+    if handler is None:
+        log.warning(
+            "No effect handler for art/substance pair", art=art, substance=substance
+        )
+        return _no_op_effect
+    return handler
+
