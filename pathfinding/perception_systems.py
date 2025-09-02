@@ -40,7 +40,14 @@ NOISE_MAX_DIST: int = 200  # Clamping value for get_noise_dist
 SMELL_STRENGTH: int = 80  # Threshold for scent aging/reset
 SCENT_RESET_AGE: int = 250  # Base age for scent reset cycle
 # Parallelism
-N_JOBS: int = max(1, os.cpu_count() // 2)  # Use half the CPU cores for Joblib
+# Determine job count with safe fallback when CPU count is unknown
+def _job_count() -> int:
+    """Half of available cores, or 1 if ``os.cpu_count()`` is ``None``."""
+    cpu_count = os.cpu_count()
+    return max(1, cpu_count // 2) if cpu_count else 1
+
+
+N_JOBS: int = _job_count()
 
 
 # --- Data Types ---
