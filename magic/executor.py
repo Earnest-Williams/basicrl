@@ -20,31 +20,17 @@ optional :class:`Counterseal`s to ensure the Work is permitted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable, Dict, Tuple, Iterable, Set, TYPE_CHECKING
 
 import structlog
 
+from .models import Art, Substance
 from .wards import Counterseal, Ward, is_blocked
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from game.game_state import GameState
 
 log = structlog.get_logger()
-
-
-class Art(str, Enum):
-    """Placeholder enumeration for magical arts."""
-    FIRE = "fire"
-    ICE = "ice"
-    VOID = "void"
-
-
-class Substance(str, Enum):
-    """Placeholder enumeration for magical substances."""
-    FLAME = "flame"
-    WATER = "water"
-    AETHER = "aether"
 
 
 EffectHandler = Callable[["Work", "GameState"], None]

@@ -19,8 +19,8 @@ class DummyGameState:
 def make_basic_work(**kwargs):
     """Helper to create a Work with mandatory validation fields populated."""
     defaults = {
-        "art": Art.FIRE,
-        "substance": Substance.FLAME,
+        "art": Art.CREATE,
+        "substance": Substance.FIRE,
         "seals": ["s"],
         "fonts": ["f"],
         "vents": ["v"],
@@ -32,8 +32,8 @@ def make_basic_work(**kwargs):
 
 def test_execute_work_blocked_by_ward_without_counterseal():
     work = make_basic_work()
-    ward = Ward(arts={Art.FIRE})
-    counterseal = Counterseal(arts={Art.ICE})  # does not match the ward
+    ward = Ward(arts={Art.CREATE})
+    counterseal = Counterseal(arts={Art.DESTROY})  # does not match the ward
     result = execute_work(work, DummyGameState(), wards=[ward], counterseals=[counterseal])
     assert result is False
 
@@ -75,11 +75,22 @@ def test_registered_handlers_are_invoked(monkeypatch):
     def handler(work, state):
         called.append((work, state))
 
-    register_handler(Art.ICE, Substance.WATER, handler)
+    register_handler(Art.DESTROY, Substance.WATER, handler)
 
-    work = make_basic_work(art=Art.ICE, substance=Substance.WATER, func=None)
+    work = make_basic_work(art=Art.DESTROY, substance=Substance.WATER, func=None)
     gs = DummyGameState()
     result = execute_work(work, gs)
 
     assert result is True
     assert called == [(work, gs)]
+
+
+def test_game_effects_register_existing_handlers(monkeypatch):
+    monkeypatch.setattr(executor, "EFFECT_HANDLERS", {})
+
+    import importlib
+    import game.effects
+
+    importlib.reload(game.effects)
+
+    assert (Art.CREATE, Substance.WATER) in executor.EFFECT_HANDLERS
