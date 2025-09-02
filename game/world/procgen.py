@@ -1,4 +1,5 @@
 # basicrl/game/world/procgen.py
+from collections import deque
 from typing import Dict, Iterator, List, NamedTuple, Tuple, Union
 
 import numpy as np
@@ -523,14 +524,42 @@ def _generate_cavern_level(
         game_map.tiles[1 : map_height - 1, 1 : map_width - 1] = new_tiles[
             1 : map_height - 1, 1 : map_width - 1
         ]
+
     floor_positions = np.argwhere(game_map.tiles == TILE_ID_FLOOR)
-    for (y, x) in floor_positions:
-        game_map.height_map[y, x] = 0
-        game_map.ceiling_map[y, x] = DEFAULT_ROOM_CEILING_OFFSET
     if floor_positions.size == 0:
         raise RuntimeError("Cavern generation produced no walkable tiles")
-    start_y, start_x = floor_positions[0]
-    return int(start_x), int(start_y)
+
+    # Pick a random floor tile and flood fill to find its connected region
+    start_index = rng.get_int(0, len(floor_positions) - 1)
+    seed_y, seed_x = floor_positions[start_index]
+    queue = deque([(int(seed_y), int(seed_x))])
+    visited = {(int(seed_y), int(seed_x))}
+    while queue:
+        cy, cx = queue.popleft()
+        for dy, dx in ((0, 1), (1, 0), (0, -1), (-1, 0)):
+            ny, nx = cy + dy, cx + dx
+            if (
+                0 <= ny < map_height
+                and 0 <= nx < map_width
+                and game_map.tiles[ny, nx] == TILE_ID_FLOOR
+                and (ny, nx) not in visited
+            ):
+                visited.add((ny, nx))
+                queue.append((ny, nx))
+
+    # Convert unreachable floor tiles to walls
+    for (y, x) in floor_positions:
+        if (int(y), int(x)) not in visited:
+            game_map.tiles[y, x] = TILE_ID_WALL
+
+    # Update height and ceiling only for reachable floors
+    for (y, x) in visited:
+        game_map.height_map[y, x] = 0
+        game_map.ceiling_map[y, x] = DEFAULT_ROOM_CEILING_OFFSET
+
+    visited_list = list(visited)
+    spawn_y, spawn_x = visited_list[rng.get_int(0, len(visited_list) - 1)]
+    return int(spawn_x), int(spawn_y)
 
 
 def _apply_prefab(game_map: GameMap, x: int, y: int, prefab: List[str]) -> Tuple[int, int]:
