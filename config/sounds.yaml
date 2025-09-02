@@ -243,6 +243,11 @@ situational_modifiers:
     night:
       volume_modifier: 0.8    # Quieter at night
       reverb_modifier: 1.2    # More echo at night
-      
+
     day:
       volume_modifier: 1.0    # Normal volume during day
+
+  # Occlusion parameters
+  occlusion:
+    wall_absorption: 0.5      # Volume reduction when blocked
+    rear_attenuation: 0.5     # Volume modifier for sounds behind listener

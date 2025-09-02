@@ -224,6 +224,9 @@ situational_modifiers:
     water:
       low_pass_filter: 0.7
       volume_modifier: 0.8
+  occlusion:
+    wall_absorption: 0.5  # Volume reduction when blocked
+    rear_attenuation: 0.5 # Modifier for sounds behind the listener
 ```
 
 ## Event Mappings

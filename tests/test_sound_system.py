@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from game.systems.sound import SoundManager, SoundEffect, BackgroundMusic
+from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
 
 
 class TestSoundEffect:
@@ -186,6 +187,12 @@ class TestSoundManager:
                 "player_move": "test_effect",
                 "deal_damage": "combat_hit",
                 "cast_spell": "magic_proc"
+            },
+            "situational_modifiers": {
+                "occlusion": {
+                    "wall_absorption": 0.5,
+                    "rear_attenuation": 0.5,
+                }
             }
         }
         
@@ -222,6 +229,50 @@ class TestSoundManager:
             assert manager.event_mappings["deal_damage"] == "combat_hit"
             assert manager.event_mappings["cast_spell"] == "magic_proc"
             
+        finally:
+            os.unlink(config_path)
+
+    def test_calculate_volume_direction_and_occlusion(self):
+        """Volume should be reduced for occlusion and sounds behind listener."""
+        config_path = self.create_test_config()
+        try:
+            manager = SoundManager(config_path)
+
+            gm = GameMap(width=3, height=1)
+            gm.tiles[0, :] = TILE_ID_FLOOR
+            gm.update_tile_transparency()
+
+            front = manager._calculate_volume(
+                1.0,
+                {},
+                source_pos=(2, 0),
+                listener_pos=(1, 0, 0.0),
+                listener_orientation=(1.0, 0.0),
+                game_map=gm,
+            )
+            back = manager._calculate_volume(
+                1.0,
+                {},
+                source_pos=(0, 0),
+                listener_pos=(1, 0, 0.0),
+                listener_orientation=(1.0, 0.0),
+                game_map=gm,
+            )
+            assert back < front
+
+            gm2 = GameMap(width=3, height=1)
+            gm2.tiles[0, :] = TILE_ID_FLOOR
+            gm2.tiles[0, 1] = TILE_ID_WALL
+            gm2.update_tile_transparency()
+            occluded = manager._calculate_volume(
+                1.0,
+                {},
+                source_pos=(2, 0),
+                listener_pos=(0, 0, 0.0),
+                listener_orientation=(1.0, 0.0),
+                game_map=gm2,
+            )
+            assert occluded < front
         finally:
             os.unlink(config_path)
     
