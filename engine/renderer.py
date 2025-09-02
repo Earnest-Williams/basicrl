@@ -6,6 +6,8 @@ and optimized techniques.
 """
 # Standard Library Imports
 from .render_entities import (
+    pack_ground_items,
+    pack_entities,
     render_map_tiles,
     render_ground_items,
     render_entities,
@@ -535,14 +537,17 @@ def render_viewport(
                 )
 
                 if visible_items_df.height > 0:
-                    item_xs = visible_items_df["x"].to_numpy().astype(np.int64)
-                    item_ys = visible_items_df["y"].to_numpy().astype(np.int64)
-                    item_glyphs = visible_items_df["glyph"].to_numpy().astype(np.int32)
-                    r = visible_items_df["color_fg_r"].to_numpy().astype(np.uint8)
-                    g = visible_items_df["color_fg_g"].to_numpy().astype(np.uint8)
-                    b = visible_items_df["color_fg_b"].to_numpy().astype(np.uint8)
-                    item_colors = np.stack(
-                        [r, g, b, np.full(r.shape[0], 255, dtype=np.uint8)], axis=1
+                    packed_items = pack_ground_items(visible_items_df.to_dicts())
+                    item_xs, item_ys, item_glyphs, item_colors = packed_items
+                    assert (
+                        item_xs.dtype == np.int64
+                        and item_ys.dtype == np.int64
+                        and item_glyphs.dtype == np.int32
+                        and item_colors.dtype == np.uint8
+                        and item_xs.size
+                        == item_ys.size
+                        == item_glyphs.size
+                        == item_colors.shape[0]
                     )
 
         except Exception as e:
@@ -613,16 +618,17 @@ def render_viewport(
                 )
 
                 if entities_in_vp_bounds.height > 0:
-                    entity_xs = entities_in_vp_bounds["x"].to_numpy().astype(np.int64)
-                    entity_ys = entities_in_vp_bounds["y"].to_numpy().astype(np.int64)
-                    entity_glyphs = (
-                        entities_in_vp_bounds["glyph"].to_numpy().astype(np.int32)
-                    )
-                    r = entities_in_vp_bounds["color_fg_r"].to_numpy().astype(np.uint8)
-                    g = entities_in_vp_bounds["color_fg_g"].to_numpy().astype(np.uint8)
-                    b = entities_in_vp_bounds["color_fg_b"].to_numpy().astype(np.uint8)
-                    entity_colors = np.stack(
-                        [r, g, b, np.full(r.shape[0], 255, dtype=np.uint8)], axis=1
+                    packed_entities = pack_entities(entities_in_vp_bounds.to_dicts())
+                    entity_xs, entity_ys, entity_glyphs, entity_colors = packed_entities
+                    assert (
+                        entity_xs.dtype == np.int64
+                        and entity_ys.dtype == np.int64
+                        and entity_glyphs.dtype == np.int32
+                        and entity_colors.dtype == np.uint8
+                        and entity_xs.size
+                        == entity_ys.size
+                        == entity_glyphs.size
+                        == entity_colors.shape[0]
                     )
 
         except Exception as e:
