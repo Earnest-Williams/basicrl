@@ -16,7 +16,6 @@ from collections import deque
 from typing import Deque, Dict, List, Tuple
 
 import numpy as np
-import polars as pl
 from joblib import Parallel, delayed
 from numba import njit
 from game.world.los import line_of_sight
