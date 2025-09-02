@@ -102,15 +102,22 @@ class MainLoop:
             player_acted = action_handler.process_player_action(
                 action, gs, self._cfg_max_traversable_step
             )
+        except ValueError as e:
+            log.warning(
+                "Invalid action during processing",
+                action=action,
+                error=str(e),
+            )
+            gs.add_message("Invalid action.", (255, 0, 0))
+            player_acted = False  # Invalid action means no turn taken
         except Exception as e:
             log.error(
-                "Exception during action processing",
+                "Unexpected exception during action processing",
                 action=action,
                 error=str(e),
                 exc_info=True,
             )
-            gs.add_message("An internal error occurred.", (255, 0, 0))
-            player_acted = False  # Error means no valid turn taken
+            raise
 
         if player_acted:
             log.debug("Player action resulted in turn", action_type=action.get("type"))
