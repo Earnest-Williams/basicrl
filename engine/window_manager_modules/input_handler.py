@@ -120,8 +120,7 @@ class InputHandler:
                 if not isinstance(binding_data, dict):
                     continue
                 bound_key_str: str | None = binding_data.get("key")
-                bound_key_enum: Qt.Key | None = self._get_qt_key_enum(
-                    bound_key_str)
+                bound_key_enum: Qt.Key | None = self._get_qt_key_enum(bound_key_str)
                 bound_mods_list: List[str] = binding_data.get("mods", [])
                 required_mod_enum: Qt.KeyboardModifier = self._get_qt_modifier_enum(
                     bound_mods_list
@@ -205,8 +204,7 @@ class InputHandler:
                 return True
 
         # Universal Help handling
-        help_action_lookup = self._get_action_for_key(
-            key, mods, active_keybinding_sets)
+        help_action_lookup = self._get_action_for_key(key, mods, active_keybinding_sets)
         if help_action_lookup and help_action_lookup.get("ui_action") == "show_help":
             self.window_manager_ref.ui_show_help_dialog()
             return True
@@ -221,7 +219,8 @@ class InputHandler:
                     # e.g., 'move', 'wait', 'pickup', 'ui'
                     action_name = looked_up_action.get("type")
                     ui_action_name = looked_up_action.get(
-                        "ui_action")  # Only present if type is 'ui'
+                        "ui_action"
+                    )  # Only present if type is 'ui'
 
                     # Explicitly handle known action types
                     if action_name == "move":
@@ -238,8 +237,7 @@ class InputHandler:
                             action_to_dispatch = looked_up_action
                         else:
                             # Create a simple dict with the canonical name
-                            action_to_dispatch = {
-                                "type": canonical_action_name}
+                            action_to_dispatch = {"type": canonical_action_name}
                         # *** END MODIFICATION ***
                         key_handled = True
                     elif action_name == "ui":
@@ -283,8 +281,7 @@ class InputHandler:
                     Qt.Key.Key_R: "detach",
                 }
                 if key in nav_map:
-                    self.window_manager_ref.ui_overlay_manager.navigate(
-                        nav_map[key])
+                    self.window_manager_ref.ui_overlay_manager.navigate(nav_map[key])
                     key_handled = True
                 elif key in action_key_map:
                     action_to_dispatch = (
@@ -307,8 +304,7 @@ class InputHandler:
 
         # Dispatch game action if generated
         if action_to_dispatch:
-            log.debug("Dispatching action to main loop",
-                      action=action_to_dispatch)
+            log.debug("Dispatching action to main loop", action=action_to_dispatch)
             main_loop_ref.handle_action(action_to_dispatch)
             if game_state.ui_state == "INVENTORY_VIEW":
                 self.window_manager_ref.update_frame()

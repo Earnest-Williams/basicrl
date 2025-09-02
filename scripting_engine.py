@@ -67,8 +67,7 @@ def _generate_bf_func(code, tape_size=30000):
         elif c == ",":
             # Read from input buffer if available
             lines.append(f"{indent}if input_pos < len(input_stream):")
-            lines.append(
-                f"{indent}    tape[ptr] = ord(input_stream[input_pos]) % 256")
+            lines.append(f"{indent}    tape[ptr] = ord(input_stream[input_pos]) % 256")
             lines.append(f"{indent}    input_pos += 1")
             lines.append(f"{indent}else:")
             # Define behavior for EOF - often 0 or -1 (here 0)
@@ -95,8 +94,7 @@ def _generate_bf_func(code, tape_size=30000):
         exec(full_code, namespace)
         return namespace["bf_program"]
     except Exception as e:
-        log.error("Error executing generated BF code",
-                  error=str(e), exc_info=True)
+        log.error("Error executing generated BF code", error=str(e), exc_info=True)
         raise  # Re-raise the error
 
 
@@ -427,8 +425,7 @@ class MacroManager:
             seat_obj = getattr(compiled_work, "seat", None)
             if seat_obj is not None:
                 seat_key = getattr(seat_obj, "value", str(seat_obj))
-                self.work_registry[seat_key] = {
-                    "work": compiled_work, "seat": seat_obj}
+                self.work_registry[seat_key] = {"work": compiled_work, "seat": seat_obj}
                 return f"Set work registered at seat {seat_key}"
 
             if not self.game_state:

@@ -28,7 +28,7 @@ log = structlog.get_logger()
 directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
-def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
+def _ensure_pathfinder(game_state: "GameState") -> FlowFieldPathfinder:
     """Return a cached FlowFieldPathfinder for the current map.
 
     The pathfinder is (re)created if one does not exist yet or if the map
@@ -56,9 +56,9 @@ def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
 
 def _action_move_attack(
     entity_row,
-    game_state: 'GameState',
-    rng: 'GameRNG',
-    perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
+    game_state: "GameState",
+    rng: "GameRNG",
+    perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
 ) -> bool:
     """Basic behaviour: move toward the player or wander."""
     entity_id = entity_row["entity_id"]
@@ -124,9 +124,9 @@ def _action_move_attack(
 
 def _action_seek_cover(
     entity_row,
-    game_state: 'GameState',
-    rng: 'GameRNG',
-    perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
+    game_state: "GameState",
+    rng: "GameRNG",
+    perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
 ) -> bool:
     """Intermediate behaviour: attempt to move to a tile out of sight."""
     entity_id = entity_row["entity_id"]
@@ -145,9 +145,9 @@ def _action_seek_cover(
 
 def _action_coordinate(
     entity_row,
-    game_state: 'GameState',
-    rng: 'GameRNG',
-    perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
+    game_state: "GameState",
+    rng: "GameRNG",
+    perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
 ) -> bool:
     """Advanced behaviour: coordinate with allies (placeholder)."""
     # For now we simply record that coordination was attempted.
@@ -164,9 +164,9 @@ ACTION_TIERS: List[List[Callable]] = [
 
 def take_turn(
     entity_row,
-    game_state: 'GameState',
-    rng: 'GameRNG',
-    perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
+    game_state: "GameState",
+    rng: "GameRNG",
+    perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
     plan_depth: int = 1,
     **kwargs,
 ) -> None:

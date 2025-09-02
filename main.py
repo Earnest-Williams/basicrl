@@ -75,8 +75,7 @@ def load_toml_config(config_path: Path, config_name: str) -> PyDict[str, Any]:
     """Loads a TOML configuration file."""
     # (Implementation unchanged)
     if not config_path.is_file():
-        log.error(f"{config_name} config file not found",
-                  path=str(config_path))
+        log.error(f"{config_name} config file not found", path=str(config_path))
         return {}
     try:
         with config_path.open("rb") as f:  # tomllib requires bytes mode
@@ -84,12 +83,20 @@ def load_toml_config(config_path: Path, config_name: str) -> PyDict[str, Any]:
         log.info(f"{config_name} config loaded", path=str(config_path))
         return config_data
     except tomllib.TOMLDecodeError as e:
-        log.error(f"Error parsing TOML for {config_name}", path=str(
-            config_path), error=str(e), exc_info=True, )
+        log.error(
+            f"Error parsing TOML for {config_name}",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
         return {}
     except Exception as e:
-        log.error(f"Failed to load {config_name} config", path=str(
-            config_path), error=str(e), exc_info=True, )
+        log.error(
+            f"Failed to load {config_name} config",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
         return {}
 
 
@@ -97,27 +104,35 @@ def load_yaml_config(config_path: Path, config_name: str) -> PyDict[str, Any]:
     """Loads a generic YAML configuration file."""
     # (Implementation unchanged)
     if not config_path.is_file():
-        log.error(f"{config_name} config file not found",
-                  path=str(config_path))
+        log.error(f"{config_name} config file not found", path=str(config_path))
         raise FileNotFoundError(
-            f"{config_name} configuration file not found: {config_path}")
+            f"{config_name} configuration file not found: {config_path}"
+        )
     try:
         with config_path.open("r") as f:
             config_data = yaml.safe_load(f)
         if config_data is None:
-            log.warning(f"{config_name} config file is empty.",
-                        path=str(config_path))
+            log.warning(f"{config_name} config file is empty.", path=str(config_path))
             return {}
         log.info(f"{config_name} config loaded", path=str(config_path))
         return config_data
     except yaml.YAMLError as e:
-        log.error(f"Error parsing YAML for {config_name}", path=str(
-            config_path), error=str(e), exc_info=True, )
+        log.error(
+            f"Error parsing YAML for {config_name}",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
         raise  # Re-raise parsing errors
     except Exception as e:
-        log.error(f"Failed to load {config_name} config", path=str(
-            config_path), error=str(e), exc_info=True, )
+        log.error(
+            f"Failed to load {config_name} config",
+            path=str(config_path),
+            error=str(e),
+            exc_info=True,
+        )
         raise  # Re-raise other load errors
+
 
 # --- End Config Loading ---
 
@@ -126,9 +141,7 @@ def load_configs() -> Configs:
     """Load all game configuration files into a structured object."""
 
     config = load_yaml_config(CONFIG_FILE, "Main")
-    item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get(
-        "templates", {}
-    )
+    item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get("templates", {})
     entity_templates = load_yaml_config(ENTITIES_CONFIG_FILE, "Entities").get(
         "templates", {}
     )
@@ -214,8 +227,7 @@ def init_game_state(configs: Configs, region: str = "dungeon") -> GameState:
     log.info("Dungeon generated", player_start=player_start_pos)
 
     # Print map section after generation
-    print_map_section(
-        game_map, player_start_pos[0], player_start_pos[1], radius=10)
+    print_map_section(game_map, player_start_pos[0], player_start_pos[1], radius=10)
 
     log.info("Initializing game state...")
     game_state = GameState(
@@ -243,8 +255,7 @@ def init_game_state(configs: Configs, region: str = "dungeon") -> GameState:
     if player_start_pos:
         spawn_x, spawn_y = player_start_pos
         if hasattr(game_state, "item_registry") and game_state.item_registry:
-            log.info("Spawning initial items near player",
-                     pos=(spawn_x, spawn_y))
+            log.info("Spawning initial items near player", pos=(spawn_x, spawn_y))
             game_state.item_registry.create_item(
                 "simple_dagger", "ground", x=spawn_x + 1, y=spawn_y
             )
@@ -294,8 +305,7 @@ def init_window(configs: Configs, game_state: GameState) -> WindowManager:
     vis_blend_factor: float = hv_config.get("blend_factor", 0.3)
     gameplay_rules = config.get("gameplay_rules", {})
     max_traversable_step: int = gameplay_rules.get("max_traversable_step", 2)
-    enable_memory_fade: bool = config.get(
-        "memory_fade", {}).get("enabled", True)
+    enable_memory_fade: bool = config.get("memory_fade", {}).get("enabled", True)
 
     window = WindowManager(
         app_config=config,
@@ -345,7 +355,7 @@ def print_map_section(game_map: GameMap, center_x: int, center_y: int, radius: i
     print(f"\n--- Map Section around ({center_x},{center_y}) ---")
     header = "   " + "".join([f"{x:<3}" for x in range(x_min, x_max)])
     print(header)
-    print("  " + "-" * (len(header)-2))
+    print("  " + "-" * (len(header) - 2))
     for y in range(y_min, y_max):
         row_str = f"{y:<2}|"
         for x in range(x_min, x_max):
@@ -363,6 +373,8 @@ def print_map_section(game_map: GameMap, center_x: int, center_y: int, radius: i
                 row_str += f" {char} "
         print(row_str)
     print("------------------------------------\n")
+
+
 # --- End Debug Map Printing ---
 
 
@@ -402,16 +414,15 @@ def main() -> None:
 
     # --- Exception Handling ---
     except FileNotFoundError as e:
-        log.critical("Required file not found during init",
-                     error=str(e), exc_info=True)
+        log.critical("Required file not found during init", error=str(e), exc_info=True)
         sys.exit(f"Initialization failed: File not found - {e}")
     except KeyError as e:
-        log.critical("Missing required key, possibly in config",
-                     key=str(e), exc_info=True)
+        log.critical(
+            "Missing required key, possibly in config", key=str(e), exc_info=True
+        )
         sys.exit(f"Configuration failed: Missing key {e}")
     except TypeError as e:
-        log.critical("Fatal Type Error during init",
-                     error=str(e), exc_info=True)
+        log.critical("Fatal Type Error during init", error=str(e), exc_info=True)
         sys.exit(f"Initialization failed (TypeError): {e}")
     except Exception as e:
         log.critical("Fatal initialization error", error=str(e), exc_info=True)

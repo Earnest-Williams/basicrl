@@ -23,8 +23,10 @@ import re
 # Engine (tested) data model
 # =========================
 
+
 class Art(Enum):
     """Fundamental magical arts."""
+
     CREATE = auto()
     PERCEIVE = auto()
     TRANSFORM = auto()
@@ -34,6 +36,7 @@ class Art(Enum):
 
 class Substance(Enum):
     """Base substances that magic can affect."""
+
     AIR = auto()
     EARTH = auto()
     FIRE = auto()
@@ -44,6 +47,7 @@ class Substance(Enum):
 @dataclass(frozen=True)
 class Bounds:
     """Limitations applied to a magical work."""
+
     range: int = 0
     duration: int = 0
     target: int = 0
@@ -55,6 +59,7 @@ class Bounds:
 @dataclass(frozen=True)
 class Balances:
     """Represents costs or counterweights for a work."""
+
     cost: int = 0
     risk: int = 0
 
@@ -62,6 +67,7 @@ class Balances:
 @dataclass(frozen=True)
 class Flow:
     """Raw power channelled into a work."""
+
     strength: int = 0
 
     def total(self) -> int:
@@ -71,6 +77,7 @@ class Flow:
 @dataclass(frozen=True)
 class Seals:
     """Restrictions or conditions placed on a work."""
+
     description: str = ""
     power: int = 0
 
@@ -78,6 +85,7 @@ class Seals:
 @dataclass(frozen=True)
 class Work:
     """A magical working combining arts, substances and other modifiers."""
+
     art: Art
     art_rank: int
     substance: Substance
@@ -111,63 +119,74 @@ class Work:
 # Ledger grammar AST (parser side)
 # =========================
 
+
 @dataclass
 class ArtClause:
     """Represents the ART clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class BoundsClause:
     """Represents the BOUNDS clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class BalancesClause:
     """Represents the BALANCES clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class FlowClause:
     """Represents the FLOW clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class SealsClause:
     """Represents the SEALS clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class ProvisionsClause:
     """Represents the PROVISIONS clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class IntentClause:
     """Represents the INTENT clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class SeatClause:
     """Represents the optional SEAT clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class TendingClause:
     """Represents the optional TENDING clause as parsed text."""
+
     value: str
 
 
 @dataclass
 class WorkDecl:
     """Complete representation of a ledger work declaration (AST)."""
+
     art: ArtClause
     bounds: BoundsClause
     balances: BalancesClause
@@ -200,7 +219,8 @@ _SUBSTANCE_ALIASES = {
 }
 
 _INT_RE = re.compile(
-    r"(?P<key>range|duration|target|strength|power|cost|risk)\s*=\s*(-?\d+)", re.I)
+    r"(?P<key>range|duration|target|strength|power|cost|risk)\s*=\s*(-?\d+)", re.I
+)
 
 
 def _kv_ints(s: str) -> dict[str, int]:

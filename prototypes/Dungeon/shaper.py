@@ -45,8 +45,7 @@ try:
 
     HAS_SCIPY = True
 except ImportError:
-    log.warning(
-        "SciPy not found. CA and Chamber ID calculation will be limited.")
+    log.warning("SciPy not found. CA and Chamber ID calculation will be limited.")
     HAS_SCIPY = False
 
     # Define dummy label if SciPy not found to avoid NameError
@@ -311,8 +310,7 @@ def _rasterize_rect_cavern(  # Added rng parameter
         ]
     )
     # Call polygon rasterizer
-    _rasterize_polygon(grid, corners_r, corners_c,
-                       value, chunk_type_mask, type_id)
+    _rasterize_polygon(grid, corners_r, corners_c, value, chunk_type_mask, type_id)
 
 
 def _rasterize_multicircle_cavern(  # Added rng parameter
@@ -330,8 +328,7 @@ def _rasterize_multicircle_cavern(  # Added rng parameter
         return
     # USE rng for random values
     num_lobes = rng.get_int(2, 5)
-    base_radius_m = rng.get_float(
-        *properties["width_m"]) / (1.0 + 0.5 * num_lobes)
+    base_radius_m = rng.get_float(*properties["width_m"]) / (1.0 + 0.5 * num_lobes)
     base_radius_cells = max(3, int(round(base_radius_m / GRID_RESOLUTION)))
     max_offset = base_radius_cells * 0.8
     temp_mask = np.zeros_like(grid, dtype=bool)
@@ -371,12 +368,10 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
         return
     # USE rng for random values
     ry = max(
-        3, int(
-            round(rng.get_float(*properties["height_m"]) / 2.0 / GRID_RESOLUTION))
+        3, int(round(rng.get_float(*properties["height_m"]) / 2.0 / GRID_RESOLUTION))
     )
     rx = max(
-        3, int(
-            round(rng.get_float(*properties["width_m"]) / 2.0 / GRID_RESOLUTION))
+        3, int(round(rng.get_float(*properties["width_m"]) / 2.0 / GRID_RESOLUTION))
     )
 
     base_rr, base_cc = np.array([]), np.array([])
@@ -408,8 +403,7 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
                 )
                 base_rr, base_cc = points[:, 0], points[:, 1]
     except Exception as e:
-        log.error("Error generating ellipse perimeter",
-                  error=str(e), exc_info=True)
+        log.error("Error generating ellipse perimeter", error=str(e), exc_info=True)
 
     if len(base_rr) == 0:
         log.warning("No points for noisy ellipse boundary.")
@@ -426,8 +420,7 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
 
         displace_r = scale * np.array(
             [
-                rng.noise_2d(r, c, scale=1.0 / freq,
-                             seed_offset=noise_seed_offset)
+                rng.noise_2d(r, c, scale=1.0 / freq, seed_offset=noise_seed_offset)
                 for r, c in zip(base_rr, base_cc)
             ]
         )
@@ -446,8 +439,7 @@ def _rasterize_noisy_ellipse_cavern(  # Added rng parameter
     except Exception as e:
         log.error("Error applying GameRNG noise", error=str(e), exc_info=True)
 
-    _rasterize_polygon(grid, perturbed_r, perturbed_c,
-                       value, chunk_type_mask, type_id)
+    _rasterize_polygon(grid, perturbed_r, perturbed_c, value, chunk_type_mask, type_id)
 
 
 def _rasterize_noise_blob_cavern(  # Added rng parameter
@@ -467,10 +459,8 @@ def _rasterize_noise_blob_cavern(  # Added rng parameter
     radius = size_cells // 2
 
     # Calculate bounds safely
-    r_min, r_max = max(
-        0, r_center - radius), min(grid.shape[0], r_center + radius + 1)
-    c_min, c_max = max(
-        0, c_center - radius), min(grid.shape[1], c_center + radius + 1)
+    r_min, r_max = max(0, r_center - radius), min(grid.shape[0], r_center + radius + 1)
+    c_min, c_max = max(0, c_center - radius), min(grid.shape[1], c_center + radius + 1)
     if r_min >= r_max or c_min >= c_max:
         return  # Area is zero or invalid
 
@@ -485,8 +475,7 @@ def _rasterize_noise_blob_cavern(  # Added rng parameter
                     r_world, c_world, scale=1.0 / freq, seed_offset=noise_seed_offset
                 )
     except Exception as e:
-        log.error("Error generating GameRNG noise field",
-                  error=str(e), exc_info=True)
+        log.error("Error generating GameRNG noise field", error=str(e), exc_info=True)
         # Fallback? Or just continue with potentially zeros?
         # Let's continue, might result in smaller blob
 
@@ -514,8 +503,7 @@ def _rasterize_noise_blob_cavern(  # Added rng parameter
             mask_shape=blob_mask.shape,
         )
     except Exception as e:
-        log.error("Error assigning noise blob mask",
-                  error=str(e), exc_info=True)
+        log.error("Error assigning noise blob mask", error=str(e), exc_info=True)
 
 
 # --- Map cavern subtype names to functions ---
@@ -536,10 +524,8 @@ def _calculate_grid_bounds(
 ) -> Optional[Tuple[int, int, int, int]]:  # Unchanged logic
     """Calculates the required grid bounds based on node coordinates."""
     try:
-        all_x = [n["x"]
-                 for n in nodes if not math.isnan(n.get("x", float("nan")))]
-        all_y = [n["y"]
-                 for n in nodes if not math.isnan(n.get("y", float("nan")))]
+        all_x = [n["x"] for n in nodes if not math.isnan(n.get("x", float("nan")))]
+        all_y = [n["y"] for n in nodes if not math.isnan(n.get("y", float("nan")))]
         if not all_x or not all_y:
             log.error("No valid coordinates found for bounds calculation.")
             return None
@@ -565,8 +551,11 @@ def _calculate_grid_bounds(
     )
 
     if grid_width <= 0 or grid_height <= 0:
-        log.error("Invalid grid dimensions calculated",
-                  grid_width=grid_width, grid_height=grid_height)
+        log.error(
+            "Invalid grid dimensions calculated",
+            grid_width=grid_width,
+            grid_height=grid_height,
+        )
         return None
 
     return grid_width, grid_height, origin_offset_x, origin_offset_y
@@ -583,13 +572,16 @@ def _initialize_grids(
         depth_grid = np.full((height, width), np.nan, dtype=np.float32)
         # Map chunk type names to integer IDs for the type grid
         chunk_type_names = list(CHUNK_PROPERTIES.keys())
-        chunk_type_map = {name: i + 1 for i,
-                          name in enumerate(chunk_type_names)}
+        chunk_type_map = {name: i + 1 for i, name in enumerate(chunk_type_names)}
         type_grid = np.zeros((height, width), dtype=np.uint8)
         return grid, depth_grid, type_grid, chunk_type_map
     except (MemoryError, ValueError) as e:
         log.error(
-            "Error allocating grids", height=height, width=width, error=str(e), exc_info=True
+            "Error allocating grids",
+            height=height,
+            width=width,
+            error=str(e),
+            exc_info=True,
         )
         return None
 
@@ -616,8 +608,7 @@ def _rasterize_segment(  # Added rng parameter
             parent_data, child_node_data
         )
         properties = _get_chunk_properties(chunk_base_type)
-        chunk_type_id = chunk_type_map.get(
-            chunk_base_type, 0)  # 0 if type unknown
+        chunk_type_id = chunk_type_map.get(chunk_base_type, 0)  # 0 if type unknown
 
         # Get parent and child coordinates, check for NaN
         p_x, p_y = parent_data.get("x", 0.0), parent_data.get("y", 0.0)
@@ -722,8 +713,7 @@ def _rasterize_segment(  # Added rng parameter
                     & np.isnan(depth_grid)
                     & (grid == MAT_CAVE_FLOOR)
                 )
-                depth_grid[newly_painted_mask] = parent_data.get(
-                    "depth_m", 0.0)
+                depth_grid[newly_painted_mask] = parent_data.get("depth_m", 0.0)
             else:  # Fallback if subtype unknown
                 log.warning(
                     "Unknown big_room subtype; drawing wide passage",
@@ -780,8 +770,7 @@ def _rasterize_segment(  # Added rng parameter
             if r_min_bb >= r_max_bb or c_min_bb >= c_max_bb:
                 return  # Skip if bounding box is invalid
 
-            sub_grid_slice = (slice(r_min_bb, r_max_bb),
-                              slice(c_min_bb, c_max_bb))
+            sub_grid_slice = (slice(r_min_bb, r_max_bb), slice(c_min_bb, c_max_bb))
 
             # Find relevant cells within the bounding box
             mask = (
@@ -932,8 +921,7 @@ def _run_ca_step_scipy(grid: np.ndarray) -> np.ndarray:  # CA Step (unchanged)
 
     # Apply rules based on neighbor count
     # Use central constant
-    born = (grid == MAT_SOLID_ROCK) & (
-        non_solid_neighbor_count >= CA_BIRTH_THRESHOLD)
+    born = (grid == MAT_SOLID_ROCK) & (non_solid_neighbor_count >= CA_BIRTH_THRESHOLD)
     # Use central constant
     survived = (grid != MAT_SOLID_ROCK) & (
         non_solid_neighbor_count >= CA_SURVIVAL_THRESHOLD
@@ -976,8 +964,9 @@ def run_cellular_automata(  # Unchanged logic
             try:
                 grid = ca_step_func(grid)
             except Exception as e:
-                log.error("Error during CA step", step=i +
-                          1, error=str(e), exc_info=True)
+                log.error(
+                    "Error during CA step", step=i + 1, error=str(e), exc_info=True
+                )
                 traceback.print_exc()  # Show full traceback
                 return grid  # Return current state on error
     print("CA finished.")
@@ -1027,8 +1016,7 @@ def create_map_dataframe(  # Added rng parameter
     col_mat_id = mat_ids.astype(np.uint16)
     # Define walkable based on material ID (e.g., excluding rock, cliffs)
     # Use central constants
-    walkable_mask = (col_mat_id != MAT_SOLID_ROCK) & (
-        col_mat_id != MAT_CLIFF_EDGE)
+    walkable_mask = (col_mat_id != MAT_SOLID_ROCK) & (col_mat_id != MAT_CLIFF_EDGE)
     col_walkable = walkable_mask.astype(bool)
 
     # Calculate heights (vectorized where possible)
@@ -1037,8 +1025,7 @@ def create_map_dataframe(  # Added rng parameter
 
     # Batch generate random heights within the default range first
     min_h_def, max_h_def = DEFAULT_HEIGHT_M
-    generated_heights = rng.get_floats(
-        min_h_def, max_h_def, count=num_non_rock)
+    generated_heights = rng.get_floats(min_h_def, max_h_def, count=num_non_rock)
 
     # Apply specific heights based on type_id, using pre-generated random values
     for i in range(num_non_rock):
@@ -1057,16 +1044,13 @@ def create_map_dataframe(  # Added rng parameter
             unknown_type_count += 1
 
     if unknown_type_count > 0:
-        log.warning(
-            "Assigned default height range to cells", count=unknown_type_count
-        )
+        log.warning("Assigned default height range to cells", count=unknown_type_count)
 
     # Calculate ceiling depth
     col_ceil_depth = (col_floor_depth - col_height).round(2)
 
     # --- Chamber ID Calculation ---
-    col_chamber_id = np.zeros(
-        num_non_rock, dtype=np.int32)  # Default to 0 or -1?
+    col_chamber_id = np.zeros(num_non_rock, dtype=np.int32)  # Default to 0 or -1?
     if HAS_SCIPY:
         print("Calculating Chamber IDs using SciPy (8-connectivity)...")
         # Create boolean grid based on walkable status from DataFrame column
@@ -1083,8 +1067,7 @@ def create_map_dataframe(  # Added rng parameter
             )
             print(f"Found {num_chambers} distinct chambers.")
             # Extract chamber IDs for the non-rock cells
-            col_chamber_id = labeled_grid[non_rock_y,
-                                          non_rock_x].astype(np.int32)
+            col_chamber_id = labeled_grid[non_rock_y, non_rock_x].astype(np.int32)
         except Exception as e:
             log.error(
                 "Error during Chamber ID calculation", error=str(e), exc_info=True
@@ -1097,13 +1080,16 @@ def create_map_dataframe(  # Added rng parameter
     # --- Create Polars DataFrame ---
     try:
         # Determine whether each cell is open above
-        if higher_final_grid is not None and higher_final_grid.shape == final_grid.shape:
-            col_open_above = higher_final_grid[non_rock_y,
-                                               non_rock_x] != MAT_SOLID_ROCK
+        if (
+            higher_final_grid is not None
+            and higher_final_grid.shape == final_grid.shape
+        ):
+            col_open_above = higher_final_grid[non_rock_y, non_rock_x] != MAT_SOLID_ROCK
         else:
             if higher_final_grid is not None:
                 log.warning(
-                    "Higher stratum grid shape mismatch; defaulting open_above to True")
+                    "Higher stratum grid shape mismatch; defaulting open_above to True"
+                )
             col_open_above = np.ones(num_non_rock, dtype=bool)
 
         map_data = pl.DataFrame(
@@ -1146,15 +1132,16 @@ def generate_shaped_cave(  # Added rng parameter
     # Removed global debug dump variables
     print("--- Stage: Initializing Cave Grid ---")
     # Pass rng down
-    init_result = initialize_cave_grid(
-        augmented_nodes, augmented_node_map, rng)
+    init_result = initialize_cave_grid(augmented_nodes, augmented_node_map, rng)
     # Check if grid creation failed
     if init_result is None or init_result[0] is None:
         log.error("Failed to initialize cave grid.")
         return None
     initial_grid, depth_grid, type_grid, origin = init_result
-    print(f"Grid Initialized. Size: {
-          initial_grid.shape}. Origin Offset: {origin}")
+    print(
+        f"Grid Initialized. Size: {
+          initial_grid.shape}. Origin Offset: {origin}"
+    )
 
     print("\n--- Stage: Running Cellular Automata ---")
     final_grid = run_cellular_automata(initial_grid, iterations=ca_iterations)
@@ -1192,8 +1179,7 @@ def generate_shaped_cave(  # Added rng parameter
 
     print("\n--- Stage: Creating DataFrame ---")
     # Pass rng down
-    map_dataframe = create_map_dataframe(
-        final_grid, depth_grid, type_grid, origin, rng)
+    map_dataframe = create_map_dataframe(final_grid, depth_grid, type_grid, origin, rng)
     if map_dataframe is not None:
         print(
             f"\nShaping complete. Generated DataFrame with {
@@ -1249,13 +1235,13 @@ if __name__ == "__main__":
             print("\n--- Test Map DataFrame (Sample) ---")
             print(test_map.head())
             try:
-                print(
-                    f"\n--- Saving Test DataFrame to {OUTPUT_ARROW_FILE} ---")
+                print(f"\n--- Saving Test DataFrame to {OUTPUT_ARROW_FILE} ---")
                 test_map.write_ipc(OUTPUT_ARROW_FILE)
                 print("Test map saved successfully.")
             except Exception as e:
-                log.error("Error saving test map DataFrame",
-                          error=str(e), exc_info=True)
+                log.error(
+                    "Error saving test map DataFrame", error=str(e), exc_info=True
+                )
         elif test_map is not None:
             log.warning("Test map DataFrame is empty.")
         else:
@@ -1272,6 +1258,4 @@ if __name__ == "__main__":
         print("Please generate it by running core.py and processor.py first.")
         print("Skipping isolated shaper test.")
     except Exception as e:
-        log.error(
-            "Error during isolated shaper test", error=str(e), exc_info=True
-        )
+        log.error("Error during isolated shaper test", error=str(e), exc_info=True)

@@ -151,29 +151,28 @@ def _handle_fall(
     # Apply damage if fallen far enough
     if total_fall_distance > FALL_DAMAGE_THRESHOLD:
         damage = int(
-            (total_fall_distance - FALL_DAMAGE_THRESHOLD) *
-            FALL_DAMAGE_PER_UNIT_HEIGHT
+            (total_fall_distance - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_PER_UNIT_HEIGHT
         )
         if damage > 0:
-            log.debug("Applying fall damage",
-                      entity_id=entity_id, damage=damage)
+            log.debug("Applying fall damage", entity_id=entity_id, damage=damage)
             current_hp = entity_reg.get_entity_component(entity_id, "hp")
             if current_hp is not None:
                 new_hp = max(0, current_hp - damage)
                 entity_reg.set_entity_component(entity_id, "hp", new_hp)
                 if game_map.visible[start_y, start_x]:
-                    gs.add_message(
-                        f"You take {damage} falling damage!", (255, 0, 0)
-                    )
+                    gs.add_message(f"You take {damage} falling damage!", (255, 0, 0))
                 if new_hp <= 0:
-                    log.info("Entity died from fall damage",
-                             entity_id=entity_id)
+                    log.info("Entity died from fall damage", entity_id=entity_id)
                     name = (
                         entity_reg.get_entity_component(entity_id, "name")
                         or "Something"
                     )
-                    handle_entity_death(entity_id, gs, f"The {
-                                        name} dies from the fall!")
+                    handle_entity_death(
+                        entity_id,
+                        gs,
+                        f"The {
+                                        name} dies from the fall!",
+                    )
                     return True
             else:
                 log.warning(
@@ -181,8 +180,7 @@ def _handle_fall(
                 )
 
     # Move entity to landing spot only if it didn't die
-    move_success = entity_reg.set_position(
-        entity_id, Position(landing_x, landing_y))
+    move_success = entity_reg.set_position(entity_id, Position(landing_x, landing_y))
     if not move_success:
         log.error(
             "Failed to set entity position after fall",
@@ -227,8 +225,7 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
     # 4. Check for Blocking Entities FIRST (before terrain checks, as bump/attack takes precedence)
     blocking_id = entity_registry.get_blocking_entity_at(new_x, new_y)
     if blocking_id is not None and blocking_id != player_id:
-        log.debug("Entity blocking path, initiating attack",
-                  blocker_id=blocking_id)
+        log.debug("Entity blocking path, initiating attack", blocker_id=blocking_id)
         # --- Call Combat System ---
         try:
             # Call the imported combat_system's function
@@ -299,8 +296,7 @@ def _handle_player_move(dx: int, dy: int, gs: GameState, max_step: int) -> bool:
         return True  # Movement successful, turn consumed
     else:
         # This case should be rare if checks passed
-        log.error("Player movement failed unexpectedly after checks",
-                  **log_context)
+        log.error("Player movement failed unexpectedly after checks", **log_context)
         return False
 
 
@@ -348,8 +344,7 @@ def _handle_player_pickup(gs: GameState) -> bool:
     if capacity is not None:
         inventory_df = item_reg.get_entity_inventory(player_id)
         current_inventory_count = (
-            int(inventory_df["quantity"].sum()
-                ) if inventory_df.height > 0 else 0
+            int(inventory_df["quantity"].sum()) if inventory_df.height > 0 else 0
         )
         item_quantity = item_reg.get_item_component(item_id, "quantity") or 1
         if current_inventory_count + item_quantity > capacity:
@@ -364,18 +359,12 @@ def _handle_player_pickup(gs: GameState) -> bool:
     # --- Weight Capacity Check ---
     item_quantity = item_reg.get_item_component(item_id, "quantity") or 1
     item_weight = (
-        item_reg.get_item_static_attribute(
-            item_id, "weight", default=0) * item_quantity
+        item_reg.get_item_static_attribute(item_id, "weight", default=0) * item_quantity
     )
-    current_weight = (
-        entity_reg.get_entity_component(player_id, "carried_weight") or 0
-    )
-    weight_capacity = (
-        entity_reg.get_entity_component(player_id, "weight_capacity") or 0
-    )
+    current_weight = entity_reg.get_entity_component(player_id, "carried_weight") or 0
+    weight_capacity = entity_reg.get_entity_component(player_id, "weight_capacity") or 0
     if weight_capacity and current_weight + item_weight > weight_capacity:
-        gs.add_message(
-            "You are carrying too much to pick that up.", (255, 50, 50))
+        gs.add_message("You are carrying too much to pick that up.", (255, 50, 50))
         return False
     # --- End Capacity Check ---
 
@@ -395,8 +384,7 @@ def _handle_player_pickup(gs: GameState) -> bool:
     else:
         # Should be rare if item exists at location and capacity check passed
         gs.add_message(f"You can't pick up the {item_name}.", (255, 50, 50))
-        log.error("Failed to move item to inventory during pickup",
-                  item_id=item_id)
+        log.error("Failed to move item to inventory during pickup", item_id=item_id)
         return False  # Failed pickup, no turn consumed
 
 
@@ -411,17 +399,14 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
     entity_reg: EntityRegistry = gs.entity_registry
 
     if player_pos is None:
-        log.warning("Drop action failed: player pos not found",
-                    player_id=player_id)
-        gs.add_message(
-            "Cannot drop item: Your position is unknown.", (255, 0, 0))
+        log.warning("Drop action failed: player pos not found", player_id=player_id)
+        gs.add_message("Cannot drop item: Your position is unknown.", (255, 0, 0))
         return False  # Cannot act
 
     px, py = player_pos
 
     # Verify the item is actually in the player's inventory
-    item_owner = item_reg.get_item_component(
-        item_id_to_drop, "owner_entity_id")
+    item_owner = item_reg.get_item_component(item_id_to_drop, "owner_entity_id")
     item_loc = item_reg.get_item_component(item_id_to_drop, "location_type")
 
     if item_owner != player_id or item_loc != "inventory":
@@ -435,10 +420,8 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
         gs.add_message("You aren't holding that item.", (255, 100, 100))
         return False  # Item not valid for dropping
 
-    item_name = item_reg.get_item_component(
-        item_id_to_drop, "name") or "the item"
-    log.debug("Attempting drop", item_id=item_id_to_drop,
-              name=item_name, pos=(px, py))
+    item_name = item_reg.get_item_component(item_id_to_drop, "name") or "the item"
+    log.debug("Attempting drop", item_id=item_id_to_drop, name=item_name, pos=(px, py))
 
     # Use move_item to change location to ground at player's coords
     success = item_reg.move_item(
@@ -450,11 +433,9 @@ def _handle_player_drop(item_id_to_drop: int, gs: GameState) -> bool:
     )
 
     if success:
-        item_quantity = item_reg.get_item_component(
-            item_id_to_drop, "quantity") or 1
+        item_quantity = item_reg.get_item_component(item_id_to_drop, "quantity") or 1
         item_weight = (
-            item_reg.get_item_static_attribute(
-                item_id_to_drop, "weight", default=0)
+            item_reg.get_item_static_attribute(item_id_to_drop, "weight", default=0)
             * item_quantity
         )
         current_weight = (
@@ -502,8 +483,7 @@ def process_player_action(
             dx, dy = action.get("dx", 0), action.get("dy", 0)
             if dx != 0 or dy != 0:
                 # _handle_player_move now includes attack and fall checks
-                player_acted = _handle_player_move(
-                    dx, dy, gs, max_traversable_step)
+                player_acted = _handle_player_move(dx, dy, gs, max_traversable_step)
 
         case "wait":
             gs.add_message("You wait.", (128, 128, 128))
@@ -544,8 +524,7 @@ def process_player_action(
             else:
                 # Assume the UI layer ensured the player *has* this item in inventory
                 # and that the item *is* usable before generating this action.
-                log.debug("Attempting to use item",
-                          item_id=item_id, target=target_info)
+                log.debug("Attempting to use item", item_id=item_id, target=target_info)
 
                 # Prepare context for effect execution
                 player_pos = gs.player_position
@@ -555,8 +534,7 @@ def process_player_action(
                         item_id=item_id,
                     )
                     gs.add_message(
-                        "Cannot use item: Your position is unknown.", (
-                            255, 0, 0)
+                        "Cannot use item: Your position is unknown.", (255, 0, 0)
                     )
                     player_acted = False
                 else:
@@ -575,8 +553,7 @@ def process_player_action(
                         gs.item_registry.get_item_template_id(item_id)
                     )
                     if not template:  # Should ideally be caught by UI, but double check
-                        log.error("Template missing for 'use' action",
-                                  item_id=item_id)
+                        log.error("Template missing for 'use' action", item_id=item_id)
                         player_acted = False
                     else:
                         effect_ids_to_run = template.get("effects", {}).get(
@@ -587,7 +564,8 @@ def process_player_action(
                             item_name = template.get("name", "item")
                             gs.add_message(
                                 f"You can't use the {
-                                    item_name}.", (255, 100, 100)
+                                    item_name}.",
+                                (255, 100, 100),
                             )
                             player_acted = False
                         else:
@@ -622,8 +600,7 @@ def process_player_action(
                 player_acted = False
             else:
                 # Call the equipment system function
-                player_acted = equipment_system.equip_item(
-                    player_id, item_id, gs)
+                player_acted = equipment_system.equip_item(player_id, item_id, gs)
 
         case "unequip":
             item_id = action.get("item_id")  # Item ID currently equipped
@@ -633,8 +610,7 @@ def process_player_action(
                 player_acted = False
             else:
                 # Call the equipment system function
-                player_acted = equipment_system.unequip_item(
-                    player_id, item_id, gs)
+                player_acted = equipment_system.unequip_item(player_id, item_id, gs)
 
         case "attach":
             item_to_attach_id = action.get("item_to_attach_id")
@@ -674,7 +650,6 @@ def process_player_action(
         log.debug("Player action resulted in turn", action_type=action_type)
         # Optionally advance game time, trigger NPC turns etc. handled elsewhere (e.g., MainLoop after this returns True)
     else:
-        log.debug("Player action did not result in turn",
-                  action_type=action_type)
+        log.debug("Player action did not result in turn", action_type=action_type)
 
     return player_acted

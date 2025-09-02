@@ -34,9 +34,7 @@ except ImportError:
     FILE_READ_MODE = "r"
     FILE_WRITE_MODE = "w"
     USE_ORJSON = False
-    log.warning(
-        "orjson not found. Falling back to standard json library (slower)"
-    )
+    log.warning("orjson not found. Falling back to standard json library (slower)")
 
 # --- Configuration File Constants ---
 CONFIG_FILE = "tile_editor_config.json"
@@ -166,9 +164,7 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
     # Ensure essential top-level keys exist
     for key, value in defaults.items():
         if key not in validated_config:
-            log.warning(
-                "Missing top-level key, adding default", key=key
-            )
+            log.warning("Missing top-level key, adding default", key=key)
             validated_config[key] = value  # Add default value (already copied)
             config_was_modified = True
 
@@ -176,18 +172,14 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
     default_controls = defaults.get("controls", {})
     loaded_controls = validated_config.get("controls", {})
     if not isinstance(loaded_controls, dict):
-        log.warning(
-            "'controls' key is not a dictionary. Resetting to default"
-        )
+        log.warning("'controls' key is not a dictionary. Resetting to default")
         loaded_controls = default_controls  # Use copied defaults
         validated_config["controls"] = loaded_controls
         config_was_modified = True
 
     for control_key, default_control_data in default_controls.items():
         if control_key not in loaded_controls:
-            log.warning(
-                "Missing control, adding default", control=control_key
-            )
+            log.warning("Missing control, adding default", control=control_key)
             # Use copied defaults
             loaded_controls[control_key] = default_control_data
             config_was_modified = True
@@ -203,9 +195,7 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
                     loaded_control_data[sub_key] = default_sub_value
                     config_was_modified = True
         else:
-            log.warning(
-                "Control is not a dictionary. Resetting", control=control_key
-            )
+            log.warning("Control is not a dictionary. Resetting", control=control_key)
             # Use copied defaults
             loaded_controls[control_key] = default_control_data
             config_was_modified = True
@@ -220,9 +210,7 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
 
     for tile_char, tile_data in loaded_tiles.items():
         if not isinstance(tile_data, dict):
-            log.warning(
-                "Tile data is not dict. Using fallback", tile=tile_char
-            )
+            log.warning("Tile data is not dict. Using fallback", tile=tile_char)
             loaded_tiles[tile_char] = {
                 "color": [255, 0, 255],
                 "description": f"Invalid Tile '{tile_char}'",
@@ -278,20 +266,15 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
                 validated_config["preview_line_color_qt"] = QColor(
                     preview_rgb[0], preview_rgb[1], preview_rgb[2]
                 )
-                except (TypeError, ValueError):
-                    log.warning(
-                        "Invalid preview_line_color value. Using default"
-                    )
-                    default_rgb = defaults["preview_line_color"]
-                    validated_config["preview_line_color_qt"] = QColor(
-                        *default_rgb)
-                if validated_config.get("preview_line_color") != default_rgb:
-                    config_was_modified = True
-                validated_config["preview_line_color"] = default_rgb
+            except (TypeError, ValueError):
+                log.warning("Invalid preview_line_color value. Using default")
+                default_rgb = defaults["preview_line_color"]
+                validated_config["preview_line_color_qt"] = QColor(*default_rgb)
+            if validated_config.get("preview_line_color") != default_rgb:
+                config_was_modified = True
+            validated_config["preview_line_color"] = default_rgb
         else:
-            log.warning(
-                "Invalid preview_line_color format. Using default"
-            )
+            log.warning("Invalid preview_line_color format. Using default")
             default_rgb = defaults["preview_line_color"]
             validated_config["preview_line_color_qt"] = QColor(*default_rgb)
             if validated_config.get("preview_line_color") != default_rgb:
@@ -308,9 +291,7 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
     ]:
         val = validated_config.get(key, defaults[key])
         if not isinstance(val, int) or val < 1:
-            log.warning(
-                "Invalid numeric config value, using default", key=key
-            )
+            log.warning("Invalid numeric config value, using default", key=key)
             validated_config[key] = defaults[key]
             config_was_modified = True
     zoom_val = validated_config.get("zoom_step", defaults["zoom_step"])
@@ -372,9 +353,7 @@ def load_config(filepath: str = CONFIG_FILE) -> dict:
                     config_to_use, config_was_modified = _validate_and_populate_config(
                         loaded_config_dict
                     )
-                    log.info(
-                        "Configuration loaded and validated", filepath=filepath
-                    )
+                    log.info("Configuration loaded and validated", filepath=filepath)
                 else:
                     log.warning(
                         "Invalid config format. Using defaults",
@@ -397,9 +376,7 @@ def load_config(filepath: str = CONFIG_FILE) -> dict:
             error=str(e),
         )
     except Exception as e:
-        log.exception(
-            "Error loading configuration. Using defaults", filepath=filepath
-        )
+        log.exception("Error loading configuration. Using defaults", filepath=filepath)
 
     # --- Default Handling ---
     # If config_to_use is still None, it means loading failed or file didn't exist
@@ -499,7 +476,5 @@ def save_config(filepath: str, config_data: dict) -> bool:
 
         return True
     except Exception as e:
-        log.exception(
-            "Error saving configuration", filepath=filepath
-        )
+        log.exception("Error saving configuration", filepath=filepath)
         return False

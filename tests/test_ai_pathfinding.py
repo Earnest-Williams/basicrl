@@ -19,8 +19,7 @@ ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -58,10 +57,9 @@ def test_goap_moves_toward_player():
         name="Enemy",
         ai_type="goap",
     )
-    entity_row = (
-        gs.entity_registry.entities_df.filter(
-            pl.col("entity_id") == enemy_id).row(0, named=True)
-    )
+    entity_row = gs.entity_registry.entities_df.filter(
+        pl.col("entity_id") == enemy_id
+    ).row(0, named=True)
     initial_pos = gs.entity_registry.get_position(enemy_id)
     px, py = gs.player_position
     init_dist = abs(initial_pos.x - px) + abs(initial_pos.y - py)
@@ -81,10 +79,9 @@ def test_community_moves_toward_player():
         name="Villager",
         ai_type="community",
     )
-    entity_row = (
-        gs.entity_registry.entities_df.filter(
-            pl.col("entity_id") == enemy_id).row(0, named=True)
-    )
+    entity_row = gs.entity_registry.entities_df.filter(
+        pl.col("entity_id") == enemy_id
+    ).row(0, named=True)
     initial_pos = gs.entity_registry.get_position(enemy_id)
     px, py = gs.player_position
     init_dist = abs(initial_pos.x - px) + abs(initial_pos.y - py)

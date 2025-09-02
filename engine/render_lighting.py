@@ -7,6 +7,7 @@ import structlog
 
 try:
     from numba import float32, njit, uint8
+
     _NUMBA_AVAILABLE = True
 except ImportError:
     _NUMBA_AVAILABLE = False
@@ -28,7 +29,8 @@ except ImportError:
         TILE_ID_FLOOR = 0  # type: ignore
         TILE_ID_WALL = 1  # type: ignore
         structlog.get_logger().error(
-            "CRITICAL: Failed to import tile IDs in render_lighting.")
+            "CRITICAL: Failed to import tile IDs in render_lighting."
+        )
 
 try:
     from game_rng import GameRNG
@@ -36,10 +38,13 @@ except ImportError:
     try:
         from basicrl.game_rng import GameRNG
     except ImportError:
+
         class GameRNG:  # type: ignore
             pass
+
         structlog.get_logger().error(
-            "CRITICAL: Failed to import GameRNG in render_lighting.")
+            "CRITICAL: Failed to import GameRNG in render_lighting."
+        )
 
 log = structlog.get_logger()
 
@@ -76,8 +81,7 @@ def _calculate_light_intensity_scalar(
     dist = math.sqrt(dist_sq)
     radius = math.sqrt(radius_sq)
     falloff_ratio = dist / radius
-    light_value = max(np.float32(0.0), np.float32(
-        1.0) - falloff_ratio) ** falloff_power
+    light_value = max(np.float32(0.0), np.float32(1.0) - falloff_ratio) ** falloff_power
     intensity = max(light_value, min_light_level)
     return max(np.float32(0.0), min(np.float32(1.0), intensity))
 
@@ -125,8 +129,7 @@ def calculate_lighting(
         dy = map_abs_y_visible - player_y
         dist_sq_map_visible = (dx * dx + dy * dy).astype(np.float32)
 
-        visible_intensities = np.empty_like(
-            dist_sq_map_visible, dtype=np.float32)
+        visible_intensities = np.empty_like(dist_sq_map_visible, dtype=np.float32)
         for i in range(dist_sq_map_visible.shape[0]):
             visible_intensities[i] = _calculate_light_intensity_scalar(
                 dist_sq_map_visible[i],
@@ -141,10 +144,8 @@ def calculate_lighting(
             intensity_map[y, x] = visible_intensities[i]
 
     intensity_broadcast = intensity_map[..., None]
-    lit_fg = (base_fg.astype(np.float32) *
-              intensity_broadcast).astype(np.uint8)
-    lit_bg = (base_bg.astype(np.float32) *
-              intensity_broadcast).astype(np.uint8)
+    lit_fg = (base_fg.astype(np.float32) * intensity_broadcast).astype(np.uint8)
+    lit_bg = (base_bg.astype(np.float32) * intensity_broadcast).astype(np.uint8)
     return lit_fg, lit_bg, intensity_map
 
 
@@ -263,30 +264,35 @@ def apply_memory_fade(
     if fade_color_variance > 0.0:
         count = fade_vals.shape[0]
         base_h, base_s, base_v = colorsys.rgb_to_hsv(*(fade_color_np / 255.0))
-        hue_offsets = np.array(
-            [rng.noise_2d(x, y, seed_offset=1)
-             for x, y in zip(world_x, world_y)]
-        ) * fade_color_variance
-        sat_offsets = np.abs(
+        hue_offsets = (
             np.array(
-                [rng.noise_2d(x, y, seed_offset=2)
-                 for x, y in zip(world_x, world_y)]
+                [rng.noise_2d(x, y, seed_offset=1) for x, y in zip(world_x, world_y)]
             )
-        ) * fade_color_variance
+            * fade_color_variance
+        )
+        sat_offsets = (
+            np.abs(
+                np.array(
+                    [
+                        rng.noise_2d(x, y, seed_offset=2)
+                        for x, y in zip(world_x, world_y)
+                    ]
+                )
+            )
+            * fade_color_variance
+        )
         hues = (base_h + hue_offsets) % 1.0
         sats = np.clip(base_s * (1.0 - sat_offsets), 0.0, 1.0)
         vals = np.full(count, base_v)
         fade_rgbs = (
             np.array(
-                [colorsys.hsv_to_rgb(h, s, v)
-                 for h, s, v in zip(hues, sats, vals)],
+                [colorsys.hsv_to_rgb(h, s, v) for h, s, v in zip(hues, sats, vals)],
                 dtype=np.float32,
             )
             * 255.0
         )
     else:
-        fade_rgbs = np.tile(fade_color_np.astype(
-            np.float32), (fade_vals.shape[0], 1))
+        fade_rgbs = np.tile(fade_color_np.astype(np.float32), (fade_vals.shape[0], 1))
 
     final_fg[memory_mask] = (
         final_fg[memory_mask].astype(np.float32) * fade_vals
@@ -307,8 +313,7 @@ def apply_memory_fade(
     new_glyphs = glyph_indices[memory_mask].copy()
     if noise_level > 0.0:
         noise_vals = np.array(
-            [rng.noise_2d(x, y, seed_offset=3)
-             for x, y in zip(world_x, world_y)]
+            [rng.noise_2d(x, y, seed_offset=3) for x, y in zip(world_x, world_y)]
         )
         noise_mask = ((noise_vals + 1.0) * 0.5) < noise_level
     else:

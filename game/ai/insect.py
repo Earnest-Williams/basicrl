@@ -19,7 +19,9 @@ log = structlog.get_logger()
 _DIRECTIONS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
-def _nearest_ally(entity_id: int, x: int, y: int, gs: "GameState") -> Tuple[int, int] | None:
+def _nearest_ally(
+    entity_id: int, x: int, y: int, gs: "GameState"
+) -> Tuple[int, int] | None:
     """Return direction towards nearest allied insect if any."""
     df = gs.entity_registry.entities_df
     others = df.filter(

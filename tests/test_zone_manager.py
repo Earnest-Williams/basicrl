@@ -16,13 +16,13 @@ ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def test_zone_manager_far_zone_delay():
-    manager = ZoneManager(map_width=100, map_height=100,
-                          zone_size=10, active_radius=1, passive_interval=3)
+    manager = ZoneManager(
+        map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3
+    )
     called = []
     manager.schedule_event(50, 50, lambda gs: called.append(1))
     for turn in range(3):
@@ -34,8 +34,9 @@ def test_zone_manager_far_zone_delay():
 
 
 def test_zone_manager_active_zone_immediate():
-    manager = ZoneManager(map_width=100, map_height=100,
-                          zone_size=10, active_radius=1, passive_interval=3)
+    manager = ZoneManager(
+        map_width=100, map_height=100, zone_size=10, active_radius=1, passive_interval=3
+    )
     called = []
     manager.schedule_event(5, 5, lambda gs: called.append(1))
     manager.process(0, manager.get_active_zones((5, 5)), None)
@@ -49,7 +50,7 @@ def _create_game_state():
     gs = GameState(
         existing_map=gm,
         player_start_pos=(1, 1),
-        player_glyph=ord('@'),
+        player_glyph=ord("@"),
         player_start_hp=10,
         player_fov_radius=4,
         item_templates={},
@@ -64,7 +65,8 @@ def test_game_state_schedules_far_event():
     gs = _create_game_state()
     triggered = []
     gs.schedule_low_detail_update(
-        80, 80, lambda state: triggered.append(state.turn_count))
+        80, 80, lambda state: triggered.append(state.turn_count)
+    )
     for _ in range(4):
         gs.advance_turn()
         assert triggered == []

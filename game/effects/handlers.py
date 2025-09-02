@@ -18,8 +18,12 @@ try:
     from ..systems.sound import handle_event, play_sound
 except ImportError:
     # Fallback if sound system is not available
-    def handle_event(event_name: str, context=None): pass
-    def play_sound(effect_name: str, context=None): return False
+    def handle_event(event_name: str, context=None):
+        pass
+
+    def play_sound(effect_name: str, context=None):
+        return False
+
 
 if TYPE_CHECKING:
     # Corrected relative import path assuming handlers.py is inside effects folder
@@ -123,8 +127,7 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
     """Heals the target entity."""
     gs: "GameState" = context.get("game_state")
     rng: GameRNG | None = context.get("rng")
-    target_id = context.get(
-        "target_entity_id", context.get("source_entity_id"))
+    target_id = context.get("target_entity_id", context.get("source_entity_id"))
     if gs is None or target_id is None or rng is None:
         log.warning(
             "Heal effect missing context", target_id=target_id, has_rng=bool(rng)
@@ -146,8 +149,7 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
     new_hp = min(max_hp, current_hp + heal_amount)
     amount_healed = new_hp - current_hp
     if amount_healed > 0:
-        success = gs.entity_registry.set_entity_component(
-            target_id, "hp", new_hp)
+        success = gs.entity_registry.set_entity_component(target_id, "hp", new_hp)
         if success:
             log.debug(
                 "Healed entity",
@@ -168,30 +170,26 @@ def heal_target(context: Dict[str, Any], params: Dict[str, Any]):
             sound_context = {
                 "target": "player" if target_id == gs.player_id else "other",
                 "amount": amount_healed,
-                "visible": player_can_see
+                "visible": player_can_see,
             }
             handle_event("heal_target", sound_context)
 
             if player_can_see:
                 if target_id == gs.player_id:
-                    gs.add_message(
-                        f"You heal for {amount_healed} HP.", (0, 255, 0)
-                    )
+                    gs.add_message(f"You heal for {amount_healed} HP.", (0, 255, 0))
                 else:
                     gs.add_message(
                         f"The {target_name} heals for {amount_healed} HP.",
                         (0, 180, 0),
                     )
         else:
-            log.error("Failed to set new HP for heal target",
-                      target_id=target_id)
+            log.error("Failed to set new HP for heal target", target_id=target_id)
 
 
 def modify_resource(context: Dict[str, Any], params: Dict[str, Any]):
     """Modifies a generic entity resource (e.g., fullness, mana). Requires component exists."""
     gs: "GameState" = context.get("game_state")
-    target_id = context.get(
-        "target_entity_id", context.get("source_entity_id"))
+    target_id = context.get("target_entity_id", context.get("source_entity_id"))
     resource_name = params.get("resource")
     change_dice = params.get("dice")  # Allow dice roll for change
     base_change = params.get("base_change", 0)
@@ -209,11 +207,9 @@ def modify_resource(context: Dict[str, Any], params: Dict[str, Any]):
 
     # --- !!! IMPORTANT: Assumes components like 'mana', 'max_mana', 'fullness' exist !!! ---
     # --- !!! Need to add these to ENTITY_SCHEMA in registry.py                  !!! ---
-    current_value = gs.entity_registry.get_entity_component(
-        target_id, resource_name)
+    current_value = gs.entity_registry.get_entity_component(target_id, resource_name)
     max_value_component = f"max_{resource_name}"  # Convention: e.g., max_mana
-    max_value = gs.entity_registry.get_entity_component(
-        target_id, max_value_component)
+    max_value = gs.entity_registry.get_entity_component(target_id, max_value_component)
 
     if current_value is None:
         log.warning(
@@ -282,10 +278,8 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
         )
         return
 
-    item_active = gs.item_registry.get_item_component(
-        projectile_item_id, "is_active")
-    item_loc = gs.item_registry.get_item_component(
-        projectile_item_id, "location_type")
+    item_active = gs.item_registry.get_item_component(projectile_item_id, "is_active")
+    item_loc = gs.item_registry.get_item_component(projectile_item_id, "location_type")
 
     if not item_active or item_loc != "ground":
         log.debug(
@@ -311,7 +305,7 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
         # Play recall sound effect
         sound_context = {
             "item_type": "projectile",
-            "target": "player" if source_entity_id == gs.player_id else "other"
+            "target": "player" if source_entity_id == gs.player_id else "other",
         }
         handle_event("recall_ammo", sound_context)
 
@@ -320,8 +314,7 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
                 gs.item_registry.get_item_component(projectile_item_id, "name")
                 or "projectile"
             )
-            gs.add_message(
-                f"Your {item_name} mysteriously returns!", (150, 150, 255))
+            gs.add_message(f"Your {item_name} mysteriously returns!", (150, 150, 255))
     else:
         log.error(
             "Failed to move recalled ammo to inventory",
@@ -333,8 +326,7 @@ def recall_ammo(context: Dict[str, Any], params: Dict[str, Any]):
 def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
     """Applies a status effect to the target entity."""
     gs: "GameState" = context.get("game_state")
-    target_id = context.get(
-        "target_entity_id", context.get("source_entity_id"))
+    target_id = context.get("target_entity_id", context.get("source_entity_id"))
     status_id = params.get("status")
     duration_dice = params.get("duration_dice")
     base_duration = params.get("base_duration", 1)
@@ -388,14 +380,12 @@ def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
             # Update logic: Max duration, replace intensity if new one provided & not None
             new_duration = max(status_dict.get("duration", 0), duration)
             new_intensity = (
-                intensity if intensity is not None else status_dict.get(
-                    "intensity")
+                intensity if intensity is not None else status_dict.get("intensity")
             )
 
             updated_status = {"id": status_id, "duration": new_duration}
             if new_intensity is not None:
-                updated_status["intensity"] = float(
-                    new_intensity)  # Ensure float
+                updated_status["intensity"] = float(new_intensity)  # Ensure float
 
             updated_statuses.append(updated_status)
             log.debug(
@@ -430,8 +420,7 @@ def apply_status(context: Dict[str, Any], params: Dict[str, Any]):
     else:
         # Messaging based on visibility
         target_name = (
-            gs.entity_registry.get_entity_component(
-                target_id, "name") or "Something"
+            gs.entity_registry.get_entity_component(target_id, "name") or "Something"
         )
         if target_id == gs.player_id:
             gs.add_message(f"You feel {status_id}!", (255, 50, 50))
@@ -455,8 +444,7 @@ def apply_status_in_aoe(context: Dict[str, Any], params: Dict[str, Any]):
         )
         return
 
-    log.debug("Applying status in AOE", center=center_pos,
-              radius=radius, params=params)
+    log.debug("Applying status in AOE", center=center_pos, radius=radius, params=params)
     targets = _get_entities_in_aoe(center_pos, radius, gs)
 
     # Create a context copy for each target to avoid side-effects
@@ -481,8 +469,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
     base_damage = params.get("base_damage", 0)
 
     if gs is None or target_id is None or rng is None:
-        log.warning("DealDamage missing context",
-                    target=target_id, has_rng=bool(rng))
+        log.warning("DealDamage missing context", target=target_id, has_rng=bool(rng))
         return
 
     raw_damage = base_damage + _roll_dice(dice_str, rng)
@@ -494,15 +481,13 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
     vulnerabilities: Dict[str, float] = {}
     try:
         resistances = (
-            gs.entity_registry.get_entity_component(
-                target_id, "resistances") or {}
+            gs.entity_registry.get_entity_component(target_id, "resistances") or {}
         )
     except ValueError:
         pass
     try:
         vulnerabilities = (
-            gs.entity_registry.get_entity_component(
-                target_id, "vulnerabilities") or {}
+            gs.entity_registry.get_entity_component(target_id, "vulnerabilities") or {}
         )
     except ValueError:
         pass
@@ -516,8 +501,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
 
     current_hp = gs.entity_registry.get_entity_component(target_id, "hp")
     if current_hp is None:
-        log.warning("DealDamage target missing HP component",
-                    target_id=target_id)
+        log.warning("DealDamage target missing HP component", target_id=target_id)
         return
 
     new_hp = max(0, current_hp - final_damage)  # Ensure HP doesn't go below 0
@@ -531,8 +515,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
             new_hp=new_hp,
             type=damage_type,
         )
-        success = gs.entity_registry.set_entity_component(
-            target_id, "hp", new_hp)
+        success = gs.entity_registry.set_entity_component(target_id, "hp", new_hp)
         if success:
             source_name = "Something"
             if source_id:
@@ -599,8 +582,7 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 # Maybe add 'target_is_living': False to context for trigger checks?
                 context["target_is_living"] = False
         else:
-            log.error("Failed to set new HP for damage target",
-                      target_id=target_id)
+            log.error("Failed to set new HP for damage target", target_id=target_id)
 
 
 # --- Implemented AOE Damage ---
@@ -618,8 +600,7 @@ def deal_damage_in_aoe(context: Dict[str, Any], params: Dict[str, Any]):
         )
         return
 
-    log.debug("Dealing damage in AOE", center=center_pos,
-              radius=radius, params=params)
+    log.debug("Dealing damage in AOE", center=center_pos, radius=radius, params=params)
     targets = _get_entities_in_aoe(center_pos, radius, gs)
 
     # Create a context copy for each target
@@ -659,8 +640,7 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
     length = params.get("tunnel_length", 1)
     cx, cy = start_pos.x, start_pos.y
     dx, dy = direction
-    log.debug("Executing Dig Tunnel", start=(
-        cx, cy), dir=direction, len=length)
+    log.debug("Executing Dig Tunnel", start=(cx, cy), dir=direction, len=length)
     map_changed = False
     source_height_val = (
         gs.game_map.height_map[cy, cx] if gs.game_map.in_bounds(cx, cy) else 0
@@ -682,8 +662,7 @@ def dig_tunnel(context: Dict[str, Any], params: Dict[str, Any]):
             log.debug("Dug wall", pos=(nx, ny))
             map_changed = True
         else:
-            log.debug("Dig stopped by non-wall tile",
-                      pos=(nx, ny), tile=current_tile)
+            log.debug("Dig stopped by non-wall tile", pos=(nx, ny), tile=current_tile)
             break
     if map_changed:
         gs.game_map.update_tile_transparency()  # Crucial after changing tiles
@@ -710,13 +689,9 @@ def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
         return
 
     portal_glyph = template_data.get("glyph", params.get("glyph", 62))
-    portal_color = tuple(
-        template_data.get("color", params.get("color", (255, 0, 255)))
-    )
+    portal_color = tuple(template_data.get("color", params.get("color", (255, 0, 255))))
     portal_name = template_data.get("name", params.get("name", "Portal"))
-    blocks = template_data.get(
-        "blocks_movement", params.get("blocks_movement", False)
-    )
+    blocks = template_data.get("blocks_movement", params.get("blocks_movement", False))
     linked_positions = linked_positions_param or template_data.get(
         "linked_positions", []
     )
@@ -731,12 +706,10 @@ def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
 
     # Check if tile is blocked
     if not gs.game_map.is_walkable(target_pos[0], target_pos[1]):
-        log.warning("Cannot create portal: location not walkable",
-                    pos=target_pos)
+        log.warning("Cannot create portal: location not walkable", pos=target_pos)
         return
     if gs.entity_registry.get_blocking_entity_at(target_pos[0], target_pos[1]):
-        log.warning(
-            "Cannot create portal: location blocked by entity", pos=target_pos)
+        log.warning("Cannot create portal: location blocked by entity", pos=target_pos)
         return
 
     new_id = gs.entity_registry.create_entity(
@@ -752,9 +725,9 @@ def create_portal(context: Dict[str, Any], params: Dict[str, Any]):
     if new_id is not None:
         log.info("Portal entity created", entity_id=new_id, pos=target_pos)
         gs.entity_registry.set_entity_component(
-            new_id, "linked_positions", linked_positions)
-        gs.entity_registry.set_entity_component(
-            new_id, "target_map", target_map)
+            new_id, "linked_positions", linked_positions
+        )
+        gs.entity_registry.set_entity_component(new_id, "target_map", target_map)
     else:
         log.error("Failed to create portal entity", pos=target_pos)
 
@@ -765,8 +738,7 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
     rng: GameRNG | None = context.get("rng")
     target_pos = context.get("target_pos")
     chance = params.get("chance", 100)
-    entity_template_id = params.get(
-        "entity_template")  # ID string, e.g., "goblin"
+    entity_template_id = params.get("entity_template")  # ID string, e.g., "goblin"
 
     if gs is None or target_pos is None or not entity_template_id or rng is None:
         log.warning(
@@ -790,16 +762,14 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
         )
         return
 
-    log.info("Attempting to spawn entity",
-             template=entity_template_id, pos=target_pos)
+    log.info("Attempting to spawn entity", template=entity_template_id, pos=target_pos)
 
     # Check if tile is blocked
     if not gs.game_map.is_walkable(target_pos[0], target_pos[1]):
         log.debug("Cannot spawn entity: location not walkable", pos=target_pos)
         return
     if gs.entity_registry.get_blocking_entity_at(target_pos[0], target_pos[1]):
-        log.debug("Cannot spawn entity: location blocked by entity",
-                  pos=target_pos)
+        log.debug("Cannot spawn entity: location blocked by entity", pos=target_pos)
         return
 
     new_id = gs.entity_registry.create_entity(
@@ -823,8 +793,7 @@ def attempt_spawn_entity(context: Dict[str, Any], params: Dict[str, Any]):
         )
         # Add message? "A goblin appears!"
     else:
-        log.error("Failed to spawn entity",
-                  template=entity_template_id, pos=target_pos)
+        log.error("Failed to spawn entity", template=entity_template_id, pos=target_pos)
 
 
 # --- Handler Registry (no changes needed here) ---
@@ -850,7 +819,9 @@ EFFECT_LOGIC_HANDLERS: Dict[str, callable] = {
 # effect.
 
 
-def _no_op_effect(context: Dict[str, Any], params: Dict[str, Any] | None = None) -> None:
+def _no_op_effect(
+    context: Dict[str, Any], params: Dict[str, Any] | None = None
+) -> None:
     """Fallback effect when no mapping exists."""
     log.debug("No-op effect executed", context=context)
 

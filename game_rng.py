@@ -42,23 +42,27 @@ class MetricsCollector:
     """Collect simple metrics in a background thread."""
 
     collection_interval: float = 1.0
-    metrics: Dict[str, int] = field(default_factory=lambda: {
-        "weighted_choices": 0,
-        "weighted_samples_ares": 0,
-        "integers_generated": 0,
-        "floats_generated": 0,
-        "shuffles": 0,
-        "samples": 0,
-        "batch_operations": 0,
-        "cache_hits": 0,
-        "cache_misses": 0,
-    })
-    stats: Dict[str, float] = field(default_factory=lambda: {
-        "start_time": time.time(),
-        "last_collection_time": time.time(),
-        "operations_per_second": 0.0,
-        "cache_hit_rate": 0.0,
-    })
+    metrics: Dict[str, int] = field(
+        default_factory=lambda: {
+            "weighted_choices": 0,
+            "weighted_samples_ares": 0,
+            "integers_generated": 0,
+            "floats_generated": 0,
+            "shuffles": 0,
+            "samples": 0,
+            "batch_operations": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+        }
+    )
+    stats: Dict[str, float] = field(
+        default_factory=lambda: {
+            "start_time": time.time(),
+            "last_collection_time": time.time(),
+            "operations_per_second": 0.0,
+            "cache_hit_rate": 0.0,
+        }
+    )
     updates_queue: List[tuple[str, int]] = field(default_factory=list)
     running: bool = False
     collection_thread: Optional[threading.Thread] = None
@@ -68,9 +72,7 @@ class MetricsCollector:
         if self.collection_thread is not None:
             return
         self.running = True
-        self.collection_thread = threading.Thread(
-            target=self._loop, daemon=True
-        )
+        self.collection_thread = threading.Thread(target=self._loop, daemon=True)
         self.collection_thread.start()
 
     def stop(self) -> None:
@@ -107,11 +109,9 @@ class MetricsCollector:
                     if k.endswith("_generated") or k in {"shuffles", "samples"}
                 )
                 self.stats["operations_per_second"] = ops / elapsed
-                total_cache = self.metrics["cache_hits"] + \
-                    self.metrics["cache_misses"]
+                total_cache = self.metrics["cache_hits"] + self.metrics["cache_misses"]
                 self.stats["cache_hit_rate"] = (
-                    self.metrics["cache_hits"] /
-                    total_cache if total_cache else 0.0
+                    self.metrics["cache_hits"] / total_cache if total_cache else 0.0
                 )
             self.stats["last_collection_time"] = now
 
@@ -140,8 +140,7 @@ class GameRNG:
         metrics: bool = False,
         noise_seed: Optional[int] = None,
     ) -> None:
-        self.initial_seed = seed if seed is not None else random.randint(
-            0, 2**32 - 1)
+        self.initial_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self.rng = np.random.default_rng(self.initial_seed)
         self.noise_seed = noise_seed if noise_seed is not None else self.initial_seed
         self.metrics_enabled = metrics
@@ -172,7 +171,9 @@ class GameRNG:
     def get_ints(self, a: int, b: int, count: int) -> List[int]:
         return [self.get_int(a, b) for _ in range(count)]
 
-    def get_randrange(self, start: int, stop: Optional[int] = None, step: int = 1) -> int:
+    def get_randrange(
+        self, start: int, stop: Optional[int] = None, step: int = 1
+    ) -> int:
         if step == 0:
             raise ValueError("step must not be zero")
         if stop is None:
@@ -258,8 +259,7 @@ class GameRNG:
         if cache_key is not None:
             cdf = self.weighted_choice_cache.get(cache_key)
             if self.metrics:
-                self.metrics.update(
-                    "cache_hits" if cdf is not None else "cache_misses")
+                self.metrics.update("cache_hits" if cdf is not None else "cache_misses")
         if cdf is None:
             cdf = np.cumsum(np.asarray(weights, dtype=float))
             cdf[-1] = total
@@ -269,7 +269,10 @@ class GameRNG:
                     key_to_delete = None
                     if cache_keys:
                         key_to_delete = random.choice(cache_keys)
-                    if key_to_delete is not None and key_to_delete in self.weighted_choice_cache:
+                    if (
+                        key_to_delete is not None
+                        and key_to_delete in self.weighted_choice_cache
+                    ):
                         del self.weighted_choice_cache[key_to_delete]
                 self.weighted_choice_cache[cache_key] = cdf
 
@@ -327,8 +330,7 @@ class GameRNG:
             if weights is None:
                 choices = self.rng.choice(items, size=k, replace=True)
             else:
-                choices = [self.weighted_choice(
-                    items, weights) for _ in range(k)]
+                choices = [self.weighted_choice(items, weights) for _ in range(k)]
         else:
             if weights is None:
                 choices = self.rng.choice(items, size=k, replace=False)
@@ -341,14 +343,18 @@ class GameRNG:
     # ------------------------------------------------------------------
     # misc helpers
     # ------------------------------------------------------------------
-    def roll_dice(self, num_dice: int = 1, sides: int = 6, modifier: int = 0) -> Dict[str, Any]:
+    def roll_dice(
+        self, num_dice: int = 1, sides: int = 6, modifier: int = 0
+    ) -> Dict[str, Any]:
         if sides < 1 or num_dice < 0:
             raise ValueError("invalid dice")
         rolls = self.get_ints(1, sides, num_dice) if num_dice > 0 else []
         total = sum(rolls) + modifier
         return {"total": total, "rolls": rolls, "modifier": modifier}
 
-    def coin_flip(self, num_flips: int = 1, heads_probability: float = 0.5) -> Union[str, List[str]]:
+    def coin_flip(
+        self, num_flips: int = 1, heads_probability: float = 0.5
+    ) -> Union[str, List[str]]:
         if not 0.0 <= heads_probability <= 1.0:
             raise ValueError("probability out of range")
         results = [
@@ -416,8 +422,7 @@ class GameRNG:
             return 0.0
         input_x = int(x / scale)
         input_y = int(y / scale)
-        rng = np.random.default_rng(
-            self._hash_seed(input_x, input_y, seed_offset))
+        rng = np.random.default_rng(self._hash_seed(input_x, input_y, seed_offset))
         return float(rng.uniform(-1.0, 1.0))
 
     # ------------------------------------------------------------------
@@ -452,13 +457,17 @@ class GameRNG:
             return None
         return self.metrics.get_metrics()
 
-    def reset(self, seed: Optional[int] = None, noise_seed: Optional[int] = None) -> None:
-        self.initial_seed = seed if seed is not None else random.randint(
-            0, 2**32 - 1)
+    def reset(
+        self, seed: Optional[int] = None, noise_seed: Optional[int] = None
+    ) -> None:
+        self.initial_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
         self.rng = np.random.default_rng(self.initial_seed)
         if noise_seed == "reset" or noise_seed is None:
-            self.noise_seed = self.initial_seed if noise_seed == "reset" else random.randint(
-                0, 2**32 - 1)
+            self.noise_seed = (
+                self.initial_seed
+                if noise_seed == "reset"
+                else random.randint(0, 2**32 - 1)
+            )
         else:
             self.noise_seed = noise_seed
         self.weighted_choice_cache.clear()

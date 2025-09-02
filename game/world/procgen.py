@@ -33,6 +33,7 @@ DEFAULT_CORRIDOR_CEILING_OFFSET = 4  # 2.0 meters
 
 class Rect(NamedTuple):
     """A rectangle on the map."""
+
     x1: int
     y1: int
     x2: int
@@ -87,10 +88,8 @@ class Rect(NamedTuple):
                 # Set tile type
                 game_map.tiles[y_start:y_end, x_start:x_end] = TILE_ID_FLOOR
                 # Assign Height/Ceiling
-                game_map.height_map[y_start:y_end,
-                                    x_start:x_end] = floor_height
-                game_map.ceiling_map[y_start:y_end,
-                                     x_start:x_end] = ceiling_height
+                game_map.height_map[y_start:y_end, x_start:x_end] = floor_height
+                game_map.ceiling_map[y_start:y_end, x_start:x_end] = ceiling_height
                 log.debug("Carved rectangle area", **log_context)
             except IndexError:
                 log.error("IndexError during carving", **log_context)
@@ -195,8 +194,7 @@ def _split_node_recursive(node: BSPNode, rng: GameRNG, depth: int) -> bool:
     left_h, right_h = parent_height, parent_height
 
     if split_horizontally:
-        split_y = rng.get_int(node.rect.y1 + split_margin,
-                              node.rect.y2 - split_margin)
+        split_y = rng.get_int(node.rect.y1 + split_margin, node.rect.y2 - split_margin)
         node.left = BSPNode(
             Rect(node.rect.x1, node.rect.y1, node.rect.x2, split_y - 1), left_h
         )
@@ -213,8 +211,7 @@ def _split_node_recursive(node: BSPNode, rng: GameRNG, depth: int) -> bool:
             right_h=right_h,
         )
     else:  # Split vertically
-        split_x = rng.get_int(node.rect.x1 + split_margin,
-                              node.rect.x2 - split_margin)
+        split_x = rng.get_int(node.rect.x1 + split_margin, node.rect.x2 - split_margin)
         node.left = BSPNode(
             Rect(node.rect.x1, node.rect.y1, split_x - 1, node.rect.y2), left_h
         )
@@ -292,8 +289,7 @@ def _create_rooms_in_leaves(root_node: BSPNode, rng: GameRNG):
                 final_w=(room_x2 - room_x1 + 1),
                 final_h=(room_y2 - room_y1 + 1),
             )
-    log.info("Room definition finished",
-             created=room_count, skipped=skipped_count)
+    log.info("Room definition finished", created=room_count, skipped=skipped_count)
 
 
 def _carve_tunnel(
@@ -407,8 +403,7 @@ def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
         log.error("Connect rooms called with invalid GameRNG object")
         return
 
-    log.debug("Connecting rooms for node",
-              rect=node.rect, is_leaf=node.is_leaf)
+    log.debug("Connecting rooms for node", rect=node.rect, is_leaf=node.is_leaf)
     if node.is_leaf:
         return
 
@@ -448,14 +443,16 @@ def _connect_rooms(node: BSPNode, game_map: GameMap, rng: GameRNG):
         log.debug("Connecting sibling rooms", **log_context)
 
         # Pass floor heights to carve_tunnel
-        node.corridors = _carve_tunnel(
-            lx, ly, rx, ry, start_h, end_h, game_map, rng)
+        node.corridors = _carve_tunnel(lx, ly, rx, ry, start_h, end_h, game_map, rng)
     elif left_room and not right_room:
-        log.debug("Skipping connection: Right child has no room",
-                  left_center=left_room.center)
+        log.debug(
+            "Skipping connection: Right child has no room", left_center=left_room.center
+        )
     elif not left_room and right_room:
-        log.debug("Skipping connection: Left child has no room",
-                  right_center=right_room.center)
+        log.debug(
+            "Skipping connection: Left child has no room",
+            right_center=right_room.center,
+        )
     else:
         log.debug("Skipping connection: Neither child has a room.")
 
@@ -465,8 +462,7 @@ def _generate_bsp_dungeon(
 ) -> Tuple[int, int]:
     """Generate a classic rooms-and-corridors layout using BSP."""
     initial_base_height = 0
-    root_node = BSPNode(
-        Rect(1, 1, map_width - 2, map_height - 2), initial_base_height)
+    root_node = BSPNode(Rect(1, 1, map_width - 2, map_height - 2), initial_base_height)
     log.debug(
         "Created root BSP node", rect=root_node.rect, base_height=initial_base_height
     )
@@ -532,8 +528,8 @@ def _generate_cavern_level(
                     new_tiles[y, x] = TILE_ID_WALL
                 else:
                     new_tiles[y, x] = TILE_ID_FLOOR
-        game_map.tiles[1: map_height - 1, 1: map_width - 1] = new_tiles[
-            1: map_height - 1, 1: map_width - 1
+        game_map.tiles[1 : map_height - 1, 1 : map_width - 1] = new_tiles[
+            1 : map_height - 1, 1 : map_width - 1
         ]
 
     floor_positions = np.argwhere(game_map.tiles == TILE_ID_FLOOR)
@@ -559,12 +555,12 @@ def _generate_cavern_level(
                 queue.append((ny, nx))
 
     # Convert unreachable floor tiles to walls
-    for (y, x) in floor_positions:
+    for y, x in floor_positions:
         if (int(y), int(x)) not in visited:
             game_map.tiles[y, x] = TILE_ID_WALL
 
     # Update height and ceiling only for reachable floors
-    for (y, x) in visited:
+    for y, x in visited:
         game_map.height_map[y, x] = 0
         game_map.ceiling_map[y, x] = DEFAULT_ROOM_CEILING_OFFSET
 
@@ -573,7 +569,9 @@ def _generate_cavern_level(
     return int(spawn_x), int(spawn_y)
 
 
-def _apply_prefab(game_map: GameMap, x: int, y: int, prefab: List[str]) -> Tuple[int, int]:
+def _apply_prefab(
+    game_map: GameMap, x: int, y: int, prefab: List[str]
+) -> Tuple[int, int]:
     """Carve a prefab module onto the map and return its center."""
     for dy, row in enumerate(prefab):
         for dx, char in enumerate(row):
@@ -622,8 +620,7 @@ def _place_vertical_transitions(
             transitions.append({"type": "stairs_up", "x": int(x), "y": int(y)})
         if len(choices) >= 2:
             y, x = choices[1]
-            transitions.append(
-                {"type": "stairs_down", "x": int(x), "y": int(y)})
+            transitions.append({"type": "stairs_down", "x": int(x), "y": int(y)})
     game_map.vertical_transitions = transitions
 
 

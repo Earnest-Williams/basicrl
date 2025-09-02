@@ -6,7 +6,12 @@ This script demonstrates the functionality of the BasicRL sound system,
 including sound effects and situational background music.
 """
 
-from game.systems.sound import init_sound_system, play_sound, handle_event, update_music_context
+from game.systems.sound import (
+    init_sound_system,
+    play_sound,
+    handle_event,
+    update_music_context,
+)
 import sys
 import os
 
@@ -43,14 +48,14 @@ def main():
 
     # Test damage sound
     print("   ⚔️  Playing damage sound...")
-    result = play_sound("player_damaged", {
-                        "target": "player", "damage_type": "physical"})
+    result = play_sound(
+        "player_damaged", {"target": "player", "damage_type": "physical"}
+    )
     print(f"      Result: {'✅ Played' if result else '❌ Failed/Disabled'}")
 
     # Test movement sound
     print("   👟 Playing movement sound...")
-    result = play_sound(
-        "player_move", {"terrain": "floor", "entity": "player"})
+    result = play_sound("player_move", {"terrain": "floor", "entity": "player"})
     print(f"      Result: {'✅ Played' if result else '❌ Failed/Disabled'}")
 
     # Demonstrate event handling
@@ -63,14 +68,14 @@ def main():
 
     # Test damage event
     print("   🔄 Triggering damage event...")
-    handle_event("deal_damage", {"target": "player",
-                 "damage_type": "fire", "amount": 5})
+    handle_event(
+        "deal_damage", {"target": "player", "damage_type": "fire", "amount": 5}
+    )
     print("      Event processed (would play damage sound)")
 
     # Test recall ammo event
     print("   🔄 Triggering recall ammo event...")
-    handle_event("recall_ammo", {
-                 "item_type": "projectile", "target": "player"})
+    handle_event("recall_ammo", {"item_type": "projectile", "target": "player"})
     print("      Event processed (would play teleport sound)")
 
     # Demonstrate situational background music
@@ -82,7 +87,7 @@ def main():
         "game_state": "exploring",
         "depth": 1,
         "turn": 10,
-        "player_hp_percent": 1.0
+        "player_hp_percent": 1.0,
     }
     update_music_context(exploration_context)
     current_music = sound_manager.current_music_name
@@ -94,7 +99,7 @@ def main():
         "game_state": "combat",
         "depth": 3,
         "turn": 50,
-        "player_hp_percent": 0.7
+        "player_hp_percent": 0.7,
     }
     update_music_context(combat_context)
     current_music = sound_manager.current_music_name
@@ -106,7 +111,7 @@ def main():
         "game_state": "exploring",
         "depth": 15,
         "turn": 200,
-        "player_hp_percent": 0.8
+        "player_hp_percent": 0.8,
     }
     update_music_context(deep_context)
     current_music = sound_manager.current_music_name
@@ -118,7 +123,7 @@ def main():
         "game_state": "combat",
         "depth": 10,
         "enemy_type": ["boss"],
-        "player_hp_percent": 0.5
+        "player_hp_percent": 0.5,
     }
     update_music_context(boss_context)
     current_music = sound_manager.current_music_name
@@ -132,15 +137,19 @@ def main():
     original_sfx = sound_manager.sfx_volume
     original_music = sound_manager.music_volume
 
-    print(f"      Original volumes - Master: {original_master}, SFX: {
-          original_sfx}, Music: {original_music}")
+    print(
+        f"      Original volumes - Master: {original_master}, SFX: {
+          original_sfx}, Music: {original_music}"
+    )
 
     sound_manager.set_master_volume(0.5)
     sound_manager.set_sfx_volume(0.3)
     sound_manager.set_music_volume(0.8)
 
-    print(f"      New volumes - Master: {sound_manager.master_volume}, SFX: {
-          sound_manager.sfx_volume}, Music: {sound_manager.music_volume}")
+    print(
+        f"      New volumes - Master: {sound_manager.master_volume}, SFX: {
+          sound_manager.sfx_volume}, Music: {sound_manager.music_volume}"
+    )
 
     # Restore original volumes
     sound_manager.set_master_volume(original_master)
@@ -154,18 +163,18 @@ def main():
     print("   📋 Available Sound Effects:")
     for name in sorted(sound_manager.sound_effects.keys()):
         effect = sound_manager.sound_effects[name]
-        conditions = list(effect.conditions.keys()
-                          ) if effect.conditions else ["none"]
+        conditions = list(effect.conditions.keys()) if effect.conditions else ["none"]
         print(f"      • {name} (conditions: {', '.join(conditions)})")
 
     print("\n   🎵 Available Background Music:")
     for name in sorted(sound_manager.background_music.keys()):
         music = sound_manager.background_music[name]
         priority = music.priority
-        conditions = list(music.conditions.keys()
-                          ) if music.conditions else ["none"]
-        print(f"      • {name} (priority: {
-              priority}, conditions: {', '.join(conditions)})")
+        conditions = list(music.conditions.keys()) if music.conditions else ["none"]
+        print(
+            f"      • {name} (priority: {
+              priority}, conditions: {', '.join(conditions)})"
+        )
 
     print("\n   🔗 Event Mappings:")
     for event, sound in sorted(sound_manager.event_mappings.items()):

@@ -122,12 +122,10 @@ def run_single_headless(
 
         # Apply Passive Hunger & Starvation Damage
         new_hunger = max(0.0, agent.hunger - PASSIVE_HUNGER_PER_TURN)
-        world.update_entity_hunger(
-            agent.id, new_hunger)  # World handles update
+        world.update_entity_hunger(agent.id, new_hunger)  # World handles update
         if agent.hunger <= 0:
             new_health = max(0.0, agent.health - STARVATION_HEALTH_DAMAGE)
-            world.update_entity_health(
-                agent.id, new_health)  # World handles update
+            world.update_entity_health(agent.id, new_health)  # World handles update
             if new_health <= 0:
                 cause_of_death = "Starvation"
                 break
@@ -159,11 +157,12 @@ def run_single_headless(
         world.spawn_random_enemy(rng=local_rng)  # Pass RNG
 
         # Resting Health Regen (No RNG needed here)
-        agent_rested = action_taken_this_turn == "Wait" or action_taken_this_turn is None
+        agent_rested = (
+            action_taken_this_turn == "Wait" or action_taken_this_turn is None
+        )
         if agent_rested and not agent_was_attacked_this_turn:
             if agent.health < START_HEALTH:
-                new_health = min(
-                    START_HEALTH, agent.health + REST_HEALTH_REGEN)
+                new_health = min(START_HEALTH, agent.health + REST_HEALTH_REGEN)
                 if new_health > agent.health:
                     world.update_entity_health(agent.id, new_health)
 
@@ -175,7 +174,9 @@ def run_single_headless(
     elif agent_survived:
         final_outcome = "Survived (Unknown)"
     else:
-        final_outcome = cause_of_death if cause_of_death != "Unknown" else "Defeated (Unknown)"
+        final_outcome = (
+            cause_of_death if cause_of_death != "Unknown" else "Defeated (Unknown)"
+        )
 
     # Learning Step
     agent_ai.learn(turns_survived)
@@ -194,17 +195,26 @@ def run_single_headless(
 # --- Main Execution Logic ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run GOAP Simulation (GUI or Headless)")
+        description="Run GOAP Simulation (GUI or Headless)"
+    )
     parser.add_argument(
-        "--mode", choices=["gui", "headless"], default="gui", help="Mode")
+        "--mode", choices=["gui", "headless"], default="gui", help="Mode"
+    )
     parser.add_argument(
         "-n", "--num-runs", type=int, default=DEFAULT_NUM_RUNS, help="Number of runs"
     )
     parser.add_argument(
-        "-w", "--workers", type=int, default=DEFAULT_NUM_WORKERS, help="Number of workers"
+        "-w",
+        "--workers",
+        type=int,
+        default=DEFAULT_NUM_WORKERS,
+        help="Number of workers",
     )
     parser.add_argument(
-        "--learn", choices=["independent", "shared"], default="independent", help="Learning mode"
+        "--learn",
+        choices=["independent", "shared"],
+        default="independent",
+        help="Learning mode",
     )
     parser.add_argument(
         "--seed",
@@ -212,8 +222,7 @@ if __name__ == "__main__":
         default=DEFAULT_SEED,
         help="Initial seed for generating run seeds (default: time-based)",
     )
-    parser.add_argument("--profile", action="store_true",
-                        help="Enable profiling")
+    parser.add_argument("--profile", action="store_true", help="Enable profiling")
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -240,11 +249,8 @@ if __name__ == "__main__":
             # Use relative import for GUI components when run as module
             from .gui.main_window import MainWindow
         except ImportError:
-            log.error(
-                "Could not import GUI components. Ensure PySide6 is installed."
-            )
-            log.error(
-                "If running directly, ensure script is in the correct directory.")
+            log.error("Could not import GUI components. Ensure PySide6 is installed.")
+            log.error("If running directly, ensure script is in the correct directory.")
             sys.exit(1)
 
         try:
@@ -275,8 +281,7 @@ if __name__ == "__main__":
 
         # Create a master RNG to generate seeds for each run
         master_rng = GameRNG(seed=args.seed)
-        run_seeds = [master_rng.get_int(0, 2**32 - 1)
-                     for _ in range(args.num_runs)]
+        run_seeds = [master_rng.get_int(0, 2**32 - 1) for _ in range(args.num_runs)]
 
         if args.profile:
             print("Profiling enabled for the first run.")
@@ -284,14 +289,16 @@ if __name__ == "__main__":
         if args.learn == "shared":
             print("Shared learning selected...")
             # Create temporary AI to get initial weights structure
-            temp_ai = AgentAI(
-                World(size=GRID_SIZE, rng=GameRNG()), rng=GameRNG())
+            temp_ai = AgentAI(World(size=GRID_SIZE, rng=GameRNG()), rng=GameRNG())
             initial_weights_arg = dict(temp_ai.planner.action_weights)
 
         # Prepare arguments for each run (run_id, initial_weights, seed)
         run_args = [
-            (i + 1, initial_weights_arg if args.learn ==
-             "shared" else None, run_seeds[i])
+            (
+                i + 1,
+                initial_weights_arg if args.learn == "shared" else None,
+                run_seeds[i],
+            )
             for i in range(args.num_runs)
         ]
 
@@ -300,8 +307,10 @@ if __name__ == "__main__":
 
         try:
             if num_actual_workers > 1:
-                print(f"Using multiprocessing Pool with {
-                      num_actual_workers} workers...")
+                print(
+                    f"Using multiprocessing Pool with {
+                      num_actual_workers} workers..."
+                )
                 with Pool(processes=num_actual_workers) as pool:
                     if profiler:
                         profiler.enable()
@@ -309,8 +318,7 @@ if __name__ == "__main__":
                         profiler.disable()
                         results.append(first_result)
                         if len(run_args) > 1:
-                            results.extend(
-                                pool.map(run_single_headless, run_args[1:]))
+                            results.extend(pool.map(run_single_headless, run_args[1:]))
                     else:
                         results = pool.map(run_single_headless, run_args)
             else:
@@ -324,8 +332,7 @@ if __name__ == "__main__":
                         result = run_single_headless(run_arg_tuple)
                     results.append(result)
         except Exception as e:
-            log.error("Error during headless execution",
-                      error=str(e), exc_info=True)
+            log.error("Error during headless execution", error=str(e), exc_info=True)
 
         # Process results
         all_turns = [r[0] for r in results]
@@ -361,8 +368,10 @@ if __name__ == "__main__":
                 print(f"  - {name:<20}: {weight:.3f}")
 
         total_end_time = time.time()
-        print(f"\nTotal Headless Execution Time: {
-              total_end_time - total_start_time:.2f}s")
+        print(
+            f"\nTotal Headless Execution Time: {
+              total_end_time - total_start_time:.2f}s"
+        )
 
         if profiler:
             print("\n--- cProfile Results (First Run) ---")

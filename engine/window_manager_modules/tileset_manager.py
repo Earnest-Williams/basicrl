@@ -18,6 +18,7 @@ from PIL import Image
 # Local Application Imports
 # Use absolute paths from project root (basicrl)
 from engine.tileset_loader import load_tiles
+
 # Ensure GameMap and TILE_TYPES can be imported for schema validation/population
 try:
     from game.world.game_map import TILE_TYPES
@@ -120,8 +121,10 @@ class TilesetManager:
             if isinstance(loaded_tiles, dict):
                 self.tiles = loaded_tiles
             else:
-                log.error("load_tiles did not return a dictionary.",
-                          received_type=type(loaded_tiles))
+                log.error(
+                    "load_tiles did not return a dictionary.",
+                    received_type=type(loaded_tiles),
+                )
                 self.tiles = {}  # Reset to empty on error
                 # Consider raising an error or returning False earlier
 
@@ -174,27 +177,23 @@ class TilesetManager:
         if TILE_TYPES and isinstance(TILE_TYPES, dict):
             try:
                 # Filter out non-integer keys just in case
-                valid_tile_ids = [
-                    k for k in TILE_TYPES.keys() if isinstance(k, int)]
+                valid_tile_ids = [k for k in TILE_TYPES.keys() if isinstance(k, int)]
                 if not valid_tile_ids:
-                    log.warning(
-                        "TILE_TYPES dictionary contains no integer keys.")
+                    log.warning("TILE_TYPES dictionary contains no integer keys.")
                     self.max_defined_tile_id = -1
                 else:
                     self.max_defined_tile_id = max(valid_tile_ids)
             except Exception as e:
-                log.error("Error finding max key in TILE_TYPES",
-                          error=str(e), data=TILE_TYPES)
+                log.error(
+                    "Error finding max key in TILE_TYPES", error=str(e), data=TILE_TYPES
+                )
                 self.max_defined_tile_id = -1
 
             array_size = self.max_defined_tile_id + 1
             if array_size > 0:
-                self._tile_fg_colors = np.zeros(
-                    (array_size, 3), dtype=np.uint8)
-                self._tile_bg_colors = np.zeros(
-                    (array_size, 3), dtype=np.uint8)
-                self._tile_indices_render = np.zeros(
-                    array_size, dtype=np.uint16)
+                self._tile_fg_colors = np.zeros((array_size, 3), dtype=np.uint8)
+                self._tile_bg_colors = np.zeros((array_size, 3), dtype=np.uint8)
+                self._tile_indices_render = np.zeros(array_size, dtype=np.uint16)
                 valid_ids_loaded = 0
                 for tile_id_val, tile_type_data in TILE_TYPES.items():
                     if not isinstance(tile_id_val, int):
@@ -202,19 +201,16 @@ class TilesetManager:
 
                     if 0 <= tile_id_val <= self.max_defined_tile_id:
                         # Safely access attributes using getattr with defaults
-                        fg_color = getattr(
-                            tile_type_data, 'color_fg', (255, 0, 255))
-                        bg_color = getattr(
-                            tile_type_data, 'color_bg', (0, 0, 0))
+                        fg_color = getattr(tile_type_data, "color_fg", (255, 0, 255))
+                        bg_color = getattr(tile_type_data, "color_bg", (0, 0, 0))
                         # Default to glyph 0
-                        tile_index = getattr(tile_type_data, 'tile_index', 0)
+                        tile_index = getattr(tile_type_data, "tile_index", 0)
 
                         if isinstance(fg_color, tuple) and len(fg_color) == 3:
                             self._tile_fg_colors[tile_id_val] = fg_color
                         if isinstance(bg_color, tuple) and len(bg_color) == 3:
                             self._tile_bg_colors[tile_id_val] = bg_color
-                        self._tile_indices_render[tile_id_val] = int(
-                            tile_index)
+                        self._tile_indices_render[tile_id_val] = int(tile_index)
 
                         valid_ids_loaded += 1
                 log.debug(
@@ -229,16 +225,14 @@ class TilesetManager:
             else:
                 log.warning(
                     "max_defined_tile_id resulted in non-positive array size",
-                    max_id=self.max_defined_tile_id
+                    max_id=self.max_defined_tile_id,
                 )
         else:
-            log.warning(
-                "TILE_TYPES is empty or invalid, cannot populate render cache.")
+            log.warning("TILE_TYPES is empty or invalid, cannot populate render cache.")
 
         # 2. Update Numba array cache from loaded PIL tiles
         if not self.tiles or self.tile_width <= 0 or self.tile_height <= 0:
-            log.warning(
-                "Cannot update Numba cache: Invalid tiles or dimensions.")
+            log.warning("Cannot update Numba cache: Invalid tiles or dimensions.")
             self.tile_arrays = temp_tile_arrays  # Assign empty dict
             return
 
@@ -257,7 +251,7 @@ class TilesetManager:
 
                 tile_np_array = np.array(img, dtype=np.uint8)
                 # Ensure C-contiguity for Numba compatibility if needed
-                if not tile_np_array.flags['C_CONTIGUOUS']:
+                if not tile_np_array.flags["C_CONTIGUOUS"]:
                     tile_np_array = np.ascontiguousarray(tile_np_array)
 
                 # Check final shape AFTER potential conversion/resizing
@@ -295,20 +289,26 @@ class TilesetManager:
         )
 
         # *** ADDED LOGGING ***
-        log.debug("TilesetManager.get_render_data called.",
-                  cache_ready=cache_ready,
-                  max_id=self.max_defined_tile_id,
-                  fg_colors_valid=self._tile_fg_colors is not None,
-                  bg_colors_valid=self._tile_bg_colors is not None,
-                  indices_valid=self._tile_indices_render is not None,
-                  tile_arrays_items=len(self.tile_arrays) if self.tile_arrays is not None else 'None')
+        log.debug(
+            "TilesetManager.get_render_data called.",
+            cache_ready=cache_ready,
+            max_id=self.max_defined_tile_id,
+            fg_colors_valid=self._tile_fg_colors is not None,
+            bg_colors_valid=self._tile_bg_colors is not None,
+            indices_valid=self._tile_indices_render is not None,
+            tile_arrays_items=(
+                len(self.tile_arrays) if self.tile_arrays is not None else "None"
+            ),
+        )
 
         if not cache_ready:
             log.error("Render data cache is not ready in TilesetManager.")
             # Return empty/default data to avoid crashing renderer
             _array_type = nb_types.uint8[:, :, ::1]  # Match type
             return {
-                "tile_arrays": NumbaTypedDict.empty(key_type=nb_types.int_, value_type=_array_type),
+                "tile_arrays": NumbaTypedDict.empty(
+                    key_type=nb_types.int_, value_type=_array_type
+                ),
                 "tile_fg_colors": np.zeros((1, 3), dtype=np.uint8),
                 "tile_bg_colors": np.zeros((1, 3), dtype=np.uint8),
                 "tile_indices_render": np.zeros(1, dtype=np.uint16),

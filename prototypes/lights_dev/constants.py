@@ -59,8 +59,7 @@ COLOR = {
 TORCH_COLOR_RGB: Tuple[int, int, int] = (255, 160, 60)  # Orangey-yellow
 ORB_COLOR_RGB: Tuple[int, int, int] = (160, 200, 255)  # Bluish-white
 # Ambient color for unlit areas or minimum light
-AMBIENT_COLOR_RGB: Tuple[int, int, int] = (
-    30, 30, 45)  # Dim, slightly blue/purple
+AMBIENT_COLOR_RGB: Tuple[int, int, int] = (30, 30, 45)  # Dim, slightly blue/purple
 # Max level used for mapping intensity -> level for visibility checks
 MAX_LIGHT_LEVEL_FOR_VIS_CHECK = 6
 

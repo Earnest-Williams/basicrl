@@ -14,6 +14,7 @@ Example
 >>> path.suffix
 '.wav'
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,8 +37,13 @@ class MusicGenerator:
     def __init__(self) -> None:
         pass
 
-    def generate(self, tempo: float = 120.0, harmony: str = "major",
-                 intensity: float = 0.5, duration: float = 4.0) -> Path:
+    def generate(
+        self,
+        tempo: float = 120.0,
+        harmony: str = "major",
+        intensity: float = 0.5,
+        duration: float = 4.0,
+    ) -> Path:
         """Generate a WAV file based on the supplied parameters.
 
         Parameters
@@ -62,9 +68,9 @@ class MusicGenerator:
             beat_phase = (t % beat_len) / beat_len
             freq = root if beat_phase < 0.5 else third
             sample = intensity * math.sin(2 * math.pi * freq * t)
-            waveform.extend(struct.pack('<h', int(sample * 32767)))
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-        with wave.open(tmp, 'wb') as wf:
+            waveform.extend(struct.pack("<h", int(sample * 32767)))
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        with wave.open(tmp, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(SAMPLE_RATE)

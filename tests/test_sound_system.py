@@ -1,4 +1,5 @@
 """Tests for the sound system."""
+
 import os
 import tempfile
 import yaml
@@ -24,7 +25,7 @@ class TestSoundEffect:
             "files": ["test1.ogg", "test2.ogg"],
             "volume": 0.8,
             "random_pitch": 0.1,
-            "conditions": {"target": "player"}
+            "conditions": {"target": "player"},
         }
         effect = SoundEffect(config, Path("/test"))
 
@@ -39,7 +40,7 @@ class TestSoundEffect:
             "type": "procedural",
             "generator": "footsteps",
             "volume": 0.5,
-            "settings": {"duration": 0.1}
+            "settings": {"duration": 0.1},
         }
         effect = SoundEffect(config, Path("/test"))
 
@@ -51,7 +52,7 @@ class TestSoundEffect:
         """Test sound effect condition matching."""
         config = {
             "files": ["test.ogg"],
-            "conditions": {"target": "player", "terrain": ["floor", "stone"]}
+            "conditions": {"target": "player", "terrain": ["floor", "stone"]},
         }
         effect = SoundEffect(config, Path("/test"))
 
@@ -97,11 +98,14 @@ class TestBackgroundMusic:
             "fade_in_time": 2.0,
             "fade_out_time": 3.0,
             "priority": 10,
-            "conditions": {"game_state": ["exploring"]}
+            "conditions": {"game_state": ["exploring"]},
         }
         music = BackgroundMusic(config, Path("/test"))
         assert music.generator_settings == {
-            "tempo": 90, "harmony": "major", "intensity": 0.3}
+            "tempo": 90,
+            "harmony": "major",
+            "intensity": 0.3,
+        }
         assert music.volume == 0.6
         assert music.loop is True
         assert music.fade_in_time == 2.0
@@ -113,10 +117,7 @@ class TestBackgroundMusic:
         """Test background music condition matching."""
         config = {
             "generator": {"tempo": 100, "harmony": "minor", "intensity": 0.5},
-            "conditions": {
-                "game_state": ["exploring"],
-                "min_depth": 5
-            }
+            "conditions": {"game_state": ["exploring"], "min_depth": 5},
         }
         music = BackgroundMusic(config, Path("/test"))
 
@@ -143,56 +144,59 @@ class TestSoundManager:
                 "enabled": False,  # Disable actual audio for testing
                 "master_volume": 0.8,
                 "sfx_volume": 0.9,
-                "music_volume": 0.7
+                "music_volume": 0.7,
             },
             "sound_effects": {
                 "test_effect": {
                     "files": ["test.ogg"],
                     "volume": 0.5,
-                    "conditions": {"target": "player"}
+                    "conditions": {"target": "player"},
                 },
                 "combat_hit": {
                     "files": ["hit1.ogg", "hit2.ogg"],
                     "volume": 0.8,
-                    "random_pitch": 0.2
+                    "random_pitch": 0.2,
                 },
                 "magic_proc": {
                     "type": "procedural",
                     "generator": "magic",
                     "volume": 0.6,
-                    "settings": {"duration": 0.1}
-                }
+                    "settings": {"duration": 0.1},
+                },
             },
             "background_music": {
                 "exploration": {
                     "generator": {"tempo": 90, "harmony": "major", "intensity": 0.3},
                     "volume": 0.4,
                     "loop": True,
-                    "conditions": {"game_state": ["exploring"]}
+                    "conditions": {"game_state": ["exploring"]},
                 },
                 "combat": {
                     "generator": {"tempo": 140, "harmony": "minor", "intensity": 0.8},
                     "volume": 0.6,
                     "priority": 10,
-                    "conditions": {"game_state": ["combat"]}
+                    "conditions": {"game_state": ["combat"]},
                 },
                 "deep_dungeon": {
                     "generator": {"tempo": 70, "harmony": "minor", "intensity": 0.6},
                     "volume": 0.5,
                     "priority": 5,
-                    "conditions": {"min_depth": 10, "game_state": ["exploring"]}
+                    "conditions": {"min_depth": 10, "game_state": ["exploring"]},
                 },
                 "night": {
                     "generator": {"tempo": 80, "harmony": "minor", "intensity": 0.4},
                     "volume": 0.4,
                     "priority": 3,
-                    "conditions": {"time_of_day": ["night"], "game_state": ["exploring"]}
-                }
+                    "conditions": {
+                        "time_of_day": ["night"],
+                        "game_state": ["exploring"],
+                    },
+                },
             },
             "event_mappings": {
                 "player_move": "test_effect",
                 "deal_damage": "combat_hit",
-                "cast_spell": "magic_proc"
+                "cast_spell": "magic_proc",
             },
             "situational_modifiers": {
                 "environment_effects": {
@@ -216,12 +220,12 @@ class TestSoundManager:
                 "occlusion": {
                     "wall_absorption": 0.5,
                     "rear_attenuation": 0.5,
-                }
-            }
+                },
+            },
         }
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             return Path(f.name)
 
@@ -308,8 +312,7 @@ class TestSoundManager:
             manager.enabled = True  # Enable for testing
 
             # Should succeed (but not actually play due to mock backend)
-            result = manager.play_sound_effect(
-                "test_effect", {"target": "player"})
+            result = manager.play_sound_effect("test_effect", {"target": "player"})
             assert result is True
 
             # Procedural effect should also succeed
@@ -317,8 +320,7 @@ class TestSoundManager:
             assert result is True
 
             # Should fail due to condition mismatch
-            result = manager.play_sound_effect(
-                "test_effect", {"target": "enemy"})
+            result = manager.play_sound_effect("test_effect", {"target": "enemy"})
             assert result is False
 
             # Should fail due to non-existent effect

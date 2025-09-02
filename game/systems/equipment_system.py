@@ -55,8 +55,7 @@ def get_item_template(item_id: int, gs: "GameState") -> Dict | None:
     """Helper: Safely get the template data for an item."""
     # Check if item_registry exists on gs
     if not hasattr(gs, "item_registry") or gs.item_registry is None:
-        log.error("GameState missing item_registry",
-                  method="get_item_template")
+        log.error("GameState missing item_registry", method="get_item_template")
         return None
     template_id = gs.item_registry.get_item_template_id(item_id)
     if template_id:
@@ -147,8 +146,7 @@ def get_slots_occupied_by_general_type(
             )
             # Use select().to_series() for potentially faster extraction than iter_rows
             equipped_slots_series = (
-                equipped_items_df.select(
-                    "equipped_slot").to_series().drop_nulls()
+                equipped_items_df.select("equipped_slot").to_series().drop_nulls()
             )
 
             for specific_slot in equipped_slots_series:
@@ -166,8 +164,7 @@ def get_slots_occupied_by_general_type(
                                 and EquipSlot is not Any
                                 and specific_slot in EquipSlot.__args__
                             ):
-                                occupied_slots.append(
-                                    cast(EquipSlot, specific_slot))
+                                occupied_slots.append(cast(EquipSlot, specific_slot))
                             # If EquipSlot wasn't loaded, we might have appended string earlier, allow it but log
                             elif "EquipSlot" not in globals() or EquipSlot is Any:
                                 occupied_slots.append(
@@ -182,8 +179,7 @@ def get_slots_occupied_by_general_type(
                             log.error(
                                 "EquipSlot type definition not available for validation"
                             )
-                            occupied_slots.append(
-                                specific_slot)  # Append anyway
+                            occupied_slots.append(specific_slot)  # Append anyway
 
         return occupied_slots
     except Exception as e:
@@ -240,8 +236,7 @@ def find_first_available_slot(
             s for s in compatible_slots_specific if s in valid_equip_slots
         ]
         if possible_specific_slots:
-            target_general_type = get_general_slot_type(
-                possible_specific_slots[0])
+            target_general_type = get_general_slot_type(possible_specific_slots[0])
         else:
             log.warning(
                 "Item compatible_equip_slots list contains no valid slots",
@@ -375,8 +370,7 @@ def get_attachable_info(item_id: int, gs: "GameState") -> Dict | None:
 def apply_passive_effects(item_id: int, entity_id: int, gs: "GameState") -> None:
     """Applies passive effects defined on an item's template."""
     if not hasattr(gs, "item_registry") or gs.item_registry is None:
-        log.error("GameState missing item_registry",
-                  method="apply_passive_effects")
+        log.error("GameState missing item_registry", method="apply_passive_effects")
         return
     template = get_item_template(item_id, gs)
     if not template:
@@ -408,8 +402,7 @@ def apply_passive_effects(item_id: int, entity_id: int, gs: "GameState") -> None
 def remove_passive_effects(item_id: int, entity_id: int, gs: "GameState") -> None:
     """Removes passive effects defined on an item's template."""
     if not hasattr(gs, "item_registry") or gs.item_registry is None:
-        log.error("GameState missing item_registry",
-                  method="remove_passive_effects")
+        log.error("GameState missing item_registry", method="remove_passive_effects")
         return
     template = get_item_template(item_id, gs)
     if not template:
@@ -517,14 +510,15 @@ def equip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
 
     can, reason, target_slot = can_equip(entity_id, item_id, gs)
     if not can or target_slot is None:
-        log.debug(f"Cannot equip item {item_id} on entity {
-                  entity_id}: {reason}")
+        log.debug(
+            f"Cannot equip item {item_id} on entity {
+                  entity_id}: {reason}"
+        )
         if entity_id == gs.player_id:
             gs.add_message(f"Cannot equip that: {reason}")
         return False  # Turn not consumed
 
-    log.info("Equipping item", entity_id=entity_id,
-             item_id=item_id, slot=target_slot)
+    log.info("Equipping item", entity_id=entity_id, item_id=item_id, slot=target_slot)
 
     current_ids = entity_reg.get_equipped_ids(entity_id)
     if current_ids is None:
@@ -537,8 +531,7 @@ def equip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
             entity_id=entity_id,
         )
         # Maybe unequip first if logic requires it? For now, just prevent re-equip.
-        gs.add_message(
-            "That item seems to already be equipped.", (255, 150, 0))
+        gs.add_message("That item seems to already be equipped.", (255, 150, 0))
         return False  # Prevent duplicate equip
     new_ids = current_ids + [item_id]
 
@@ -558,8 +551,7 @@ def equip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
             "Failed to move item to equipped state in ItemRegistry", item_id=item_id
         )
         try:
-            entity_reg.set_equipped_ids(
-                entity_id, current_ids)  # Attempt rollback
+            entity_reg.set_equipped_ids(entity_id, current_ids)  # Attempt rollback
         except Exception as rollback_err:
             log.critical(
                 "Rollback equip failed!", entity_id=entity_id, error=rollback_err
@@ -618,16 +610,14 @@ def can_unequip(entity_id: int, item_id: int, gs: "GameState") -> Tuple[bool, st
                 attached_item_name = "something"
                 try:
                     attached_item_name = (
-                        item_reg.get_item_component(
-                            mp["accepted_item_id"], "name")
+                        item_reg.get_item_component(mp["accepted_item_id"], "name")
                         or "something"
                     )
                 except:
                     pass  # Ignore if attached item doesn't exist
                 return False, f"'{attached_item_name}' attached"
 
-    inv_capacity = entity_reg.get_entity_component(
-        entity_id, "inventory_capacity")
+    inv_capacity = entity_reg.get_entity_component(entity_id, "inventory_capacity")
     if inv_capacity is not None:
         current_inventory = item_reg.get_entity_inventory(entity_id)
         inventory = Inventory(
@@ -655,8 +645,10 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
 
     can, reason = can_unequip(entity_id, item_id, gs)
     if not can:
-        log.debug(f"Cannot unequip item {
-                  item_id} from entity {entity_id}: {reason}")
+        log.debug(
+            f"Cannot unequip item {
+                  item_id} from entity {entity_id}: {reason}"
+        )
         if entity_id == gs.player_id:
             gs.add_message(f"Cannot unequip: {reason}.")
         return False
@@ -665,8 +657,7 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
 
     current_ids = entity_reg.get_equipped_ids(entity_id)
     if current_ids is None:
-        log.error("Failed to get equipped_ids list during unequip",
-                  entity_id=entity_id)
+        log.error("Failed to get equipped_ids list during unequip", entity_id=entity_id)
         return False
     try:
         new_ids = [i for i in current_ids if i != item_id]
@@ -677,8 +668,7 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
         return False
 
     if not entity_reg.set_equipped_ids(entity_id, new_ids):
-        log.error("Failed to set equipped_ids list during unequip",
-                  entity_id=entity_id)
+        log.error("Failed to set equipped_ids list during unequip", entity_id=entity_id)
         return False
 
     success = item_reg.move_item(
@@ -691,11 +681,9 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
             item_id=item_id,
         )
         try:
-            entity_reg.set_equipped_ids(
-                entity_id, current_ids)  # Rollback attempt
+            entity_reg.set_equipped_ids(entity_id, current_ids)  # Rollback attempt
         except Exception as rb_err:
-            log.critical("Rollback unequip failed!",
-                         entity_id=entity_id, error=rb_err)
+            log.critical("Rollback unequip failed!", entity_id=entity_id, error=rb_err)
         return False
 
     item_name = item_reg.get_item_component(item_id, "name") or "item"
@@ -786,7 +774,9 @@ def can_attach(
             if mp.get("accepted_item_id") is not None:
                 occupied_issue = True
             mp_flags = mp.get("flags", []) or []
-            if required_mount_flags and not all(f in mp_flags for f in required_mount_flags):
+            if required_mount_flags and not all(
+                f in mp_flags for f in required_mount_flags
+            ):
                 flag_issue = True
             weight_limit = mp.get("weight_limit")
             if (
@@ -889,8 +879,7 @@ def attach_item(
     )
 
     if not success:
-        log.error("Failed to move attached item state",
-                  child_item=item_to_attach_id)
+        log.error("Failed to move attached item state", child_item=item_to_attach_id)
         log.critical(
             "CRITICAL: Failed to move attached item after host mount point update! State inconsistent.",
             child_item=item_to_attach_id,
@@ -899,10 +888,8 @@ def attach_item(
         # Rollback mount point change? Difficult.
         return False
 
-    child_name = item_reg.get_item_component(
-        item_to_attach_id, "name") or "item"
-    host_name = item_reg.get_item_component(
-        target_host_item_id, "name") or "item"
+    child_name = item_reg.get_item_component(item_to_attach_id, "name") or "item"
+    host_name = item_reg.get_item_component(target_host_item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You attach the {child_name} to the {host_name}.")
     apply_passive_effects(item_to_attach_id, entity_id, gs)
@@ -942,14 +929,12 @@ def can_detach(
         return False, "Internal error (missing parent)"
 
     # Check ownership chain
-    parent_owner_id = item_reg.get_item_component(
-        parent_item_id, "owner_entity_id")
+    parent_owner_id = item_reg.get_item_component(parent_item_id, "owner_entity_id")
     if parent_owner_id != entity_id:
         return False, "You don't own the item it's attached to"
 
     # Check inventory space
-    inv_capacity = entity_reg.get_entity_component(
-        entity_id, "inventory_capacity")
+    inv_capacity = entity_reg.get_entity_component(entity_id, "inventory_capacity")
     if inv_capacity is not None:
         current_inventory = item_reg.get_entity_inventory(entity_id)
         inventory = Inventory(
@@ -990,8 +975,7 @@ def detach_item(entity_id: int, item_to_detach_id: int, gs: "GameState") -> bool
     parent_item_id = detach_info.get("parent_attachment_item_id")
     parent_slot_id = detach_info.get("parent_attachment_slot_id")
     if parent_item_id is None or parent_slot_id is None:
-        log.error("Detach failed: Item missing parent info.",
-                  item_id=item_to_detach_id)
+        log.error("Detach failed: Item missing parent info.", item_id=item_to_detach_id)
         return False
 
     mount_points_list = get_item_mount_points(parent_item_id, gs)
@@ -1048,8 +1032,7 @@ def detach_item(entity_id: int, item_to_detach_id: int, gs: "GameState") -> bool
         # Rollback is hard here
         return False
 
-    item_name = item_reg.get_item_component(
-        item_to_detach_id, "name") or "item"
+    item_name = item_reg.get_item_component(item_to_detach_id, "name") or "item"
     parent_name = item_reg.get_item_component(parent_item_id, "name") or "item"
     if entity_id == gs.player_id:
         gs.add_message(f"You detach the {item_name} from the {parent_name}.")

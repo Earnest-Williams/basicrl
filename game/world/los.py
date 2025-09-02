@@ -11,11 +11,14 @@ import numpy as np
 
 try:  # Optional Numba acceleration
     import numba
+
     njit = numba.njit
 except Exception:  # pragma: no cover - fallback when Numba isn't available
+
     def njit(*args, **kwargs):  # type: ignore
         def wrapper(func):
             return func
+
         return wrapper
 
 
@@ -36,10 +39,7 @@ def line_of_sight(
 
     height, width = transparency_map.shape
     if not (
-        0 <= x0 < width
-        and 0 <= y0 < height
-        and 0 <= x1 < width
-        and 0 <= y1 < height
+        0 <= x0 < width and 0 <= y0 < height and 0 <= x1 < width and 0 <= y1 < height
     ):
         return False
 

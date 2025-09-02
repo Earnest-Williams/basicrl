@@ -87,12 +87,10 @@ class TileEditorWidget(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.update_widget_size()
-        self.setSizePolicy(QSizePolicy.Policy.Preferred,
-                           QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         self.setAutoFillBackground(True)
         pal = self.palette()
-        pal.setColor(QPalette.ColorRole.Window,
-                     QColor(Qt.GlobalColor.darkGray))
+        pal.setColor(QPalette.ColorRole.Window, QColor(Qt.GlobalColor.darkGray))
         self.setPalette(pal)
 
     def _get_initial_selected_tile(self):
@@ -175,8 +173,7 @@ class TileEditorWidget(QWidget):
 
         if new_tiles_data is not None:
             if len(new_tiles_data) == new_height and (
-                new_height == 0 or all(
-                    len(row) == new_width for row in new_tiles_data)
+                new_height == 0 or all(len(row) == new_width for row in new_tiles_data)
             ):
                 self.tilemap.tiles = new_tiles_data
             else:
@@ -187,8 +184,7 @@ class TileEditorWidget(QWidget):
                     [new_default_tile] * new_width for _ in range(new_height)
                 ]
         else:  # Preserve old data
-            new_grid = [[new_default_tile] *
-                        new_width for _ in range(new_height)]
+            new_grid = [[new_default_tile] * new_width for _ in range(new_height)]
             if old_tiles:
                 copy_height = min(old_height, new_height)
                 copy_width = min(old_width, new_width)
@@ -294,14 +290,12 @@ class TileEditorWidget(QWidget):
             for x_coord in range(start_col, end_col + 1):
                 px = x_coord * current_tile_size
                 painter.drawLine(
-                    px, max(top, paint_rect.top()), px, min(
-                        bottom, paint_rect.bottom())
+                    px, max(top, paint_rect.top()), px, min(bottom, paint_rect.bottom())
                 )
             for y_coord in range(start_row, end_row + 1):
                 py = y_coord * current_tile_size
                 painter.drawLine(
-                    max(left, paint_rect.left()), py, min(
-                        right, paint_rect.right()), py
+                    max(left, paint_rect.left()), py, min(right, paint_rect.right()), py
                 )
 
         # Draw Previews (Line/Rect)
@@ -311,10 +305,8 @@ class TileEditorWidget(QWidget):
             preview_color = self.app_config.get(
                 "preview_line_color_qt", QColor(255, 0, 0)
             )
-            preview_thickness = self.app_config.get(
-                "preview_line_thickness", 1)
-            preview_pen = QPen(
-                preview_color, preview_thickness, Qt.PenStyle.DotLine)
+            preview_thickness = self.app_config.get("preview_line_thickness", 1)
+            preview_pen = QPen(preview_color, preview_thickness, Qt.PenStyle.DotLine)
             painter.setPen(preview_pen)
             if self.drawing_rect:
                 x1, y1 = self.start_drag_pos.x(), self.start_drag_pos.y()
@@ -349,8 +341,7 @@ class TileEditorWidget(QWidget):
         ):
             # Calculate temporary rect during drag
             end_pos = self.pixel_to_grid(self.current_mouse_pos)
-            temp_selection_rect = QRect(
-                self.selection_start_pos, end_pos).normalized()
+            temp_selection_rect = QRect(self.selection_start_pos, end_pos).normalized()
         elif self.selection_rect and self.selection_rect.isValid():
             # Use finalized selection rect if valid
             temp_selection_rect = self.selection_rect
@@ -404,8 +395,7 @@ class TileEditorWidget(QWidget):
 
             for action_name, control in controls.items():
                 if control.get("trigger") == "LeftClick":
-                    required_modifier = parse_modifier(
-                        control.get("modifier", "None"))
+                    required_modifier = parse_modifier(control.get("modifier", "None"))
                     if current_modifiers == required_modifier:
                         log.debug("Matched press", action=action_name)
                         action_found = True
@@ -464,8 +454,7 @@ class TileEditorWidget(QWidget):
             # ... (Existing Right Button logic using self.app_config) ...
             for action_name, control in controls.items():
                 if control.get("trigger") == "RightClick":
-                    required_modifier = parse_modifier(
-                        control.get("modifier", "None"))
+                    required_modifier = parse_modifier(control.get("modifier", "None"))
                     if current_modifiers == required_modifier:
                         log.debug("Matched press", action=action_name)
                         if action_name == "erase_tile":
@@ -523,14 +512,10 @@ class TileEditorWidget(QWidget):
             and event.button() == Qt.MouseButton.LeftButton
             and self.selection_start_pos
         ):
-            self.selection_rect = QRect(
-                self.selection_start_pos, end_pos).normalized()
+            self.selection_rect = QRect(self.selection_start_pos, end_pos).normalized()
             self.selection_start_pos = None  # End drag
-            log.debug(
-                "Selected region", coords=self.selection_rect.getRect()
-            )
-            self.selection_rect_changed.emit(
-                self.selection_rect)  # Emit final rect
+            log.debug("Selected region", coords=self.selection_rect.getRect())
+            self.selection_rect_changed.emit(self.selection_rect)  # Emit final rect
             self.update()  # Redraw finalized selection
             event.accept()
             # Optionally deactivate tool after selection? Depends on desired workflow.
@@ -552,8 +537,7 @@ class TileEditorWidget(QWidget):
             trigger_type = "LeftDrag" if is_drag else "LeftClick"
             for action_name, control in controls.items():
                 if control.get("trigger") == trigger_type:
-                    required_modifier = parse_modifier(
-                        control.get("modifier", "None"))
+                    required_modifier = parse_modifier(control.get("modifier", "None"))
                     if current_modifiers == required_modifier:
                         if action_name not in [
                             "flood_fill",
@@ -563,8 +547,7 @@ class TileEditorWidget(QWidget):
                             action_to_perform = action_name
                             break
 
-            place_tile_control = self._find_control_by_action(
-                "place_tile_click")
+            place_tile_control = self._find_control_by_action("place_tile_click")
             if (
                 not is_drag
                 and action_to_perform is None
@@ -625,15 +608,12 @@ class TileEditorWidget(QWidget):
         trigger_type = "ScrollUp" if angle > 0 else "ScrollDown"
         for action_name, control in controls.items():
             if control.get("trigger") == trigger_type:
-                required_modifier = parse_modifier(
-                    control.get("modifier", "None"))
+                required_modifier = parse_modifier(control.get("modifier", "None"))
                 if current_modifiers == required_modifier:
                     action_to_perform = action_name
                     break
 
-        log.debug(
-            "Wheel event", action=action_to_perform, modifiers=current_modifiers
-        )
+        log.debug("Wheel event", action=action_to_perform, modifiers=current_modifiers)
         if not self.scroll_area:
             event.ignore()
             return
@@ -651,8 +631,7 @@ class TileEditorWidget(QWidget):
             new_tile_size = max(min_size, min(new_tile_size, max_size))
 
             if new_tile_size != old_tile_size:
-                widget_point = self.mapFromGlobal(
-                    event.globalPosition().toPoint())
+                widget_point = self.mapFromGlobal(event.globalPosition().toPoint())
                 rel_x = widget_point.x() / self.width() if self.width() > 0 else 0.5
                 rel_y = widget_point.y() / self.height() if self.height() > 0 else 0.5
 
@@ -672,10 +651,8 @@ class TileEditorWidget(QWidget):
                     new_sy = int(target_wy - vp_mouse_pos.y())
                     h_bar = self.scroll_area.horizontalScrollBar()
                     v_bar = self.scroll_area.verticalScrollBar()
-                    h_bar.setValue(
-                        max(h_bar.minimum(), min(new_sx, h_bar.maximum())))
-                    v_bar.setValue(
-                        max(v_bar.minimum(), min(new_sy, v_bar.maximum())))
+                    h_bar.setValue(max(h_bar.minimum(), min(new_sx, h_bar.maximum())))
+                    v_bar.setValue(max(v_bar.minimum(), min(new_sy, v_bar.maximum())))
 
                 QTimer.singleShot(0, adjust_scrollbars)
 
@@ -706,8 +683,7 @@ class TileEditorWidget(QWidget):
 
         for action_name, control in controls.items():
             if control.get("trigger") == "KeyPress":
-                required_modifier = parse_modifier(
-                    control.get("modifier", "None"))
+                required_modifier = parse_modifier(control.get("modifier", "None"))
                 required_key_str = control.get("key")
                 required_key_enum = parse_key(required_key_str)
 
@@ -751,10 +727,8 @@ class TilePaletteWidget(QWidget):
 
         # Connect signals
         self.editor_widget.zoom_changed.connect(self.rebuild_palette)
-        self.editor_widget.selected_tile_changed.connect(
-            self.update_selection_visuals)
-        self.editor_widget.selected_tile_changed.connect(
-            self.update_selected_tile_info)
+        self.editor_widget.selected_tile_changed.connect(self.update_selection_visuals)
+        self.editor_widget.selected_tile_changed.connect(self.update_selected_tile_info)
         self.search_edit.textChanged.connect(self._filter_palette)
 
     def init_ui(self):
@@ -825,8 +799,7 @@ class TilePaletteWidget(QWidget):
         font.setPointSize(font_size)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(
-            pixmap.rect(), Qt.AlignmentFlag.AlignCenter, tile_char)
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, tile_char)
         painter.end()
         return QIcon(pixmap)
 
@@ -899,8 +872,7 @@ class TilePaletteWidget(QWidget):
             btn.setIconSize(icon_qsize)
             desc = tile_data.get("description", "No description")
             btn.setToolTip(f"'{tile_char}': {desc}")
-            btn.clicked.connect(
-                lambda checked, tc=tile_char: self.select_tile(tc))
+            btn.clicked.connect(lambda checked, tc=tile_char: self.select_tile(tc))
             btn.setProperty("tile_char", tile_char)
             btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             btn.customContextMenuRequested.connect(self.show_context_menu)
@@ -945,8 +917,7 @@ class TilePaletteWidget(QWidget):
             if not button_to_check.isChecked():
                 button_to_check.setChecked(True)
         else:  # Fallback
-            default_button = self.buttons.get(
-                self.app_config.get("default_tile", "."))
+            default_button = self.buttons.get(self.app_config.get("default_tile", "."))
             if default_button and not default_button.isChecked():
                 default_button.setChecked(True)
 
@@ -960,8 +931,7 @@ class TilePaletteWidget(QWidget):
         if tile_data:
             desc = tile_data.get("description", "No description")
             self.selected_tile_label.setText(f"'{current_tile}': {desc}")
-            self.selected_tile_label.setToolTip(
-                f"Char: {current_tile}\nDesc: {desc}")
+            self.selected_tile_label.setToolTip(f"Char: {current_tile}\nDesc: {desc}")
         else:
             self.selected_tile_label.setText(f"'{current_tile}': (Unknown)")
             self.selected_tile_label.setToolTip(
@@ -1050,8 +1020,7 @@ class TilePaletteWidget(QWidget):
                         "Tile updated & saved.", 3000
                     )
                 else:
-                    QMessageBox.critical(
-                        self, "Error", f"Failed save: {CONFIG_FILE}")
+                    QMessageBox.critical(self, "Error", f"Failed save: {CONFIG_FILE}")
                     # Reload config to revert in-memory changes
                     self.app_config.clear()  # Clear current dict
                     self.app_config.update(load_config(CONFIG_FILE))  # Reload
@@ -1068,8 +1037,7 @@ class TilePaletteWidget(QWidget):
             return
         is_default = tile_char == self.app_config.get("default_tile")
         if is_default and len(self.app_config.get("tiles", {})) <= 1:
-            QMessageBox.critical(self, "Cannot Delete",
-                                 "Cannot delete last tile.")
+            QMessageBox.critical(self, "Cannot Delete", "Cannot delete last tile.")
             return
         warning = "\n\nWARNING: Deleting default!" if is_default else ""
         reply = QMessageBox.question(
@@ -1111,8 +1079,7 @@ class TilePaletteWidget(QWidget):
                     f"Tile '{tile_char}' deleted.", 3000
                 )
             else:
-                QMessageBox.critical(
-                    self, "Error", f"Failed save: {CONFIG_FILE}")
+                QMessageBox.critical(self, "Error", f"Failed save: {CONFIG_FILE}")
                 self.app_config.clear()
                 self.app_config.update(load_config(CONFIG_FILE))
                 self.rebuild_palette()
@@ -1135,8 +1102,7 @@ class TilePaletteWidget(QWidget):
                 self.rebuild_palette()
                 QApplication.instance().statusBar().showMessage("New tile added.", 3000)
             else:
-                QMessageBox.critical(
-                    self, "Error", f"Failed save: {CONFIG_FILE}")
+                QMessageBox.critical(self, "Error", f"Failed save: {CONFIG_FILE}")
                 self.app_config.clear()
                 self.app_config.update(load_config(CONFIG_FILE))
                 self.rebuild_palette()

@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 # deterministic RNG
-module = types.ModuleType('game_rng')
+module = types.ModuleType("game_rng")
 
 
 class DummyRNG:
@@ -25,25 +25,23 @@ class DummyRNG:
 
 
 module.GameRNG = DummyRNG
-sys.modules['game_rng'] = module
+sys.modules["game_rng"] = module
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
     game_map = GameMap(width=3, height=3)
     game_map.tiles[:] = TILE_ID_FLOOR
     game_map.update_tile_transparency()
-    cfg_path = Path(__file__).resolve().parent.parent / \
-        "config" / "ai_mappings.yaml"
+    cfg_path = Path(__file__).resolve().parent.parent / "config" / "ai_mappings.yaml"
     with cfg_path.open() as f:
         ai_cfg = yaml.safe_load(f)
     gs = GameState(
         existing_map=game_map,
         player_start_pos=(0, 0),
-        player_glyph=ord('@'),
+        player_glyph=ord("@"),
         player_start_hp=10,
         player_fov_radius=4,
         item_templates={},
@@ -64,7 +62,9 @@ def perception(gs, los=None):
 
 
 def _row(gs, eid):
-    return gs.entity_registry.entities_df.filter(pl.col("entity_id") == eid).row(0, named=True)
+    return gs.entity_registry.entities_df.filter(pl.col("entity_id") == eid).row(
+        0, named=True
+    )
 
 
 def test_species_mapping_selects_adapter(monkeypatch):
@@ -72,18 +72,26 @@ def test_species_mapping_selects_adapter(monkeypatch):
     called = {}
 
     def fake_take_turn(*args, **kwargs):
-        called['used'] = True
-    monkeypatch.setitem(ADAPTERS, 'community', fake_take_turn)
+        called["used"] = True
+
+    monkeypatch.setitem(ADAPTERS, "community", fake_take_turn)
     enemy_id = gs.entity_registry.create_entity(
-        x=1, y=1, glyph=ord('h'), color_fg=(255, 255, 255), name='Villager', species='human')
+        x=1,
+        y=1,
+        glyph=ord("h"),
+        color_fg=(255, 255, 255),
+        name="Villager",
+        species="human",
+    )
     dispatch_ai([_row(gs, enemy_id)], gs, gs.rng_instance, perception(gs))
-    assert called.get('used')
+    assert called.get("used")
 
 
 def test_intelligence_mapping_selects_goap_tier():
     gs = create_game_state()
     enemy_id = gs.entity_registry.create_entity(
-        x=1, y=1, glyph=ord('e'), color_fg=(255, 0, 0), name='Enemy', intelligence=2)
+        x=1, y=1, glyph=ord("e"), color_fg=(255, 0, 0), name="Enemy", intelligence=2
+    )
     row = _row(gs, enemy_id)
     los = np.ones((gs.map_height, gs.map_width), dtype=bool)
     los[2, 1] = False  # cover tile

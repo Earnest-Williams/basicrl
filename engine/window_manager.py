@@ -13,12 +13,26 @@ from PIL import Image
 # PySide6 imports
 from PySide6.QtCore import Qt, QTimer  # Added QRect
 from PySide6.QtGui import (
-    QAction, QColor, QCursor, QImage, QKeyEvent,
-    QPalette, QPixmap, QResizeEvent, QWheelEvent,
+    QAction,
+    QColor,
+    QCursor,
+    QImage,
+    QKeyEvent,
+    QPalette,
+    QPixmap,
+    QResizeEvent,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QApplication, QLabel, QMenu, QMenuBar, QMessageBox,
-    QSizePolicy, QVBoxLayout, QWidget, QScrollArea  # Added QScrollArea
+    QApplication,
+    QLabel,
+    QMenu,
+    QMenuBar,
+    QMessageBox,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+    QScrollArea,  # Added QScrollArea
 )
 
 # --- Modularized Imports ---
@@ -33,6 +47,7 @@ if TYPE_CHECKING:
 
 # --- Logging Setup ---
 import structlog
+
 log = structlog.get_logger(__name__)
 # ---
 
@@ -84,8 +99,7 @@ class WindowManager(QWidget):
 
         # --- UI Setup ---
         self.setWindowTitle("Basic Roguelike")
-        self.resize(DEFAULT_INITIAL_WINDOW_WIDTH,
-                    DEFAULT_INITIAL_WINDOW_HEIGHT)
+        self.resize(DEFAULT_INITIAL_WINDOW_WIDTH, DEFAULT_INITIAL_WINDOW_HEIGHT)
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
@@ -104,7 +118,8 @@ class WindowManager(QWidget):
         self.label = QLabel()  # The widget that shows the rendered map
         # Let it expand if needed
         self.label.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self.label.setScaledContents(False)  # Do not scale the pixmap
         # Center if smaller than area
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -179,14 +194,18 @@ class WindowManager(QWidget):
         current_tile_dims = (current_tile_w, current_tile_h)
         current_vp_pixel_dims = (vp_pixel_w, vp_pixel_h)
 
-        if (self._cached_vp_pixel_dims == current_vp_pixel_dims and
-            self._cached_tile_dims == current_tile_dims and
-                self._render_coord_cache):
+        if (
+            self._cached_vp_pixel_dims == current_vp_pixel_dims
+            and self._cached_tile_dims == current_tile_dims
+            and self._render_coord_cache
+        ):
             return  # Cache is still valid
 
         log_context = {
-            "vp_pixel_w": vp_pixel_w, "vp_pixel_h": vp_pixel_h,
-            "tile_w": current_tile_w, "tile_h": current_tile_h
+            "vp_pixel_w": vp_pixel_w,
+            "vp_pixel_h": vp_pixel_h,
+            "tile_w": current_tile_w,
+            "tile_h": current_tile_h,
         }
         log.info("Updating render coordinate cache...", **log_context)
 
@@ -217,13 +236,16 @@ class WindowManager(QWidget):
                 duration_ms=(time.perf_counter() - start_time) * 1000,
                 coord_y_shape=tile_coord_y.shape,
                 coord_x_shape=tile_coord_x.shape,
-                **log_context
+                **log_context,
             )
             # *** END LOGGING ***
 
         except (ValueError, MemoryError, Exception) as e:  # Catch potential errors
             log.error(
-                "Failed to update render coordinate cache", error=e, exc_info=True, **log_context
+                "Failed to update render coordinate cache",
+                error=e,
+                exc_info=True,
+                **log_context,
             )
             # Reset cache on failure
             self._render_coord_cache = {}
@@ -242,15 +264,17 @@ class WindowManager(QWidget):
         png_path_str = str(project_root / "fonts" / "classic_roguelike_sliced")
         use_png_action = QAction("Use PNG Tileset (8x8 base)", self)
         use_png_action.triggered.connect(
-            lambda: self.handle_load_tileset_action(png_path_str, 8, 8))
+            lambda: self.handle_load_tileset_action(png_path_str, 8, 8)
+        )
         tileset_menu.addAction(use_png_action)
-        svg_path_str = str(project_root / "fonts" /
-                           "classic_roguelike_sliced_svgs")
+        svg_path_str = str(project_root / "fonts" / "classic_roguelike_sliced_svgs")
         initial_svg_render_size = 16
-        use_svg_action = QAction(
-            f"Use SVG Tileset (@{initial_svg_render_size}x)", self)
-        use_svg_action.triggered.connect(lambda: self.handle_load_tileset_action(
-            svg_path_str, initial_svg_render_size, initial_svg_render_size))
+        use_svg_action = QAction(f"Use SVG Tileset (@{initial_svg_render_size}x)", self)
+        use_svg_action.triggered.connect(
+            lambda: self.handle_load_tileset_action(
+                svg_path_str, initial_svg_render_size, initial_svg_render_size
+            )
+        )
         tileset_menu.addAction(use_svg_action)
         self.menu_bar.addMenu(tileset_menu)
         log.debug("Menus built")
@@ -265,8 +289,9 @@ class WindowManager(QWidget):
             self._render_coord_cache = {}
             self.update_frame()
         else:
-            QMessageBox.critical(self, "Tileset Error",
-                                 f"Failed to load tileset from:\n{folder}")
+            QMessageBox.critical(
+                self, "Tileset Error", f"Failed to load tileset from:\n{folder}"
+            )
 
     def set_main_loop(self, main_loop: "MainLoop") -> None:
         # (Implementation unchanged)
@@ -283,14 +308,21 @@ class WindowManager(QWidget):
     def update_frame(self) -> None:
         """Updates and redraws the main display label."""
         frame_start_time = time.perf_counter()
-        if (not self.main_loop or not self.main_loop.game_state or
-                not self.tileset_manager or not self.isVisible()):
-            log.debug("Skipping frame update: Components not ready or window not visible.",
-                      has_loop=(self.main_loop is not None),
-                      has_gs=(hasattr(self.main_loop, 'game_state')
-                              if self.main_loop else False),
-                      has_tsm=(self.tileset_manager is not None),
-                      is_visible=self.isVisible())
+        if (
+            not self.main_loop
+            or not self.main_loop.game_state
+            or not self.tileset_manager
+            or not self.isVisible()
+        ):
+            log.debug(
+                "Skipping frame update: Components not ready or window not visible.",
+                has_loop=(self.main_loop is not None),
+                has_gs=(
+                    hasattr(self.main_loop, "game_state") if self.main_loop else False
+                ),
+                has_tsm=(self.tileset_manager is not None),
+                is_visible=self.isVisible(),
+            )
             # self.label.clear() # Maybe don't clear if just invisible?
             return
 
@@ -300,10 +332,19 @@ class WindowManager(QWidget):
         current_tile_w = self.tileset_manager.tile_width
         current_tile_h = self.tileset_manager.tile_height
 
-        if viewport_w <= 0 or viewport_h <= 0 or current_tile_w <= 0 or current_tile_h <= 0:
-            log.warning("Skipping frame: Invalid viewport/tile dimensions",
-                        vp_w=viewport_w, vp_h=viewport_h,
-                        tile_w=current_tile_w, tile_h=current_tile_h)
+        if (
+            viewport_w <= 0
+            or viewport_h <= 0
+            or current_tile_w <= 0
+            or current_tile_h <= 0
+        ):
+            log.warning(
+                "Skipping frame: Invalid viewport/tile dimensions",
+                vp_w=viewport_w,
+                vp_h=viewport_h,
+                tile_w=current_tile_w,
+                tile_h=current_tile_h,
+            )
             self.label.clear()  # Clear display if dimensions are invalid
             return
 
@@ -314,8 +355,9 @@ class WindowManager(QWidget):
 
         # Calculate camera/viewport position based on player
         player_pos = gs.player_position
-        cam_x, cam_y = (player_pos if player_pos else (
-            gs.map_width // 2, gs.map_height // 2))
+        cam_x, cam_y = (
+            player_pos if player_pos else (gs.map_width // 2, gs.map_height // 2)
+        )
 
         # Calculate viewport tile coordinates (top-left corner)
         # Ensure viewport doesn't go out of map bounds
@@ -323,17 +365,22 @@ class WindowManager(QWidget):
         render_cols = min(visible_cols, gs.map_width)
         render_rows = min(visible_rows, gs.map_height)
         viewport_tile_x = max(
-            0, min(cam_x - render_cols // 2, gs.map_width - render_cols))
+            0, min(cam_x - render_cols // 2, gs.map_width - render_cols)
+        )
         viewport_tile_y = max(
-            0, min(cam_y - render_rows // 2, gs.map_height - render_rows))
+            0, min(cam_y - render_rows // 2, gs.map_height - render_rows)
+        )
 
         # Calculate actual number of tiles to render based on map limits
         vp_render_tile_w = min(render_cols, gs.map_width - viewport_tile_x)
         vp_render_tile_h = min(render_rows, gs.map_height - viewport_tile_y)
 
         if vp_render_tile_w <= 0 or vp_render_tile_h <= 0:
-            log.warning("Calculated viewport tile dimensions are zero or negative",
-                        w=vp_render_tile_w, h=vp_render_tile_h)
+            log.warning(
+                "Calculated viewport tile dimensions are zero or negative",
+                w=vp_render_tile_w,
+                h=vp_render_tile_h,
+            )
             self.label.clear()
             return
 
@@ -345,8 +392,9 @@ class WindowManager(QWidget):
         try:
             self._update_render_coord_cache(output_pixel_w, output_pixel_h)
         except Exception as cache_err:
-            log.error("Render coordinate cache update failed",
-                      error=cache_err, exc_info=True)
+            log.error(
+                "Render coordinate cache update failed", error=cache_err, exc_info=True
+            )
             # Attempt to display error on screen? For now, clear.
             self.label.clear()
             return  # Cannot render without valid cache
@@ -385,8 +433,9 @@ class WindowManager(QWidget):
             )
         except Exception as e:
             # Catch errors during the update_console call itself
-            log.error("Error during main_loop.update_console call",
-                      error=e, exc_info=True)
+            log.error(
+                "Error during main_loop.update_console call", error=e, exc_info=True
+            )
             rendered_image = None  # Ensure image is None on error
 
         # Process the result
@@ -401,7 +450,9 @@ class WindowManager(QWidget):
                 img_rgba = img_with_overlays.convert("RGBA")
                 data = img_rgba.tobytes("raw", "RGBA")
                 qimg = QImage(
-                    data, img_with_overlays.width, img_with_overlays.height,
+                    data,
+                    img_with_overlays.width,
+                    img_with_overlays.height,
                     QImage.Format.Format_RGBA8888,
                 )
                 if qimg.isNull():
@@ -413,8 +464,9 @@ class WindowManager(QWidget):
                     self.label.setPixmap(QPixmap.fromImage(qimg))
 
             except Exception as e:
-                log.error("Error converting/displaying final image",
-                          error=e, exc_info=True)
+                log.error(
+                    "Error converting/displaying final image", error=e, exc_info=True
+                )
                 self.label.clear()
 
         else:
@@ -422,16 +474,26 @@ class WindowManager(QWidget):
             self.label.clear()  # Clear display if no image returned
             self.last_rendered_image = None
 
-        log.debug("Frame update finished", duration_ms=(
-            time.perf_counter() - frame_start_time) * 1000)
+        log.debug(
+            "Frame update finished",
+            duration_ms=(time.perf_counter() - frame_start_time) * 1000,
+        )
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         # (Implementation unchanged)
-        if (not self.main_loop or not self.main_loop.game_state or not self.input_handler):
+        if (
+            not self.main_loop
+            or not self.main_loop.game_state
+            or not self.input_handler
+        ):
             event.ignore()
             return
-        key_handled = self.input_handler.process_key_event(event, self.main_loop.game_state,
-                                                           self.main_loop, self.active_keybinding_sets)
+        key_handled = self.input_handler.process_key_event(
+            event,
+            self.main_loop.game_state,
+            self.main_loop,
+            self.active_keybinding_sets,
+        )
         if not key_handled:
             super().keyPressEvent(event)
 
@@ -442,6 +504,7 @@ class WindowManager(QWidget):
         if not bindings_sets:
             help_text += "<p><i>Error: No keybindings found!</i></p>"
         else:
+
             def _format_control_string(binding_dict: PyDict[str, Any]) -> str:
                 key_str = binding_dict.get("key", "?")
                 mods_list = binding_dict.get("mods", [])
@@ -450,6 +513,7 @@ class WindowManager(QWidget):
                 prefix_parts = [mods_str] if mods_str else []
                 prefix_parts.append(f"'{display_key}'")
                 return " + ".join(prefix_parts)
+
             grouped_bindings: PyDict[str, List[str]] = {}
             for set_name, set_dict in bindings_sets.items():
                 if not isinstance(set_dict, dict):
@@ -463,8 +527,7 @@ class WindowManager(QWidget):
                         if description not in grouped_bindings:
                             grouped_bindings[description] = []
                         if formatted_control not in grouped_bindings[description]:
-                            grouped_bindings[description].append(
-                                formatted_control)
+                            grouped_bindings[description].append(formatted_control)
             help_text += "<ul>"
             for desc_key in sorted(grouped_bindings.keys()):
                 controls_str = " / ".join(sorted(grouped_bindings[desc_key]))
@@ -490,9 +553,11 @@ class WindowManager(QWidget):
         # (Implementation unchanged)
         if self.main_loop:
             self.main_loop.show_height_visualization = (
-                not self.main_loop.show_height_visualization)
-            log.info("Height vis toggled",
-                     enabled=self.main_loop.show_height_visualization)
+                not self.main_loop.show_height_visualization
+            )
+            log.info(
+                "Height vis toggled", enabled=self.main_loop.show_height_visualization
+            )
             self.update_frame()
 
     def ui_quit_game(self) -> None:
@@ -531,12 +596,16 @@ class WindowManager(QWidget):
     def _apply_scroll_scaling(self) -> None:
         """Applies pending zoom changes."""
         # Ensure scroll_area exists before using it
-        if not hasattr(self, 'scroll_area') or not self.scroll_area:
+        if not hasattr(self, "scroll_area") or not self.scroll_area:
             log.error("_apply_scroll_scaling called without scroll_area")
             self._pending_tile_size_change = 0
             return
         # (Rest of implementation unchanged)
-        if (not self.main_loop or self._pending_tile_size_change == 0 or not self.tileset_manager):
+        if (
+            not self.main_loop
+            or self._pending_tile_size_change == 0
+            or not self.tileset_manager
+        ):
             return
         viewport_widget = self.scroll_area.viewport()
         if not viewport_widget:
@@ -564,10 +633,16 @@ class WindowManager(QWidget):
         accumulated_change = self._pending_tile_size_change
         self._pending_tile_size_change = 0
         if new_width != old_tile_w or new_height != old_tile_h:
-            log.info("Applying zoom", change=accumulated_change, old=f"{
-                     old_tile_w}x{old_tile_h}", new=f"{new_width}x{new_height}")
+            log.info(
+                "Applying zoom",
+                change=accumulated_change,
+                old=f"{
+                     old_tile_w}x{old_tile_h}",
+                new=f"{new_width}x{new_height}",
+            )
             success = self.tileset_manager.load_new_tileset(
-                self.tileset_manager.current_tileset_path, new_width, new_height)
+                self.tileset_manager.current_tileset_path, new_width, new_height
+            )
             if success:
                 self._cached_vp_pixel_dims = None
                 self._cached_tile_dims = None
@@ -578,13 +653,20 @@ class WindowManager(QWidget):
                     QApplication.processEvents()  # Allow resize events to process
                     current_h_bar = self.scroll_area.horizontalScrollBar()
                     current_v_bar = self.scroll_area.verticalScrollBar()
-                    new_content_x_at_grid = grid_x_at_mouse * self.tileset_manager.tile_width
-                    new_content_y_at_grid = grid_y_at_mouse * self.tileset_manager.tile_height
+                    new_content_x_at_grid = (
+                        grid_x_at_mouse * self.tileset_manager.tile_width
+                    )
+                    new_content_y_at_grid = (
+                        grid_y_at_mouse * self.tileset_manager.tile_height
+                    )
                     current_h_bar.setValue(
-                        int(new_content_x_at_grid - mouse_pos_in_viewport.x()))
+                        int(new_content_x_at_grid - mouse_pos_in_viewport.x())
+                    )
                     current_v_bar.setValue(
-                        int(new_content_y_at_grid - mouse_pos_in_viewport.y()))
+                        int(new_content_y_at_grid - mouse_pos_in_viewport.y())
+                    )
                     log.debug("Recentered view after successful zoom.")
+
                 QTimer.singleShot(0, recenter_view_after_zoom)
             else:
                 log.error("Zoom failed because tileset failed to load new size.")

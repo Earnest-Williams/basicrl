@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 log = structlog.get_logger()
 
 
-def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
+def _ensure_pathfinder(game_state: "GameState") -> FlowFieldPathfinder:
     """Return a cached FlowFieldPathfinder tied to the current map."""
 
     game_map = game_state.game_map
@@ -42,9 +42,9 @@ def _ensure_pathfinder(game_state: 'GameState') -> FlowFieldPathfinder:
 
 def take_turn(
     entity_row,
-    game_state: 'GameState',
-    rng: 'GameRNG',
-    perception: Tuple['np.ndarray', 'np.ndarray', 'np.ndarray'],
+    game_state: "GameState",
+    rng: "GameRNG",
+    perception: Tuple["np.ndarray", "np.ndarray", "np.ndarray"],
     **kwargs,
 ) -> None:
     """Execute one turn for an entity using the community AI system.

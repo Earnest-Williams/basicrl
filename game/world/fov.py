@@ -26,12 +26,14 @@ Point: TypeAlias = tuple[int, int]
 Slope: TypeAlias = tuple[int, int]  # (y, x) representation
 
 # Numba type definitions
-sector_type = numba.types.Tuple((
-    numba.int64,  # octant
-    numba.int64,  # x
-    numba.types.Tuple((numba.int64, numba.int64)),  # top slope (y, x)
-    numba.types.Tuple((numba.int64, numba.int64)),  # bottom slope (y, x)
-))
+sector_type = numba.types.Tuple(
+    (
+        numba.int64,  # octant
+        numba.int64,  # x
+        numba.types.Tuple((numba.int64, numba.int64)),  # top slope (y, x)
+        numba.types.Tuple((numba.int64, numba.int64)),  # bottom slope (y, x)
+    )
+)
 
 # --- Logging Setup ---
 log = structlog.get_logger(__name__)
@@ -100,7 +102,9 @@ def slope_less_or_equal(slope1_yx: Slope, y: int, x: int) -> bool:
 
 
 @numba.njit(cache=True)
-def _transform_coords(octant_x: int, octant_y: int, octant: int, origin_xy: Point) -> Point:
+def _transform_coords(
+    octant_x: int, octant_y: int, octant: int, origin_xy: Point
+) -> Point:
     """Transform coordinates based on octant."""
     ox, oy = origin_xy
     nx, ny = ox, oy
@@ -133,9 +137,15 @@ def _transform_coords(octant_x: int, octant_y: int, octant: int, origin_xy: Poin
 
 @numba.njit(cache=True)
 def blocks_light_at(
-    octant_x: int, octant_y: int, octant: int, origin_xy: Point,
-    grid_shape: tuple[int, int], opaque_grid: np.ndarray,
-    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int
+    octant_x: int,
+    octant_y: int,
+    octant: int,
+    origin_xy: Point,
+    grid_shape: tuple[int, int],
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
 ) -> bool:
     """Check if a tile blocks light, considering bounds, opacity, and height."""
     nx, ny = _transform_coords(octant_x, octant_y, octant, origin_xy)
@@ -161,16 +171,23 @@ def blocks_light_at(
     if dist_sq <= CLOSE_RANGE_SQ_THRESHOLD:
         threshold = dist_sq // CLOSE_RANGE_DIVISOR
     else:
-        threshold = _THRESHOLD_AT_CUTOFF + \
-            (dist_sq - CLOSE_RANGE_SQ_THRESHOLD) // FAR_RANGE_DIVISOR
+        threshold = (
+            _THRESHOLD_AT_CUTOFF
+            + (dist_sq - CLOSE_RANGE_SQ_THRESHOLD) // FAR_RANGE_DIVISOR
+        )
 
     return abs(target_h - origin_height) > threshold
 
 
 @numba.njit(cache=True)
 def set_visible_at(
-    octant_x: int, octant_y: int, octant: int, origin_xy: Point,
-    grid_shape: tuple[int, int], visible_grid: np.ndarray, explored_grid: np.ndarray
+    octant_x: int,
+    octant_y: int,
+    octant: int,
+    origin_xy: Point,
+    grid_shape: tuple[int, int],
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,
 ) -> None:
     """Mark a tile as visible and explored."""
     nx, ny = _transform_coords(octant_x, octant_y, octant, origin_xy)
@@ -188,9 +205,14 @@ def is_in_range(octant_x: int, octant_y: int, range_limit_sq: int | float) -> bo
 
 @numba.njit(cache=True)
 def _compute_fov_numba_core(
-    origin_xy: Point, range_limit: int, opaque_grid: np.ndarray,
-    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int,
-    visible_grid: np.ndarray, explored_grid: np.ndarray
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,
 ) -> None:
     """Numba-optimized FOV core computation."""
     range_limit_sq = range_limit * range_limit
@@ -220,16 +242,31 @@ def _compute_fov_numba_core(
             cell_x = 2 * current_x
             center_y, center_x = current_y, current_x
 
-            if slope_less(top_slope, center_y, center_x) or \
-               slope_less_or_equal(bottom_slope, center_y, center_x):
+            if slope_less(top_slope, center_y, center_x) or slope_less_or_equal(
+                bottom_slope, center_y, center_x
+            ):
                 continue
 
-            set_visible_at(current_x, current_y, octant, origin_xy,
-                           grid_shape, visible_grid, explored_grid)
+            set_visible_at(
+                current_x,
+                current_y,
+                octant,
+                origin_xy,
+                grid_shape,
+                visible_grid,
+                explored_grid,
+            )
 
             cell_blocks = blocks_light_at(
-                current_x, current_y, octant, origin_xy, grid_shape,
-                opaque_grid, height_map, ceiling_map, origin_height
+                current_x,
+                current_y,
+                octant,
+                origin_xy,
+                grid_shape,
+                opaque_grid,
+                height_map,
+                ceiling_map,
+                origin_height,
             )
 
             if blocked:
@@ -242,8 +279,9 @@ def _compute_fov_numba_core(
                 if cell_blocks:
                     blocked = True
                     if slope_greater(top_slope, cell_bottom_y, cell_x):
-                        sectors.append((octant, current_x + 1,
-                                        top_slope, (cell_bottom_y, cell_x)))
+                        sectors.append(
+                            (octant, current_x + 1, top_slope, (cell_bottom_y, cell_x))
+                        )
                     top_slope = (cell_top_y, cell_x)
 
         if not blocked:
@@ -251,9 +289,14 @@ def _compute_fov_numba_core(
 
 
 def _compute_fov_python_fallback(
-    origin_xy: Point, range_limit: int, opaque_grid: np.ndarray,
-    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int,
-    visible_grid: np.ndarray, explored_grid: np.ndarray
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,
 ) -> None:
     """Python fallback implementation for debugging and fallback."""
     range_limit_sq = range_limit * range_limit
@@ -279,16 +322,31 @@ def _compute_fov_python_fallback(
             cell_x = 2 * current_x
             center_y, center_x = current_y, current_x
 
-            if slope_less(top_slope, center_y, center_x) or \
-               slope_less_or_equal(bottom_slope, center_y, center_x):
+            if slope_less(top_slope, center_y, center_x) or slope_less_or_equal(
+                bottom_slope, center_y, center_x
+            ):
                 continue
 
-            set_visible_at(current_x, current_y, octant, origin_xy,
-                           grid_shape, visible_grid, explored_grid)
+            set_visible_at(
+                current_x,
+                current_y,
+                octant,
+                origin_xy,
+                grid_shape,
+                visible_grid,
+                explored_grid,
+            )
 
             cell_blocks = blocks_light_at(
-                current_x, current_y, octant, origin_xy, grid_shape,
-                opaque_grid, height_map, ceiling_map, origin_height
+                current_x,
+                current_y,
+                octant,
+                origin_xy,
+                grid_shape,
+                opaque_grid,
+                height_map,
+                ceiling_map,
+                origin_height,
             )
 
             if blocked:
@@ -301,8 +359,9 @@ def _compute_fov_python_fallback(
                 if cell_blocks:
                     blocked = True
                     if slope_greater(top_slope, cell_bottom_y, cell_x):
-                        sectors.append((octant, current_x + 1,
-                                        top_slope, (cell_bottom_y, cell_x)))
+                        sectors.append(
+                            (octant, current_x + 1, top_slope, (cell_bottom_y, cell_x))
+                        )
                     top_slope = (cell_top_y, cell_x)
 
         if not blocked:
@@ -310,18 +369,21 @@ def _compute_fov_python_fallback(
 
 
 def compute_fov(
-    origin_xy: Point, range_limit: int, opaque_grid: np.ndarray,
-    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int,
-    visible_grid: np.ndarray, explored_grid: np.ndarray
+    origin_xy: Point,
+    range_limit: int,
+    opaque_grid: np.ndarray,
+    height_map: np.ndarray,
+    ceiling_map: np.ndarray,
+    origin_height: int,
+    visible_grid: np.ndarray,
+    explored_grid: np.ndarray,
 ) -> None:
     """
     Public interface for FOV computation.
     Attempts Numba-optimized version first, falls back to Python implementation.
     """
     func_log = log.bind(
-        origin=origin_xy,
-        range_limit=range_limit,
-        grid_shape=opaque_grid.shape
+        origin=origin_xy, range_limit=range_limit, grid_shape=opaque_grid.shape
     )
     func_log.info("Starting FOV computation")
     start_time = time.perf_counter()
@@ -333,10 +395,10 @@ def compute_fov(
         raise ValueError("Grid shapes must match")
     if not np.issubdtype(opaque_grid.dtype, np.bool_):
         opaque_grid = opaque_grid.astype(np.bool_)
-    if not np.issubdtype(visible_grid.dtype, np.bool_) or \
-       not np.issubdtype(explored_grid.dtype, np.bool_):
-        raise TypeError(
-            "visible_grid and explored_grid must be boolean arrays")
+    if not np.issubdtype(visible_grid.dtype, np.bool_) or not np.issubdtype(
+        explored_grid.dtype, np.bool_
+    ):
+        raise TypeError("visible_grid and explored_grid must be boolean arrays")
 
     height, width = opaque_grid.shape
     ox, oy = origin_xy
@@ -351,23 +413,31 @@ def compute_fov(
     try:
         # Try Numba-optimized version first
         _compute_fov_numba_core(
-            origin_xy, range_limit, opaque_grid,
-            height_map, ceiling_map, origin_height,
-            visible_grid, explored_grid
+            origin_xy,
+            range_limit,
+            opaque_grid,
+            height_map,
+            ceiling_map,
+            origin_height,
+            visible_grid,
+            explored_grid,
         )
     except Exception as e:
-        func_log.warning(
-            "Numba FOV failed, falling back to Python", error=str(e))
+        func_log.warning("Numba FOV failed, falling back to Python", error=str(e))
         try:
             # Fall back to Python version
             _compute_fov_python_fallback(
-                origin_xy, range_limit, opaque_grid,
-                height_map, ceiling_map, origin_height,
-                visible_grid, explored_grid
+                origin_xy,
+                range_limit,
+                opaque_grid,
+                height_map,
+                ceiling_map,
+                origin_height,
+                visible_grid,
+                explored_grid,
             )
         except Exception as e:
-            func_log.error("FOV calculation failed",
-                           error=str(e), exc_info=True)
+            func_log.error("FOV calculation failed", error=str(e), exc_info=True)
             visible_grid.fill(False)
             visible_grid[oy, ox] = True
 
@@ -376,7 +446,7 @@ def compute_fov(
     func_log.info(
         "FOV computation finished",
         duration_ms=f"{duration_ms:.2f}",
-        visible_count=np.sum(visible_grid)
+        visible_count=np.sum(visible_grid),
     )
 
 

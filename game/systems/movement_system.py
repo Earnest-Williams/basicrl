@@ -70,12 +70,16 @@ def try_move(entity_id: int, dx: int, dy: int, gs: GameState) -> bool:
             # Import sound system dynamically to avoid circular imports
             try:
                 from game.systems.sound import handle_event
-                terrain_type = gs.game_map.get_tile_type_name(dest_x, dest_y) if hasattr(
-                    gs.game_map, 'get_tile_type_name') else "floor"
+
+                terrain_type = (
+                    gs.game_map.get_tile_type_name(dest_x, dest_y)
+                    if hasattr(gs.game_map, "get_tile_type_name")
+                    else "floor"
+                )
                 sound_context = {
                     "entity": "player",
                     "terrain": terrain_type,
-                    "position": (dest_x, dest_y)
+                    "position": (dest_x, dest_y),
                 }
                 handle_event("player_move", sound_context)
             except ImportError:

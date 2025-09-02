@@ -56,8 +56,7 @@ def register_friction_callback(event: str, callback: FrictionCallback) -> None:
     """
 
     FRICTION_CALLBACKS.setdefault(event, []).append(callback)
-    log.debug("Registered friction callback",
-              event_name=event, callback=callback)
+    log.debug("Registered friction callback", event_name=event, callback=callback)
 
 
 def _dispatch_friction_event(event: str, work: "Work", context: "GameState") -> None:
@@ -66,8 +65,7 @@ def _dispatch_friction_event(event: str, work: "Work", context: "GameState") -> 
         try:
             cb(work, context)
         except Exception as err:  # pragma: no cover - defensive
-            log.error("Friction callback failed",
-                      event_name=event, error=str(err))
+            log.error("Friction callback failed", event_name=event, error=str(err))
 
 
 def register_handler(art: Art, substance: Substance, handler: EffectHandler) -> None:
@@ -84,6 +82,7 @@ class Work:
     legacy callable flow (``func``). The ``substances`` set is retained for
     compatibility with ward checks; it is auto-populated from ``substance``.
     """
+
     art: Art
     substance: Substance
 
@@ -139,8 +138,7 @@ def execute_work(
 
     # 1) Ward gate
     if is_blocked(work, wards, counterseals):
-        log.info("Work blocked by ward", art=work.art,
-                 substances=list(work.substances))
+        log.info("Work blocked by ward", art=work.art, substances=list(work.substances))
         return False
 
     # 2) Placeholder validations
@@ -158,8 +156,7 @@ def execute_work(
     handler = EFFECT_HANDLERS.get((work.art, work.substance))
     ran = False
     if handler:
-        log.debug("Applying effect handler",
-                  art=work.art, substance=work.substance)
+        log.debug("Applying effect handler", art=work.art, substance=work.substance)
         handler(work, context)
         ran = True
     elif work.func is not None:
@@ -238,9 +235,12 @@ def _update_friction(work: Work, context: GameState) -> None:
 def _apply_status(context: GameState, status_id: str, duration: int) -> None:
     """Apply a status effect to the acting entity if components exist."""
     try:
-        statuses = context.entity_registry.get_entity_component(
-            context.player_id, "status_effects"
-        ) or []
+        statuses = (
+            context.entity_registry.get_entity_component(
+                context.player_id, "status_effects"
+            )
+            or []
+        )
         updated = list(statuses)
         updated.append({"id": status_id, "duration": duration})
         context.entity_registry.set_entity_component(
@@ -259,8 +259,7 @@ def _drain_player_fuel(context: GameState, amount: int) -> None:
 def _drain_player_hp(context: GameState, amount: int) -> None:
     """Reduce the player's hit points via the entity registry."""
     try:
-        hp = context.entity_registry.get_entity_component(
-            context.player_id, "hp")
+        hp = context.entity_registry.get_entity_component(context.player_id, "hp")
         if hp is not None:
             context.entity_registry.set_entity_component(
                 context.player_id, "hp", max(0, hp - amount)

@@ -1,4 +1,3 @@
-
 """Utilities for simple magic system involving Works, Wards and Counterseals, and a simple in-memory library of Works."""
 
 # ``Work`` is defined in multiple modules.  The executor's ``Work`` represents the

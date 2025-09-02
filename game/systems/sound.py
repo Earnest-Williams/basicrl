@@ -37,21 +37,23 @@ log = structlog.get_logger(__name__)
 AUDIO_BACKEND = None
 try:
     from openal import oalOpen, Listener, AL_PLAYING
+
     AUDIO_BACKEND = "pyopenal"
     log.info("Using pyopenal audio backend")
 except Exception:  # pragma: no cover - backend availability depends on environment
     try:
         import pygame.mixer as audio_backend
+
         AUDIO_BACKEND = "pygame"
         log.info("Using pygame audio backend")
     except ImportError:
         try:
             import simpleaudio as audio_backend
+
             AUDIO_BACKEND = "simpleaudio"
             log.info("Using simpleaudio backend")
         except ImportError:
-            log.warning(
-                "No audio backend available - sound system will be disabled")
+            log.warning("No audio backend available - sound system will be disabled")
 
 
 class SoundEffect:
@@ -166,8 +168,7 @@ class SoundManager:
 
         # Load configuration
         if config_path is None:
-            config_path = Path(__file__).parent.parent.parent / \
-                "config" / "sounds.yaml"
+            config_path = Path(__file__).parent.parent.parent / "config" / "sounds.yaml"
 
         try:
             self._load_config(config_path)
@@ -183,18 +184,16 @@ class SoundManager:
             log.warning(f"Sound config file not found: {config_path}")
             return
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         # Load general audio settings
         audio_config = config.get("audio", {})
-        self.enabled = audio_config.get(
-            "enabled", True) and AUDIO_BACKEND is not None
+        self.enabled = audio_config.get("enabled", True) and AUDIO_BACKEND is not None
         self.master_volume = audio_config.get("master_volume", 1.0)
         self.sfx_volume = audio_config.get("sfx_volume", 1.0)
         self.music_volume = audio_config.get("music_volume", 1.0)
-        self.max_concurrent_sounds = audio_config.get(
-            "max_concurrent_sounds", 8)
+        self.max_concurrent_sounds = audio_config.get("max_concurrent_sounds", 8)
         self.sound_fade_distance = audio_config.get("sound_fade_distance", 10)
 
         # Load sound effects
@@ -202,8 +201,7 @@ class SoundManager:
         base_sound_path = config_path.parent / "sounds"
 
         for sfx_name, sfx_data in sfx_config.items():
-            self.sound_effects[sfx_name] = SoundEffect(
-                sfx_data, base_sound_path)
+            self.sound_effects[sfx_name] = SoundEffect(sfx_data, base_sound_path)
 
         # Load background music
         music_config = config.get("background_music", {})
@@ -211,7 +209,8 @@ class SoundManager:
 
         for music_name, music_data in music_config.items():
             self.background_music[music_name] = BackgroundMusic(
-                music_data, base_music_path)
+                music_data, base_music_path
+            )
 
         # Load event mappings
         self.event_mappings = config.get("event_mappings", {})
@@ -219,8 +218,10 @@ class SoundManager:
         # Load situational modifiers
         self.situational_modifiers = config.get("situational_modifiers", {})
 
-        log.info(f"Loaded sound config: {len(self.sound_effects)} effects, {
-                 len(self.background_music)} music tracks")
+        log.info(
+            f"Loaded sound config: {len(self.sound_effects)} effects, {
+                 len(self.background_music)} music tracks"
+        )
 
     def _initialize_audio_backend(self) -> None:
         """Initialize the audio backend."""
@@ -234,8 +235,8 @@ class SoundManager:
                 log.info("PyOpenAL audio backend initialized")
             elif AUDIO_BACKEND == "pygame":
                 import pygame
-                pygame.mixer.pre_init(
-                    frequency=22050, size=-16, channels=2, buffer=512)
+
+                pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
                 pygame.mixer.init()
                 log.info("Pygame audio backend initialized")
             elif AUDIO_BACKEND == "simpleaudio":
@@ -245,7 +246,9 @@ class SoundManager:
             log.error(f"Failed to initialize audio backend: {e}")
             self.enabled = False
 
-    def play_sound_effect(self, effect_name: str, context: Optional[Dict[str, Any]] = None) -> bool:
+    def play_sound_effect(
+        self, effect_name: str, context: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Play a sound effect with the given context."""
         if not self.enabled or effect_name not in self.sound_effects:
             return False
@@ -261,13 +264,17 @@ class SoundManager:
         if effect.effect_type == "procedural":
             try:
                 from game.audio import synthesis
+
                 temp_file = synthesis.generate_sound(
-                    effect.generator or "", effect.settings)
+                    effect.generator or "", effect.settings
+                )
                 cleanup_files.append(temp_file)
                 sound_file = temp_file
             except Exception as exc:
-                log.warning(f"Failed to generate procedural sound {
-                            effect_name}: {exc}")
+                log.warning(
+                    f"Failed to generate procedural sound {
+                            effect_name}: {exc}"
+                )
                 return False
         else:
             sound_file = effect.get_random_file()
@@ -280,12 +287,10 @@ class SoundManager:
         game_map: Optional["GameMap"] = None
         noise_map = None
         if context:
-            source_pos = context.get(
-                "source_position") or context.get("position")
+            source_pos = context.get("source_position") or context.get("position")
             lp = context.get("listener_position")
             if lp:
-                listener_pos = (lp[0], lp[1], 0.0) if len(
-                    lp) == 2 else tuple(lp)
+                listener_pos = (lp[0], lp[1], 0.0) if len(lp) == 2 else tuple(lp)
             lo = context.get("listener_orientation")
             if lo:
                 listener_orient = (lo[0], lo[1])
@@ -365,8 +370,12 @@ class SoundManager:
         if best_name != self.current_music_name:
             self._switch_background_music(best_music, best_name, context)
 
-    def _switch_background_music(self, new_music: Optional[BackgroundMusic],
-                                 music_name: Optional[str], context: Dict[str, Any]) -> None:
+    def _switch_background_music(
+        self,
+        new_music: Optional[BackgroundMusic],
+        music_name: Optional[str],
+        context: Dict[str, Any],
+    ) -> None:
         """Switch to new background music with proper fading."""
         if not self.enabled:
             return
@@ -379,17 +388,17 @@ class SoundManager:
         if new_music:
             music_file = new_music.generate(context)
             if music_file:
-                volume = self._calculate_music_volume(
-                    new_music.volume, context)
+                volume = self._calculate_music_volume(new_music.volume, context)
                 try:
-                    self._play_background_music_file(
-                        music_file, volume, new_music.loop)
+                    self._play_background_music_file(music_file, volume, new_music.loop)
                     self.current_music_name = music_name
                     self.current_music_file = music_file
                     log.debug(f"Switched to background music: {music_name}")
                 except Exception as e:
-                    log.warning(f"Failed to play background music {
-                                music_name}: {e}")
+                    log.warning(
+                        f"Failed to play background music {
+                                music_name}: {e}"
+                    )
                     self.current_music_file = None
 
     def _calculate_volume(
@@ -409,26 +418,24 @@ class SoundManager:
             context = {}
 
         # Apply distance-based falloff if not handled by backend
-        distance = 0 if AUDIO_BACKEND == "pyopenal" else context.get(
-            "distance", 0)
+        distance = 0 if AUDIO_BACKEND == "pyopenal" else context.get("distance", 0)
         if distance > 0 and self.sound_fade_distance > 0:
-            distance_modifier = max(
-                0.0, 1.0 - (distance / self.sound_fade_distance))
+            distance_modifier = max(0.0, 1.0 - (distance / self.sound_fade_distance))
             final_volume *= distance_modifier
 
         # Apply environmental modifiers
         environment = context.get("environment")
         if environment and "environment_effects" in self.situational_modifiers:
             env_effects = self.situational_modifiers["environment_effects"].get(
-                environment, {})
+                environment, {}
+            )
             volume_modifier = env_effects.get("volume_modifier", 1.0)
             final_volume *= volume_modifier
 
         # Apply time-of-day modifiers
         time_of_day = context.get("time_of_day")
         if time_of_day and "time_of_day" in self.situational_modifiers:
-            tod_effects = self.situational_modifiers["time_of_day"].get(
-                time_of_day, {})
+            tod_effects = self.situational_modifiers["time_of_day"].get(time_of_day, {})
             final_volume *= tod_effects.get("volume_modifier", 1.0)
 
         occlusion_cfg = self.situational_modifiers.get("occlusion", {})
@@ -443,8 +450,7 @@ class SoundManager:
                 if cost < infinity:
                     noise_dist = cost - BASE_FLOW_CENTER
                     if NOISE_STRENGTH > 0:
-                        noise_modifier = max(
-                            0.0, 1.0 - (noise_dist / NOISE_STRENGTH))
+                        noise_modifier = max(0.0, 1.0 - (noise_dist / NOISE_STRENGTH))
                         final_volume *= noise_modifier
                 else:
                     final_volume = 0.0
@@ -480,13 +486,11 @@ class SoundManager:
         env_name = context.get("environment")
         if not env_name or "environment_effects" not in self.situational_modifiers:
             return fname
-        env_cfg = self.situational_modifiers["environment_effects"].get(
-            env_name, {})
+        env_cfg = self.situational_modifiers["environment_effects"].get(env_name, {})
         tod_cfg: Dict[str, Any] = {}
         time_of_day = context.get("time_of_day")
         if time_of_day and "time_of_day" in self.situational_modifiers:
-            tod_cfg = self.situational_modifiers["time_of_day"].get(
-                time_of_day, {})
+            tod_cfg = self.situational_modifiers["time_of_day"].get(time_of_day, {})
 
         reverb_amt = env_cfg.get("reverb")
         lp_amt = env_cfg.get("low_pass_filter")
@@ -523,7 +527,8 @@ class SoundManager:
         echo = segment - 20
         for i in range(1, 4):
             segment = segment.overlay(
-                echo, position=delay * i, gain_during_overlay=-decay * i * 10)
+                echo, position=delay * i, gain_during_overlay=-decay * i * 10
+            )
         return segment
 
     def _apply_eq(self, segment, eq_cfg: Dict[str, float]):
@@ -540,7 +545,9 @@ class SoundManager:
             segment = mid.overlay(treble)
         return segment
 
-    def _calculate_music_volume(self, base_volume: float, context: Dict[str, Any]) -> float:
+    def _calculate_music_volume(
+        self, base_volume: float, context: Dict[str, Any]
+    ) -> float:
         """Calculate background music volume with modifiers."""
         return max(0.0, min(1.0, base_volume * self.music_volume * self.master_volume))
 
@@ -549,8 +556,9 @@ class SoundManager:
         if not self.active_sounds:
             return
         if AUDIO_BACKEND == "pyopenal":
-            finished = {s for s in self.active_sounds if getattr(
-                s, "state", None) != AL_PLAYING}
+            finished = {
+                s for s in self.active_sounds if getattr(s, "state", None) != AL_PLAYING
+            }
             for src in finished:
                 try:
                     src.stop()
@@ -585,8 +593,7 @@ class SoundManager:
         dx = source_pos[0] - listener_pos[0]
         dy = source_pos[1] - listener_pos[1]
         angle_to_source = math.atan2(dy, dx)
-        listener_angle = math.atan2(
-            listener_orientation[1], listener_orientation[0])
+        listener_angle = math.atan2(listener_orientation[1], listener_orientation[0])
         angle = angle_to_source - listener_angle
         pan = math.sin(angle)
         return max(-1.0, min(1.0, pan))
@@ -607,8 +614,7 @@ class SoundManager:
                 sound = oalOpen(fname)
                 src = sound.play()
                 if pitch_variance:
-                    pitch = 1.0 + \
-                        random.uniform(-pitch_variance, pitch_variance)
+                    pitch = 1.0 + random.uniform(-pitch_variance, pitch_variance)
                     src.set_pitch(pitch)
                 src.set_gain(volume)
                 if source_pos:
@@ -637,7 +643,8 @@ class SoundManager:
                 if channel:
                     if source_pos and listener_pos and listener_orientation:
                         pan = self._calculate_pan(
-                            source_pos, listener_pos, listener_orientation)
+                            source_pos, listener_pos, listener_orientation
+                        )
                         left = volume * (1 - pan) / 2
                         right = volume * (1 + pan) / 2
                         channel.set_volume(left, right)
@@ -660,7 +667,9 @@ class SoundManager:
         log.debug(f"No audio backend to play sound: {fname}")
         return False
 
-    def _play_background_music_file(self, filename: Path, volume: float, loop: bool = True) -> None:
+    def _play_background_music_file(
+        self, filename: Path, volume: float, loop: bool = True
+    ) -> None:
         """Play background music using the current audio backend."""
         fname = str(filename)
         if AUDIO_BACKEND == "pyopenal":
@@ -717,7 +726,9 @@ class SoundManager:
         self.current_music = None
         self.current_music_name = None
 
-    def handle_game_event(self, event_name: str, context: Optional[Dict[str, Any]] = None) -> None:
+    def handle_game_event(
+        self, event_name: str, context: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Handle a game event that might trigger sound effects."""
         if not self.enabled:
             return

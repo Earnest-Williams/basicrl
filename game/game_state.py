@@ -19,11 +19,16 @@ from simulation.zone_manager import ZoneManager
 # Import sound system
 try:
     from game.systems.sound import get_sound_manager, update_music_context
+
     SOUND_AVAILABLE = True
 except ImportError:
     SOUND_AVAILABLE = False
-    def get_sound_manager(): return None
-    def update_music_context(context): pass
+
+    def get_sound_manager():
+        return None
+
+    def update_music_context(context):
+        pass
 
 
 log = structlog.get_logger()
@@ -96,8 +101,7 @@ class GameState:
         duration = mf_config.get("duration", 60.0)
         self.memory_fade_enabled: bool = mf_config.get("enabled", True)
         self.memory_fade_duration: float = duration
-        self.memory_fade_midpoint: float = mf_config.get(
-            "midpoint", duration / 2.0)
+        self.memory_fade_midpoint: float = mf_config.get("midpoint", duration / 2.0)
         self.memory_fade_steepness: float = mf_config.get(
             "steepness", 6.0 / duration if duration else 0.0
         )
@@ -139,19 +143,17 @@ class GameState:
         # Track light sources (player has a default white light)
         self.light_sources: list[LightSource] = self.game_map.light_sources
         self.light_sources.append(
-            LightSource(player_start_x, player_start_y,
-                        player_fov_radius, (255, 255, 255))
+            LightSource(
+                player_start_x, player_start_y, player_fov_radius, (255, 255, 255)
+            )
         )
         self.player_light_index: int = 0
         self.player_max_fuel: int = 100
         self.player_fuel: int = self.player_max_fuel
 
         # Track simulation zones for coarse updates when entities are far away
-        self.zone_manager: ZoneManager = ZoneManager(
-            self._map_width, self._map_height
-        )
-        self.timed_events: list[tuple[int, int,
-                                      Callable[["GameState"], None]]] = []
+        self.zone_manager: ZoneManager = ZoneManager(self._map_width, self._map_height)
+        self.timed_events: list[tuple[int, int, Callable[["GameState"], None]]] = []
         self._next_timed_event_id: int = 0
 
         # --- NEW: UI State ---
@@ -190,8 +192,7 @@ class GameState:
         if player_pos:
             px, py = player_pos
             if not self.game_map.in_bounds(px, py):
-                log.warning(
-                    "Player out of bounds, cannot compute FOV.", pos=(px, py))
+                log.warning("Player out of bounds, cannot compute FOV.", pos=(px, py))
                 # Clear visibility if player is OOB
                 self.game_map.visible[:] = False
                 return
@@ -263,9 +264,7 @@ class GameState:
     ) -> None:
         """Queue a message to display when ``entity_id`` becomes visible."""
         self.message_queue.append((entity_id, text, color))
-        log.debug(
-            "Message queued", entity_id=entity_id, message=text, color=color
-        )
+        log.debug("Message queued", entity_id=entity_id, message=text, color=color)
 
     def flush_message_queue(self) -> None:
         """Deliver queued messages whose entities are now visible."""
@@ -294,8 +293,7 @@ class GameState:
     def _process_status_effects_for_entity(self, entity_id: int) -> None:
         """Tick down status effects for a single entity."""
         status_effects = (
-            self.entity_registry.get_entity_component(
-                entity_id, "status_effects") or []
+            self.entity_registry.get_entity_component(entity_id, "status_effects") or []
         )
         if not status_effects:
             return
@@ -310,8 +308,7 @@ class GameState:
                     "Status effect expired", entity_id=entity_id, effect=effect_id
                 )
                 entity_name = (
-                    self.entity_registry.get_entity_component(
-                        entity_id, "name")
+                    self.entity_registry.get_entity_component(entity_id, "name")
                     or f"Entity {entity_id}"
                 )
                 self.add_message(f"{entity_name}'s {effect_id} wears off.")
@@ -324,8 +321,7 @@ class GameState:
         """Reduce generic per-turn resources like fullness or fuel."""
         for res in ("fullness", "fuel"):
             try:
-                value = self.entity_registry.get_entity_component(
-                    entity_id, res)
+                value = self.entity_registry.get_entity_component(entity_id, res)
             except ValueError:
                 continue
             if value is None:
@@ -357,15 +353,16 @@ class GameState:
         items = self.entity_registry.get_entity_component(entity_id, component)
         return bool(items and value in items)
 
-    def _list_component_consume(self, entity_id: int, component: str, value: str) -> bool:
+    def _list_component_consume(
+        self, entity_id: int, component: str, value: str
+    ) -> bool:
         """Generic helper to remove a value from a list component if present."""
         items = self.entity_registry.get_entity_component(entity_id, component)
         if not items or value not in items:
             return False
         updated = list(items)
         updated.remove(value)
-        self.entity_registry.set_entity_component(
-            entity_id, component, updated)
+        self.entity_registry.set_entity_component(entity_id, component, updated)
         return True
 
     def has_seal_tag(self, entity_id: int, tag: str) -> bool:
@@ -529,34 +526,47 @@ class GameState:
             px, py = player_pos
             # Look for nearby hostile entities within FOV
             for row in self.entity_registry.entities_df.iter_rows(named=True):
-                if not row.get("is_active", False) or row["entity_id"] == self.player_id:
+                if (
+                    not row.get("is_active", False)
+                    or row["entity_id"] == self.player_id
+                ):
                     continue
 
                 ex, ey = row.get("x", 0), row.get("y", 0)
                 # Check if entity is within reasonable combat distance and visible
                 distance_sq = (px - ex) ** 2 + (py - ey) ** 2
                 if distance_sq <= (self.fov_radius + 2) ** 2:
-                    if hasattr(self.game_map, 'visible') and self.game_map.visible[ey, ex]:
+                    if (
+                        hasattr(self.game_map, "visible")
+                        and self.game_map.visible[ey, ex]
+                    ):
                         # Assume any visible nearby entity means combat
                         game_state = "combat"
                         break
 
         # Determine depth (if available)
-        depth = getattr(self, 'current_depth', 1)
+        depth = getattr(self, "current_depth", 1)
 
         # Check for special entity types nearby
         enemy_types = []
         if player_pos:
             px, py = player_pos
             for row in self.entity_registry.entities_df.iter_rows(named=True):
-                if not row.get("is_active", False) or row["entity_id"] == self.player_id:
+                if (
+                    not row.get("is_active", False)
+                    or row["entity_id"] == self.player_id
+                ):
                     continue
 
                 ex, ey = row.get("x", 0), row.get("y", 0)
                 distance_sq = (px - ex) ** 2 + (py - ey) ** 2
-                if distance_sq <= self.fov_radius ** 2:
+                if distance_sq <= self.fov_radius**2:
                     entity_name = row.get("name", "").lower()
-                    if "boss" in entity_name or "dragon" in entity_name or "demon" in entity_name:
+                    if (
+                        "boss" in entity_name
+                        or "dragon" in entity_name
+                        or "demon" in entity_name
+                    ):
                         enemy_types.append("boss")
                     elif "elite" in entity_name or "champion" in entity_name:
                         enemy_types.append("elite")
@@ -567,7 +577,7 @@ class GameState:
             "depth": depth,
             "turn": self.turn_count,
             "player_hp_percent": 1.0,  # Default
-            "ui_state": self.ui_state.lower()
+            "ui_state": self.ui_state.lower(),
         }
 
         # Add enemy type if any special enemies nearby
@@ -575,10 +585,10 @@ class GameState:
             context["enemy_type"] = enemy_types
 
         # Get player HP percentage if available
-        player_hp = self.entity_registry.get_entity_component(
-            self.player_id, "hp")
+        player_hp = self.entity_registry.get_entity_component(self.player_id, "hp")
         player_max_hp = self.entity_registry.get_entity_component(
-            self.player_id, "max_hp")
+            self.player_id, "max_hp"
+        )
         if player_hp is not None and player_max_hp is not None and player_max_hp > 0:
             context["player_hp_percent"] = player_hp / player_max_hp
 

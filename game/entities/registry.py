@@ -54,20 +54,15 @@ ENTITY_SCHEMA: dict[str, pl.DataType] = {
     "max_fullness": pl.Float32,
     "equipped_item_ids": pl.List(pl.UInt64),
     "body_plan": pl.Object,
-
     "resistances": pl.Object,
     "vulnerabilities": pl.Object,
-
     "drop_table": pl.Object,
-
     "linked_positions": pl.List(pl.Struct({"x": pl.Int16, "y": pl.Int16})),
     "target_map": pl.Utf8,
-
     # New resource-tracking components
     "seal_tags": pl.List(pl.Utf8),
     "font_sources": pl.List(pl.Utf8),
     "vent_targets": pl.List(pl.Utf8),
-
 }
 
 
@@ -92,18 +87,15 @@ class EntityRegistry:
             )
         self.entities_df: pl.DataFrame = pl.DataFrame(schema=ENTITY_SCHEMA)
         self._next_entity_id: int = 0
-        log.debug("EntityRegistry initialized",
-                  schema=list(ENTITY_SCHEMA.keys()))
+        log.debug("EntityRegistry initialized", schema=list(ENTITY_SCHEMA.keys()))
 
     def _get_next_id(self: Self) -> int:
         # (Implementation unchanged)
         current_id = self._next_entity_id
         self._next_entity_id += 1
         if self._next_entity_id > 2**32 - 1:
-            log.critical("Entity ID counter overflowed",
-                         next_id=self._next_entity_id)
-            raise OverflowError(
-                "Entity ID counter overflowed (UInt32 limit reached).")
+            log.critical("Entity ID counter overflowed", next_id=self._next_entity_id)
+            raise OverflowError("Entity ID counter overflowed (UInt32 limit reached).")
         return current_id
 
     def create_entity(
@@ -215,22 +207,15 @@ class EntityRegistry:
             "max_fullness": [max_fullness],
             "equipped_item_ids": [[]],
             "body_plan": [body_plan],
-
             "resistances": [resistances if resistances is not None else {}],
-            "vulnerabilities": [
-                vulnerabilities if vulnerabilities is not None else {}
-            ],
-
+            "vulnerabilities": [vulnerabilities if vulnerabilities is not None else {}],
             "drop_table": [drop_table if drop_table is not None else []],
-
             "linked_positions": [[]],
             "target_map": [None],
-
             # Resource tracking components default to empty lists
             "seal_tags": [[]],
             "font_sources": [[]],
             "vent_targets": [[]],
-
         }
         try:
             new_entity_df = pl.DataFrame(entity_data, schema=ENTITY_SCHEMA)
@@ -238,12 +223,10 @@ class EntityRegistry:
                 self.entities_df = new_entity_df
             else:
                 self.entities_df = pl.concat(
-                    [self.entities_df, new_entity_df.select(
-                        self.entities_df.columns)],
+                    [self.entities_df, new_entity_df.select(self.entities_df.columns)],
                     how="vertical",
                 )
-            log.info("Entity created successfully",
-                     entity_id=new_id, **log_context)
+            log.info("Entity created successfully", entity_id=new_id, **log_context)
             return new_id
         except Exception as e:
             log.error(
@@ -327,8 +310,10 @@ class EntityRegistry:
             )
         if component_name in ("entity_id", "is_active"):
             log.warning("Attempted to set protected component", **log_context)
-            raise ValueError(f"Cannot directly set '{
-                             component_name}' component.")
+            raise ValueError(
+                f"Cannot directly set '{
+                             component_name}' component."
+            )
         try:
             target_dtype = ENTITY_SCHEMA[component_name]
             try:
@@ -366,8 +351,7 @@ class EntityRegistry:
                 )
                 return False
             self.entities_df = self.entities_df.with_columns(
-                pl.when((pl.col("entity_id") == entity_id)
-                        & pl.col("is_active"))
+                pl.when((pl.col("entity_id") == entity_id) & pl.col("is_active"))
                 .then(lit_value)
                 .otherwise(pl.col(component_name))
                 .alias(component_name)
@@ -447,8 +431,7 @@ class EntityRegistry:
                 "is_active"
             )
             if self.entities_df.filter(entity_active_mask).height == 0:
-                log.debug(
-                    "Entity already inactive or does not exist", **log_context)
+                log.debug("Entity already inactive or does not exist", **log_context)
                 return False
             self.entities_df = self.entities_df.with_columns(
                 pl.when(entity_active_mask)
@@ -489,8 +472,7 @@ class EntityRegistry:
         try:
             return self.entities_df.filter(pl.col("is_active"))
         except Exception as e:
-            log.error("Error getting active entities",
-                      error=str(e), exc_info=True)
+            log.error("Error getting active entities", error=str(e), exc_info=True)
             return pl.DataFrame(schema=ENTITY_SCHEMA)
 
     def get_body_plan(self, entity_id: int) -> Dict[str, int] | None:

@@ -61,9 +61,7 @@ def test_memory_fade_bounds():
         steepness,
         midpoint,
     )
-    expected_after = 1.0 / (
-        1.0 + np.exp(steepness * (duration - midpoint))
-    )
+    expected_after = 1.0 / (1.0 + np.exp(steepness * (duration - midpoint)))
     assert memory_intensity[0, 0] == pytest.approx(expected_after)
     assert mask[0, 0]
 
@@ -84,7 +82,9 @@ def test_memory_fade_bounds():
     assert not mask[0, 0]
 
 
-def create_game_state(duration: float = 5.0, midpoint: float = 2.5, steepness: float = 1.2):
+def create_game_state(
+    duration: float = 5.0, midpoint: float = 2.5, steepness: float = 1.2
+):
     game_map = GameMap(width=10, height=10)
     game_map.create_test_room()
     gs = GameState(
@@ -121,8 +121,7 @@ def test_memory_fade_decay_and_mask():
 
     # Memory strength should decay for tiles no longer in view.
     expected_strength = max(initial_strength - 1.0, 0.0)
-    assert gs.game_map.memory_strength[py,
-                                       px] == pytest.approx(expected_strength)
+    assert gs.game_map.memory_strength[py, px] == pytest.approx(expected_strength)
 
 
 def test_memory_fade_skips_zero_intensity_tiles():

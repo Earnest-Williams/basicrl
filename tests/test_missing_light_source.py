@@ -42,6 +42,4 @@ def test_update_fov_missing_light_source_logs_error():
     with capture_logs() as logs:
         gs.update_fov()
 
-    assert any(
-        log["event"] == "Failed to update player light source" for log in logs
-    )
+    assert any(log["event"] == "Failed to update player light source" for log in logs)

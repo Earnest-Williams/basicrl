@@ -10,6 +10,7 @@ backend to be present at import time.  They return the path to a temporary
 WAV file which can then be fed to any audio backend that supports file
 playback.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -46,8 +47,7 @@ def generate_footstep(duration: float = 0.2, frequency: float = 150.0) -> Path:
     t = np.linspace(0, duration, int(SAMPLE_RATE * duration), False)
     noise = np.random.normal(0.0, 1.0, t.shape)
     envelope = np.exp(-t * 20.0)
-    waveform = np.sin(2 * math.pi * frequency * t) * \
-        envelope * 0.3 + noise * 0.2
+    waveform = np.sin(2 * math.pi * frequency * t) * envelope * 0.3 + noise * 0.2
     return _write_wave(waveform)
 
 

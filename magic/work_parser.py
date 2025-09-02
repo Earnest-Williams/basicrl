@@ -38,7 +38,7 @@ def tokenize(source: str) -> List[Token]:
             continue
         next_match = TOKEN_RE.search(source, pos)
         if next_match:
-            value = source[pos:next_match.start()].strip()
+            value = source[pos : next_match.start()].strip()
             if value:
                 tokens.append(("VALUE", value))
             pos = next_match.start()

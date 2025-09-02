@@ -39,8 +39,7 @@ def test_status_effects_expire():
         [{"id": "poison", "duration": 1, "intensity": 1.0}],
     )
     gs.advance_turn()
-    effects = gs.entity_registry.get_entity_component(
-        gs.player_id, "status_effects")
+    effects = gs.entity_registry.get_entity_component(gs.player_id, "status_effects")
     assert effects == []
 
 
@@ -48,9 +47,7 @@ def test_starvation_progression():
     gs = make_gs()
     gs.entity_registry.set_entity_component(gs.player_id, "fullness", 2.0)
     gs.advance_turn()
-    assert gs.entity_registry.get_entity_component(
-        gs.player_id, "fullness") == 1.0
+    assert gs.entity_registry.get_entity_component(gs.player_id, "fullness") == 1.0
     gs.advance_turn()
-    assert gs.entity_registry.get_entity_component(
-        gs.player_id, "fullness") == 0.0
+    assert gs.entity_registry.get_entity_component(gs.player_id, "fullness") == 0.0
     assert any("starving" in msg[0] for msg in gs.message_log)

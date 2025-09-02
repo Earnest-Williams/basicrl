@@ -1,4 +1,3 @@
-
 from magic.executor import (
     Art,
     Substance,
@@ -16,10 +15,14 @@ class _EntityRegistryStub:
     def __init__(self):
         self.components = {0: {"status_effects": [], "hp": 10}}
 
-    def get_entity_component(self, entity_id: int, component: str):  # pragma: no cover - trivial
+    def get_entity_component(
+        self, entity_id: int, component: str
+    ):  # pragma: no cover - trivial
         return self.components.get(entity_id, {}).get(component)
 
-    def set_entity_component(self, entity_id: int, component: str, value):  # pragma: no cover - trivial
+    def set_entity_component(
+        self, entity_id: int, component: str, value
+    ):  # pragma: no cover - trivial
         self.components.setdefault(entity_id, {})[component] = value
         return True
 
@@ -40,13 +43,19 @@ class DummyGameState:
         self.player_fuel = 10
         self.entity_registry = _EntityRegistryStub()
 
-    def has_seal_tag(self, entity_id: int, tag: str) -> bool:  # pragma: no cover - trivial
+    def has_seal_tag(
+        self, entity_id: int, tag: str
+    ) -> bool:  # pragma: no cover - trivial
         return tag in self._seals
 
-    def has_font_source(self, entity_id: int, source: str) -> bool:  # pragma: no cover - trivial
+    def has_font_source(
+        self, entity_id: int, source: str
+    ) -> bool:  # pragma: no cover - trivial
         return source in self._fonts
 
-    def has_vent_target(self, entity_id: int, target: str) -> bool:  # pragma: no cover - trivial
+    def has_vent_target(
+        self, entity_id: int, target: str
+    ) -> bool:  # pragma: no cover - trivial
         return target in self._vents
 
 
@@ -77,31 +86,35 @@ def test_seal_font_vent_verifications_pass_and_fail():
     assert execute_work(work, gs_ok)
 
     # Missing each resource should fail the respective check and execution
-    gs_missing_seal = DummyGameState(
-        seals=(), fonts=("beta",), vents=("gamma",))
+    gs_missing_seal = DummyGameState(seals=(), fonts=("beta",), vents=("gamma",))
     assert not executor._verify_seals(work, gs_missing_seal)
-    assert not execute_work(make_basic_work(seals=["alpha"], fonts=[
-                            "beta"], vents=["gamma"]), gs_missing_seal)
+    assert not execute_work(
+        make_basic_work(seals=["alpha"], fonts=["beta"], vents=["gamma"]),
+        gs_missing_seal,
+    )
 
-    gs_missing_font = DummyGameState(
-        seals=("alpha",), fonts=(), vents=("gamma",))
+    gs_missing_font = DummyGameState(seals=("alpha",), fonts=(), vents=("gamma",))
     assert not executor._verify_fonts(work, gs_missing_font)
-    assert not execute_work(make_basic_work(seals=["alpha"], fonts=[
-                            "beta"], vents=["gamma"]), gs_missing_font)
+    assert not execute_work(
+        make_basic_work(seals=["alpha"], fonts=["beta"], vents=["gamma"]),
+        gs_missing_font,
+    )
 
-    gs_missing_vent = DummyGameState(
-        seals=("alpha",), fonts=("beta",), vents=())
+    gs_missing_vent = DummyGameState(seals=("alpha",), fonts=("beta",), vents=())
     assert not executor._verify_vents(work, gs_missing_vent)
-    assert not execute_work(make_basic_work(seals=["alpha"], fonts=[
-                            "beta"], vents=["gamma"]), gs_missing_vent)
+    assert not execute_work(
+        make_basic_work(seals=["alpha"], fonts=["beta"], vents=["gamma"]),
+        gs_missing_vent,
+    )
 
 
 def test_execute_work_blocked_by_ward_without_counterseal():
     work = make_basic_work()
     ward = Ward(arts={Art.CREATE})
     counterseal = Counterseal(arts={Art.DESTROY})  # does not match the ward
-    result = execute_work(work, DummyGameState(), wards=[
-                          ward], counterseals=[counterseal])
+    result = execute_work(
+        work, DummyGameState(), wards=[ward], counterseals=[counterseal]
+    )
     assert result is False
 
 
@@ -111,6 +124,7 @@ def test_friction_increases_and_triggers_thresholds(monkeypatch):
     def recorder(name):
         def _rec(work, ctx):
             calls.append(name)
+
         return _rec
 
     monkeypatch.setattr(executor, "_handle_quiver", recorder("quiver"))
@@ -147,8 +161,7 @@ def test_threshold_handlers_modify_state_and_emit_events(monkeypatch):
 
     events: list[str] = []
     for evt in ("quiver", "warp", "shiver", "backlash"):
-        executor.register_friction_callback(
-            evt, lambda w, c, e=evt: events.append(e))
+        executor.register_friction_callback(evt, lambda w, c, e=evt: events.append(e))
 
     work = make_basic_work(
         quiver_threshold=1,
@@ -176,7 +189,8 @@ def test_threshold_handlers_modify_state_and_emit_events(monkeypatch):
         execute_work(work, gs)
         assert gs.player_fuel == expected_fuel[idx]
         statuses = gs.entity_registry.get_entity_component(
-            gs.player_id, "status_effects")
+            gs.player_id, "status_effects"
+        )
         assert [s["id"] for s in statuses] == expected_statuses[idx]
         assert events == expected_events[idx]
 
@@ -194,8 +208,7 @@ def test_registered_handlers_are_invoked(monkeypatch):
 
     register_handler(Art.DESTROY, Substance.WATER, handler)
 
-    work = make_basic_work(
-        art=Art.DESTROY, substance=Substance.WATER, func=None)
+    work = make_basic_work(art=Art.DESTROY, substance=Substance.WATER, func=None)
     gs = DummyGameState()
     result = execute_work(work, gs)
 

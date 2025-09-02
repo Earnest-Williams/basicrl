@@ -28,8 +28,7 @@ def _row_with_default(self, index, *, named=False, **kwargs):
 pl.DataFrame.row = _row_with_default
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def _create_basic_map():
@@ -91,9 +90,7 @@ def test_apply_and_remove_passive_effects():
     base_mana = gs.entity_registry.get_entity_component(player_id, "mana")
 
     apply_passive_effects(item_id, player_id, gs)
-    assert gs.entity_registry.get_entity_component(
-        player_id, "mana") == base_mana + 5
+    assert gs.entity_registry.get_entity_component(player_id, "mana") == base_mana + 5
 
     remove_passive_effects(item_id, player_id, gs)
-    assert gs.entity_registry.get_entity_component(
-        player_id, "mana") == base_mana
+    assert gs.entity_registry.get_entity_component(player_id, "mana") == base_mana

@@ -27,6 +27,7 @@ from . import (
 
 if True:
     from typing import TYPE_CHECKING
+
     if TYPE_CHECKING:  # pragma: no cover - for type checking
         from polars import series
         from game.game_state import GameState

@@ -11,7 +11,8 @@ except ImportError:
     except ImportError:
         GameMap = object  # type: ignore
         structlog.get_logger().error(
-            "CRITICAL: Failed to import GameMap in render_base_layers.")
+            "CRITICAL: Failed to import GameMap in render_base_layers."
+        )
 
 log = structlog.get_logger()
 
@@ -27,8 +28,16 @@ def prepare_base_layers(
     tile_bg_colors: np.ndarray,
     tile_indices_render: np.ndarray,
 ) -> tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[int, int],
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    tuple[int, int],
 ]:
     """Prepares base color and glyph index arrays for the viewport."""
     if not isinstance(game_map, GameMap) or GameMap is object:
@@ -48,10 +57,12 @@ def prepare_base_layers(
 
     map_y_slice = slice(viewport_y, viewport_y + viewport_height)
     map_x_slice = slice(viewport_x, viewport_x + viewport_width)
-    safe_y_slice = slice(max(0, map_y_slice.start),
-                         min(game_map.height, map_y_slice.stop))
-    safe_x_slice = slice(max(0, map_x_slice.start),
-                         min(game_map.width, map_x_slice.stop))
+    safe_y_slice = slice(
+        max(0, map_y_slice.start), min(game_map.height, map_y_slice.stop)
+    )
+    safe_x_slice = slice(
+        max(0, map_x_slice.start), min(game_map.width, map_x_slice.stop)
+    )
 
     actual_vp_h = safe_y_slice.stop - safe_y_slice.start
     actual_vp_w = safe_x_slice.stop - safe_x_slice.start
@@ -107,9 +118,7 @@ def prepare_base_layers(
     elif np.any(drawn_mask):
         try:
             tile_ids_in_vp_raw = map_tiles_vp[drawn_mask]
-            valid_tile_ids_in_vp = np.clip(
-                tile_ids_in_vp_raw, 0, max_defined_tile_id
-            )
+            valid_tile_ids_in_vp = np.clip(tile_ids_in_vp_raw, 0, max_defined_tile_id)
             base_fg[drawn_mask] = tile_fg_colors[valid_tile_ids_in_vp]
             base_bg[drawn_mask] = tile_bg_colors[valid_tile_ids_in_vp]
             glyph_indices[drawn_mask] = tile_indices_render[valid_tile_ids_in_vp]

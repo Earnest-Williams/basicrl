@@ -41,10 +41,8 @@ def handle_melee_attack(
     rng: "GameRNG" = gs.rng_instance  # Get RNG from GameState
     game_map = gs.game_map
 
-    attacker_name = entity_reg.get_entity_component(
-        attacker_id, "name") or "Attacker"
-    defender_name = entity_reg.get_entity_component(
-        defender_id, "name") or "Defender"
+    attacker_name = entity_reg.get_entity_component(attacker_id, "name") or "Attacker"
+    defender_name = entity_reg.get_entity_component(defender_id, "name") or "Defender"
     log.debug(
         "Handling melee attack",
         attacker=attacker_name,
@@ -68,16 +66,14 @@ def handle_melee_attack(
             pl.col("item_id").is_in(equipped_ids)
         )
         if equipped_items.height > 0:
-            main_hand_df = equipped_items.filter(
-                pl.col("equipped_slot") == "main_hand"
+            main_hand_df = equipped_items.filter(pl.col("equipped_slot") == "main_hand")
+            off_hand_df = equipped_items.filter(pl.col("equipped_slot") == "off_hand")
+            main_hand_item = (
+                main_hand_df.row(0, named=True) if main_hand_df.height > 0 else None
             )
-            off_hand_df = equipped_items.filter(
-                pl.col("equipped_slot") == "off_hand"
+            off_hand_item = (
+                off_hand_df.row(0, named=True) if off_hand_df.height > 0 else None
             )
-            main_hand_item = main_hand_df.row(
-                0, named=True) if main_hand_df.height > 0 else None
-            off_hand_item = off_hand_df.row(
-                0, named=True) if off_hand_df.height > 0 else None
 
             if main_hand_item:
                 mid = main_hand_item.get("item_id")
@@ -98,8 +94,7 @@ def handle_melee_attack(
             if weapon_damage_dice_attr:
                 damage_dice = weapon_damage_dice_attr
                 weapon_name = (
-                    item_reg.get_item_component(
-                        main_hand_weapon_id, "name") or "weapon"
+                    item_reg.get_item_component(main_hand_weapon_id, "name") or "weapon"
                 )
                 log.debug(
                     "Attacker using weapon",
@@ -124,24 +119,21 @@ def handle_melee_attack(
 
     # --- Calculate Damage ---
     raw_damage = roll_dice(damage_dice, rng)
-    if 'two_handed' in locals() and two_handed:
+    if "two_handed" in locals() and two_handed:
         raw_damage = int(raw_damage * 1.5)
-    elif 'off_hand_dice' in locals() and off_hand_dice:
+    elif "off_hand_dice" in locals() and off_hand_dice:
         off_raw = roll_dice(off_hand_dice, rng)
         raw_damage += max(0, off_raw // 2)
         raw_damage = max(0, raw_damage - 1)
-    attacker_strength = entity_reg.get_entity_component(
-        attacker_id, "strength") or 0
-    defender_defense = entity_reg.get_entity_component(
-        defender_id, "defense") or 0
+    attacker_strength = entity_reg.get_entity_component(attacker_id, "strength") or 0
+    defender_defense = entity_reg.get_entity_component(defender_id, "defense") or 0
     defender_armor = entity_reg.get_entity_component(defender_id, "armor") or 0
-    modified_damage = raw_damage + attacker_strength - \
-        defender_defense - defender_armor
+    modified_damage = raw_damage + attacker_strength - defender_defense - defender_armor
 
-    resistances = entity_reg.get_entity_component(
-        defender_id, "resistances") or {}
-    vulnerabilities = entity_reg.get_entity_component(
-        defender_id, "vulnerabilities") or {}
+    resistances = entity_reg.get_entity_component(defender_id, "resistances") or {}
+    vulnerabilities = (
+        entity_reg.get_entity_component(defender_id, "vulnerabilities") or {}
+    )
     multiplier = 1.0
     if isinstance(resistances, dict):
         multiplier *= 1 - float(resistances.get(damage_type, 0))
@@ -213,24 +205,25 @@ def handle_melee_attack(
 
     # Update Defender HP
     if damage_dealt > 0:
-        update_success = entity_reg.set_entity_component(
-            defender_id, "hp", new_hp)
+        update_success = entity_reg.set_entity_component(defender_id, "hp", new_hp)
         if not update_success:
-            log.error("Failed to set defender HP after attack",
-                      defender_id=defender_id)
+            log.error("Failed to set defender HP after attack", defender_id=defender_id)
             # Continue to death check anyway, HP might conceptually be 0
 
     # Apply on-hit status effects
     if damage_dealt > 0 and new_hp > 0:
         status_sources: list[int] = []
-        if 'main_hand_weapon_id' in locals() and main_hand_weapon_id is not None:
+        if "main_hand_weapon_id" in locals() and main_hand_weapon_id is not None:
             status_sources.append(main_hand_weapon_id)
-        if 'off_hand_weapon_id' in locals() and off_hand_weapon_id is not None:
+        if "off_hand_weapon_id" in locals() and off_hand_weapon_id is not None:
             status_sources.append(off_hand_weapon_id)
         for wid in status_sources:
-            effects = item_reg.get_item_static_attribute(
-                wid, "on_hit_status_effects", default=[]
-            ) or []
+            effects = (
+                item_reg.get_item_static_attribute(
+                    wid, "on_hit_status_effects", default=[]
+                )
+                or []
+            )
             for effect_params in effects:
                 context = {
                     "game_state": gs,

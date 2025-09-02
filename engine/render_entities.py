@@ -8,6 +8,7 @@ try:
     from numba import njit, uint8
     from numba.typed import Dict as NumbaDict
     from numba import types as nb_types
+
     _NUMBA_AVAILABLE = True
 except ImportError:
     _NUMBA_AVAILABLE = False
@@ -58,22 +59,16 @@ def render_map_tiles(
                     tile_fg_color_rgb = final_fg[vp_y, vp_x]
                     for i in range(mask_rows.shape[0]):
                         r, c = mask_rows[i], mask_cols[i]
-                        tile_buffer[r, c, 0] = max(
-                            0, min(255, tile_fg_color_rgb[0]))
-                        tile_buffer[r, c, 1] = max(
-                            0, min(255, tile_fg_color_rgb[1]))
-                        tile_buffer[r, c, 2] = max(
-                            0, min(255, tile_fg_color_rgb[2]))
+                        tile_buffer[r, c, 0] = max(0, min(255, tile_fg_color_rgb[0]))
+                        tile_buffer[r, c, 1] = max(0, min(255, tile_fg_color_rgb[1]))
+                        tile_buffer[r, c, 2] = max(0, min(255, tile_fg_color_rgb[2]))
                         tile_buffer[r, c, 3] = glyph_alpha_channel[r, c]
                 else:
                     tile_buffer[:, :, :] = 0
                     tile_bg_color_rgb = final_bg[vp_y, vp_x]
-                    tile_buffer[:, :, 0] = max(
-                        0, min(255, tile_bg_color_rgb[0]))
-                    tile_buffer[:, :, 1] = max(
-                        0, min(255, tile_bg_color_rgb[1]))
-                    tile_buffer[:, :, 2] = max(
-                        0, min(255, tile_bg_color_rgb[2]))
+                    tile_buffer[:, :, 0] = max(0, min(255, tile_bg_color_rgb[0]))
+                    tile_buffer[:, :, 1] = max(0, min(255, tile_bg_color_rgb[1]))
+                    tile_buffer[:, :, 2] = max(0, min(255, tile_bg_color_rgb[2]))
                     tile_buffer[:, :, 3] = 255
             else:
                 tile_bg_color_rgb = final_bg[vp_y, vp_x]
@@ -86,8 +81,7 @@ def render_map_tiles(
             px_start_x = vp_x * tile_w
             dest_slice_y = slice(px_start_y, px_start_y + tile_h)
             dest_slice_x = slice(px_start_x, px_start_x + tile_w)
-            output_image_array[dest_slice_y,
-                               dest_slice_x, :] = tile_buffer[:, :, :]
+            output_image_array[dest_slice_y, dest_slice_x, :] = tile_buffer[:, :, :]
 
 
 @njit(cache=True, nogil=True)
@@ -135,13 +129,15 @@ def render_ground_items(
                 item_tile_rgba_array.shape == (tile_h, tile_w, 4)
                 and item_tile_rgba_array.shape != NJIT_SENTINEL_TILE_ARRAY_SHAPE
             ):
-                if 0 <= cons_y < intensity_map.shape[0] and 0 <= cons_x < intensity_map.shape[1]:
+                if (
+                    0 <= cons_y < intensity_map.shape[0]
+                    and 0 <= cons_x < intensity_map.shape[1]
+                ):
                     item_intensity = intensity_map[cons_y, cons_x]
                 else:
                     item_intensity = np.float32(1.0)
 
-                base_item_fg_rgb = np.array(
-                    [color_r, color_g, color_b], dtype=np.uint8)
+                base_item_fg_rgb = np.array([color_r, color_g, color_b], dtype=np.uint8)
                 lit_item_fg_rgb = _interpolate_color_numba_vector(
                     base_item_fg_rgb, item_intensity
                 )
@@ -156,8 +152,9 @@ def render_ground_items(
                 target_pixel_block[item_draw_mask, 0] = lit_item_fg_rgb[0]
                 target_pixel_block[item_draw_mask, 1] = lit_item_fg_rgb[1]
                 target_pixel_block[item_draw_mask, 2] = lit_item_fg_rgb[2]
-                target_pixel_block[item_draw_mask,
-                                   3] = item_alpha_channel[item_draw_mask]
+                target_pixel_block[item_draw_mask, 3] = item_alpha_channel[
+                    item_draw_mask
+                ]
 
 
 @njit(cache=True, nogil=True)
@@ -205,13 +202,15 @@ def render_entities(
                 entity_tile_rgba_array.shape == (tile_h, tile_w, 4)
                 and entity_tile_rgba_array.shape != NJIT_SENTINEL_TILE_ARRAY_SHAPE
             ):
-                if 0 <= cons_ey < intensity_map.shape[0] and 0 <= cons_ex < intensity_map.shape[1]:
+                if (
+                    0 <= cons_ey < intensity_map.shape[0]
+                    and 0 <= cons_ex < intensity_map.shape[1]
+                ):
                     e_intensity_f32 = intensity_map[cons_ey, cons_ex]
                 else:
                     e_intensity_f32 = np.float32(1.0)
 
-                base_fg_e_rgb = np.array(
-                    [color_r, color_g, color_b], dtype=np.uint8)
+                base_fg_e_rgb = np.array([color_r, color_g, color_b], dtype=np.uint8)
                 lit_fg_e_rgb = _interpolate_color_numba_vector(
                     base_fg_e_rgb, e_intensity_f32
                 )
@@ -221,12 +220,13 @@ def render_entities(
                 slice(px_start_y, px_start_y + tile_h)
                 slice(px_start_x, px_start_x + tile_w)
                 target_pixel_block = output_image_array[
-                    px_start_y: px_start_y + tile_h, px_start_x: px_start_x + tile_w
+                    px_start_y : px_start_y + tile_h, px_start_x : px_start_x + tile_w
                 ]
                 entity_alpha_channel = entity_tile_rgba_array[:, :, 3]
                 entity_draw_mask = entity_alpha_channel > 10
                 target_pixel_block[entity_draw_mask, 0] = lit_fg_e_rgb[0]
                 target_pixel_block[entity_draw_mask, 1] = lit_fg_e_rgb[1]
                 target_pixel_block[entity_draw_mask, 2] = lit_fg_e_rgb[2]
-                target_pixel_block[entity_draw_mask,
-                                   3] = entity_alpha_channel[entity_draw_mask]
+                target_pixel_block[entity_draw_mask, 3] = entity_alpha_channel[
+                    entity_draw_mask
+                ]

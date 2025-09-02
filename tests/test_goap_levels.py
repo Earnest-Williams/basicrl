@@ -5,8 +5,7 @@ from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
 from game.systems.ai_system import dispatch_ai
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -36,7 +35,9 @@ def perception(gs, los=None):
 
 
 def _enemy_row(gs, enemy_id):
-    return gs.entity_registry.entities_df.filter(pl.col("entity_id") == enemy_id).row(0, named=True)
+    return gs.entity_registry.entities_df.filter(pl.col("entity_id") == enemy_id).row(
+        0, named=True
+    )
 
 
 def test_plan_depth_one_defaults_to_move():

@@ -42,8 +42,9 @@ class MyVisibility:
 
         self.set_visible(origin_x, origin_y)
         for octant in range(8):
-            self._cast_light(origin_x, origin_y, 1, 1.0, 0.0,
-                             radius, *self._multipliers[octant])
+            self._cast_light(
+                origin_x, origin_y, 1, 1.0, 0.0, radius, *self._multipliers[octant]
+            )
 
     # Transformation coefficients for the eight octants.
     _multipliers = (

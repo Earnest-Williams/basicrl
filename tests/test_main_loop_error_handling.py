@@ -4,10 +4,12 @@ import types
 import pytest
 
 # Provide lightweight stubs for heavy modules to avoid unnecessary imports
-sys.modules.setdefault("game.game_state", types.ModuleType(
-    "game.game_state")).GameState = object
-sys.modules.setdefault("simulation.zone_manager", types.ModuleType(
-    "simulation.zone_manager")).ZoneManager = object
+sys.modules.setdefault(
+    "game.game_state", types.ModuleType("game.game_state")
+).GameState = object
+sys.modules.setdefault(
+    "simulation.zone_manager", types.ModuleType("simulation.zone_manager")
+).ZoneManager = object
 
 # Stub out engine.action_handler and engine.renderer to avoid heavy dependencies
 action_handler_stub = types.ModuleType("engine.action_handler")
@@ -76,8 +78,9 @@ def test_value_error_is_handled(monkeypatch):
     def raise_value_error(action, gs, max_step):
         raise ValueError("bad action")
 
-    monkeypatch.setattr(ml_module.action_handler,
-                        "process_player_action", raise_value_error)
+    monkeypatch.setattr(
+        ml_module.action_handler, "process_player_action", raise_value_error
+    )
 
     assert ml.handle_action({"type": "test"}) is False
     assert gs.messages
@@ -89,8 +92,9 @@ def test_unexpected_exception_propagates(monkeypatch):
     def raise_runtime_error(action, gs, max_step):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(ml_module.action_handler,
-                        "process_player_action", raise_runtime_error)
+    monkeypatch.setattr(
+        ml_module.action_handler, "process_player_action", raise_runtime_error
+    )
 
     with pytest.raises(RuntimeError):
         ml.handle_action({"type": "test"})

@@ -25,11 +25,9 @@ def clean_tile_background(img: Image.Image) -> Image.Image:
 
 def rasterize_svg(svg_path: Path, width: int, height: int) -> Image.Image:
     """Convert an SVG file to a PIL Image at the specified size."""
-    log.debug("Rasterizing SVG", path=str(
-        svg_path), width=width, height=height)
+    log.debug("Rasterizing SVG", path=str(svg_path), width=width, height=height)
     try:
-        png_bytes = svg2png(url=str(svg_path),
-                            output_width=width, output_height=height)
+        png_bytes = svg2png(url=str(svg_path), output_width=width, output_height=height)
         img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
         return img  # SVGs already have correct transparency
     except Exception as e:
@@ -55,8 +53,7 @@ def load_tiles(
         tiles: A dictionary {tile_index: PIL Image}
         is_svg: Whether any SVGs were found
     """
-    log.info("Loading tileset", path=folder,
-             width=tile_width, height=tile_height)
+    log.info("Loading tileset", path=folder, width=tile_width, height=tile_height)
     path = Path(folder)
     if not path.is_dir():
         # Log error before raising
@@ -115,8 +112,7 @@ def load_tiles(
         # Re-raise or return empty dict? Returning empty seems safer.
         return {}, False
 
-    log.debug("Initial file scan complete",
-              png_found=png_count, svg_found=svg_count)
+    log.debug("Initial file scan complete", png_found=png_count, svg_found=svg_count)
 
     # Second pass: rasterize SVGs if present
     if is_svg:

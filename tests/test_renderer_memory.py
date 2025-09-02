@@ -25,8 +25,7 @@ ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -64,7 +63,7 @@ def test_memory_fade_blend_and_glyph_substitution():
     tile_indices_render = np.zeros(max_defined_tile_id + 1, dtype=np.uint16)
     tile_fg_colors[TILE_ID_FLOOR] = [200, 200, 200]
     tile_bg_colors[TILE_ID_FLOOR] = [10, 10, 10]
-    tile_indices_render[TILE_ID_FLOOR] = ord('.')
+    tile_indices_render[TILE_ID_FLOOR] = ord(".")
 
     (
         base_fg,
@@ -108,8 +107,7 @@ def test_memory_fade_blend_and_glyph_substitution():
         viewport_y=0,
     )
 
-    assert (final_fg[py, px] == np.array(
-        [150, 150, 150], dtype=np.uint8)).all()
+    assert (final_fg[py, px] == np.array([150, 150, 150], dtype=np.uint8)).all()
     assert (final_bg[py, px] == np.array([55, 55, 55], dtype=np.uint8)).all()
     expected_glyph = MEMORY_FLOOR_GLYPHS[2]
     assert glyphs[py, px] == expected_glyph
@@ -131,7 +129,7 @@ def test_memory_fade_variance_and_noise_deterministic():
     tile_indices_render = np.zeros(max_defined_tile_id + 1, dtype=np.uint16)
     tile_fg_colors[TILE_ID_FLOOR] = [200, 200, 200]
     tile_bg_colors[TILE_ID_FLOOR] = [10, 10, 10]
-    tile_indices_render[TILE_ID_FLOOR] = ord('.')
+    tile_indices_render[TILE_ID_FLOOR] = ord(".")
 
     (
         base_fg,

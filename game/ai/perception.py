@@ -16,7 +16,9 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 log = structlog.get_logger()
 
 
-def _apply_event(map_arr: np.ndarray, x: int, y: int, intensity: float, radius: int, game_map) -> None:
+def _apply_event(
+    map_arr: np.ndarray, x: int, y: int, intensity: float, radius: int, game_map
+) -> None:
     """Helper to add an event with radial falloff to a map."""
     for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
@@ -29,7 +31,9 @@ def _apply_event(map_arr: np.ndarray, x: int, y: int, intensity: float, radius: 
                 map_arr[ty, tx] += value
 
 
-def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def gather_perception(
+    game_state: "GameState",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Generate perception maps used by AI systems.
 
     Noise and scent layers are stored on ``GameMap`` and decayed every call
@@ -46,19 +50,17 @@ def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, 
     game_map.scent_map *= 0.9  # scent lingers longer
 
     # Apply queued noise events
-    for x, y, intensity in getattr(game_state, 'noise_events', []):
-        _apply_event(game_map.noise_map, x, y, intensity,
-                     radius=2, game_map=game_map)
+    for x, y, intensity in getattr(game_state, "noise_events", []):
+        _apply_event(game_map.noise_map, x, y, intensity, radius=2, game_map=game_map)
 
     # Apply queued scent events
-    for x, y, intensity in getattr(game_state, 'scent_events', []):
-        _apply_event(game_map.scent_map, x, y, intensity,
-                     radius=4, game_map=game_map)
+    for x, y, intensity in getattr(game_state, "scent_events", []):
+        _apply_event(game_map.scent_map, x, y, intensity, radius=4, game_map=game_map)
 
     # Clear processed events
-    if hasattr(game_state, 'noise_events'):
+    if hasattr(game_state, "noise_events"):
         game_state.noise_events.clear()
-    if hasattr(game_state, 'scent_events'):
+    if hasattr(game_state, "scent_events"):
         game_state.scent_events.clear()
 
     noise_map = game_map.noise_map.copy()
@@ -70,10 +72,10 @@ def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, 
 
 
 def find_visible_enemies(
-    entity_row: 'series',
-    game_state: 'GameState',
+    entity_row: "series",
+    game_state: "GameState",
     los_map: np.ndarray,
-) -> List['series']:
+) -> List["series"]:
     """Return a list of enemies visible to ``entity_row``.
 
     Entities are considered enemies if they belong to a different faction.
@@ -84,7 +86,7 @@ def find_visible_enemies(
     ex, ey = entity_row.get("x"), entity_row.get("y")
     faction = entity_row.get("faction")
     game_map = game_state.game_map
-    enemies: List['series'] = []
+    enemies: List["series"] = []
 
     for other in game_state.entity_registry.entities_df.iter_rows(named=True):
         if other.get("entity_id") == entity_row.get("entity_id"):

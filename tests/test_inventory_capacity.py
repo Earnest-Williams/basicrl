@@ -5,7 +5,7 @@ import sys
 import types
 
 # Provide a minimal game.systems.ai_system module for tests
-ai_module = types.ModuleType('game.systems.ai_system')
+ai_module = types.ModuleType("game.systems.ai_system")
 
 
 def dummy_dispatch_ai(*args, **kwargs):
@@ -13,11 +13,10 @@ def dummy_dispatch_ai(*args, **kwargs):
 
 
 ai_module.dispatch_ai = dummy_dispatch_ai
-sys.modules['game.systems.ai_system'] = ai_module
+sys.modules["game.systems.ai_system"] = ai_module
 
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def test_pickup_fails_when_inventory_full():
@@ -26,11 +25,11 @@ def test_pickup_fails_when_inventory_full():
     game_map.update_tile_transparency()
 
     item_templates = {
-        'test_item': {
-            'name': 'Test Item',
-            'glyph': 1,
-            'color_fg': [255, 255, 255],
-            'attributes': {}
+        "test_item": {
+            "name": "Test Item",
+            "glyph": 1,
+            "color_fg": [255, 255, 255],
+            "attributes": {},
         }
     }
 
@@ -48,20 +47,20 @@ def test_pickup_fails_when_inventory_full():
     )
 
     player_id = gs.player_id
-    gs.entity_registry.set_entity_component(player_id, 'inventory_capacity', 1)
+    gs.entity_registry.set_entity_component(player_id, "inventory_capacity", 1)
 
     # Fill inventory to capacity
     gs.item_registry.create_item(
-        template_id='test_item',
-        location='inventory',
+        template_id="test_item",
+        location="inventory",
         owner_entity_id=player_id,
     )
 
     # Place another item on the ground at player's position
     px, py = gs.player_position
     gs.item_registry.create_item(
-        template_id='test_item',
-        location='ground',
+        template_id="test_item",
+        location="ground",
         x=px,
         y=py,
     )
@@ -70,4 +69,4 @@ def test_pickup_fails_when_inventory_full():
     assert result is False
     assert gs.item_registry.get_entity_inventory(player_id).height == 1
     assert gs.item_registry.get_items_at(px, py).height == 1
-    assert any('inventory is full' in msg[0].lower() for msg in gs.message_log)
+    assert any("inventory is full" in msg[0].lower() for msg in gs.message_log)

@@ -97,6 +97,7 @@ def get_transparency_map(tiles: np.ndarray) -> np.ndarray:
 @dataclass(frozen=True)
 class LightSource:
     """Simple representation of a colored light source."""
+
     x: int
     y: int
     radius: int
@@ -116,24 +117,20 @@ class GameMap:
             raise ValueError("Map width and height must be positive integers.")
         self._width = width
         self._height = height
-        log.info("Initializing GameMap",
-                 width=self._width, height=self._height)
+        log.info("Initializing GameMap", width=self._width, height=self._height)
 
         # Core map data arrays - Use C order for compatibility with many libraries
         self.tiles: np.ndarray = np.full(
             (height, width), fill_value=TILE_ID_WALL, dtype=np.uint8, order="C"
         )
         # Visibility/Exploration state
-        self.explored: np.ndarray = np.zeros(
-            (height, width), dtype=bool, order="C")
-        self.visible: np.ndarray = np.zeros(
-            (height, width), dtype=bool, order="C")
+        self.explored: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
+        self.visible: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
         # Cached transparency map
         self.transparent: np.ndarray = get_transparency_map(self.tiles)
         # Memory modifier map per tile
         self._tile_modifier_overrides: Dict[int, float] = {}
-        self.tile_memory_modifiers: np.ndarray = get_memory_modifier_map(
-            self.tiles)
+        self.tile_memory_modifiers: np.ndarray = get_memory_modifier_map(self.tiles)
         if tile_memory_modifiers:
             self.apply_memory_modifier_overrides(tile_memory_modifiers)
         # Height and Ceiling maps
@@ -155,9 +152,7 @@ class GameMap:
         self.memory_fade_mask: np.ndarray = np.zeros(
             (height, width), dtype=bool, order="C"
         )
-        self.prev_visible: np.ndarray = np.zeros(
-            (height, width), dtype=bool, order="C"
-        )
+        self.prev_visible: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
         # Perception layers reused across turns
         self.noise_map: np.ndarray = np.zeros(
             (height, width), dtype=np.float32, order="C"
@@ -183,15 +178,13 @@ class GameMap:
             self.tiles, self._tile_modifier_overrides
         )
         transparent_count = np.sum(self.transparent)
-        log.info("Transparency map updated",
-                 transparent_count=transparent_count)
+        log.info("Transparency map updated", transparent_count=transparent_count)
 
     def apply_memory_modifier_overrides(
         self, overrides: Dict[str | int, float]
     ) -> None:
         """Apply designer-provided memory fade overrides per tile type."""
-        self._tile_modifier_overrides = _normalize_tile_modifier_overrides(
-            overrides)
+        self._tile_modifier_overrides = _normalize_tile_modifier_overrides(overrides)
         self.tile_memory_modifiers = get_memory_modifier_map(
             self.tiles, self._tile_modifier_overrides
         )
@@ -284,8 +277,9 @@ class GameMap:
                 self.memory_strength[not_visible] - 1.0, 0.0
             )
 
-        np.clip(self.memory_strength, 0.0,
-                MAX_MEMORY_STRENGTH, out=self.memory_strength)
+        np.clip(
+            self.memory_strength, 0.0, MAX_MEMORY_STRENGTH, out=self.memory_strength
+        )
 
     # --- END MODIFIED compute_fov method ---
 
@@ -341,6 +335,5 @@ class GameMap:
             changed_positions.add((int(x_idx), int(y_idx)))  # Store as (x, y)
 
         if changed_positions:
-            log.debug("Visibility changed",
-                      changed_count=len(changed_positions))
+            log.debug("Visibility changed", changed_count=len(changed_positions))
         return changed_positions

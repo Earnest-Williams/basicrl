@@ -6,8 +6,7 @@ from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
 from game.systems.ai_system import dispatch_ai
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
-                   "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -54,8 +53,9 @@ def test_parallel_strategy_moves_entities():
         )
         ids.append(eid)
     rows = [
-        gs.entity_registry.entities_df.filter(
-            pl.col("entity_id") == eid).row(0, named=True)
+        gs.entity_registry.entities_df.filter(pl.col("entity_id") == eid).row(
+            0, named=True
+        )
         for eid in ids
     ]
     dispatch_ai(rows, gs, gs.rng_instance, _perception(gs))

@@ -747,8 +747,7 @@ def monster_perception(
     )
 
     # --- Aggregate Results ---
-    all_alerted_ids: List[int] = [
-        item for sublist in results for item in sublist]
+    all_alerted_ids: List[int] = [item for sublist in results for item in sublist]
 
     end_time = time.time()
     print(
@@ -785,7 +784,7 @@ if __name__ == "__main__":
     # Terrain map: integers representing FeatureType
     terrain_map = np.full((height, width), FeatureType.FLOOR, dtype=np.int32)
     # Add some walls and a closed door for testing noise propagation
-    terrain_map[height // 2, width // 4: 3 * width // 4] = FeatureType.WALL
+    terrain_map[height // 2, width // 4 : 3 * width // 4] = FeatureType.WALL
     terrain_map[height // 2 + 5, width // 2] = FeatureType.CLOSED_DOOR
     # Add boundary walls
     terrain_map[0, :] = FeatureType.WALL
@@ -795,8 +794,7 @@ if __name__ == "__main__":
 
     # Noise cost map: Init with a large value (infinity)
     infinity_val = np.iinfo(np.int32).max // 2
-    cave_cost = np.full((MAX_FLOWS, height, width),
-                        infinity_val, dtype=np.int32)
+    cave_cost = np.full((MAX_FLOWS, height, width), infinity_val, dtype=np.int32)
     # Store (y, x) centers
     flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)
 
@@ -826,7 +824,9 @@ if __name__ == "__main__":
         .alias("fx"),
     )
 
-    print(f"Map: {height}x{width}, Player: ({player_y}, {player_x}), Monsters: {num_monsters}")
+    print(
+        f"Map: {height}x{width}, Player: ({player_y}, {player_x}), Monsters: {num_monsters}"
+    )
     print(f"Using {N_JOBS} parallel jobs for perception.")
 
     # --- Simulation Loop (Simplified Example) ---
@@ -887,7 +887,9 @@ if __name__ == "__main__":
                     cave_cost, flow_centers, FlowType.REAL_NOISE, m_y, m_x
                 )
                 scent = get_scent(cave_when, m_y, m_x)
-                print(f"Example Monster {example_monster_id} at ({m_y}, {m_x}): Noise Dist={noise}, Scent Age={scent}")
+                print(
+                    f"Example Monster {example_monster_id} at ({m_y}, {m_x}): Noise Dist={noise}, Scent Age={scent}"
+                )
 
         # (Player moves, monsters move, combat happens, etc. - not implemented)
         # Simple player movement example

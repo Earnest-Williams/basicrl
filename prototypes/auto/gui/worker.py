@@ -80,7 +80,9 @@ class SimulationWorker(QObject):
         self.status_update.emit("Simulation started.")
         try:
             # Ensure world has an rng instance before reset or access
-            if not hasattr(self.world, "rng") or not isinstance(self.world.rng, GameRNG):
+            if not hasattr(self.world, "rng") or not isinstance(
+                self.world.rng, GameRNG
+            ):
                 # Attempt to create one if missing? Or raise error?
                 # For now, let's assume reset handles it or it's passed in world.__init__
                 # If not, this will raise an AttributeError later, which is informative.
@@ -97,8 +99,7 @@ class SimulationWorker(QObject):
             initial_goal_str = "Goal: {}".format(
                 self.agent_ai.current_goal if self.agent_ai.current_goal else "None"
             )
-            initial_plan_list = [
-                action.name for action in self.agent_ai.current_plan]
+            initial_plan_list = [action.name for action in self.agent_ai.current_plan]
             self.goal_updated.emit(initial_goal_str)
             self.plan_updated.emit(initial_plan_list)
             self.last_emitted_goal_str = initial_goal_str
@@ -142,7 +143,8 @@ class SimulationWorker(QObject):
                     self.agent_ai.current_goal if self.agent_ai.current_goal else "None"
                 )
                 current_plan_list = [
-                    action.name for action in self.agent_ai.current_plan]
+                    action.name for action in self.agent_ai.current_plan
+                ]
                 goal_changed = current_goal_str != self.last_emitted_goal_str
                 plan_changed = current_plan_list != self.last_emitted_plan_list
 
@@ -167,16 +169,14 @@ class SimulationWorker(QObject):
                 # --- Hunger ---
                 agent.health -= PASSIVE_HUNGER_PER_TURN
                 if agent.health <= 0:
-                    self.status_update.emit(
-                        f"Agent starved (Turn {self.world.turn}).")
+                    self.status_update.emit(f"Agent starved (Turn {self.world.turn}).")
                     self.emit_world_state()  # Show final state
                     with QMutexLocker(self.mutex):
                         self._running = False
                     break
 
                 # --- Enemy Turn ---
-                current_enemy_ids = list(
-                    self.world.entities_by_kind["enemy"].keys())
+                current_enemy_ids = list(self.world.entities_by_kind["enemy"].keys())
                 for enemy_id in current_enemy_ids:
                     if enemy_id in self.world.entities:
                         enemy = self.world.entities[enemy_id]
@@ -202,7 +202,9 @@ class SimulationWorker(QObject):
                     )
 
                 # *** CORRECTED LINE BELOW ***
-                if self.world.rng.get_float() < ENEMY_SPAWN_CHANCE:  # Use GameRNG instance
+                if (
+                    self.world.rng.get_float() < ENEMY_SPAWN_CHANCE
+                ):  # Use GameRNG instance
                     self.world.spawn_random_enemy()
                 # --- End World Events ---
 
@@ -307,7 +309,8 @@ class SimulationWorker(QObject):
                 return
             self._paused = not self._paused
             self.status_update.emit(
-                "Simulation Paused" if self._paused else "Simulation Resumed")
+                "Simulation Paused" if self._paused else "Simulation Resumed"
+            )
             if not self._paused:
                 self._step = False
 

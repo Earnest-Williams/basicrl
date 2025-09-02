@@ -38,17 +38,14 @@ def handle_entity_death(
     item_reg = gs.item_registry
 
     pos = entity_reg.get_position(entity_id)
-    name = entity_reg.get_entity_component(
-        entity_id, "name") or f"Entity {entity_id}"
+    name = entity_reg.get_entity_component(entity_id, "name") or f"Entity {entity_id}"
 
     # Award XP to killer before dropping items
     if killer_id is not None:
-        xp_reward = entity_reg.get_entity_component(
-            entity_id, "xp_reward") or 0
+        xp_reward = entity_reg.get_entity_component(entity_id, "xp_reward") or 0
         if xp_reward:
             current_xp = entity_reg.get_entity_component(killer_id, "xp") or 0
-            entity_reg.set_entity_component(
-                killer_id, "xp", current_xp + xp_reward)
+            entity_reg.set_entity_component(killer_id, "xp", current_xp + xp_reward)
             if (
                 killer_id == gs.player_id
                 and pos is not None
@@ -67,8 +64,7 @@ def handle_entity_death(
             item_reg.move_item(row["item_id"], "ground", x=pos.x, y=pos.y)
 
         # Drop additional loot from drop table
-        drop_table = entity_reg.get_entity_component(
-            entity_id, "drop_table") or []
+        drop_table = entity_reg.get_entity_component(entity_id, "drop_table") or []
         rng = gs.rng_instance
         for entry in drop_table:
             if not isinstance(entry, dict):
@@ -76,20 +72,18 @@ def handle_entity_death(
             template_id = entry.get("template_id")
             chance = float(entry.get("chance", 1.0))
             if template_id and rng.get_float() <= chance:
-                item_reg.create_item(
-                    template_id, location="ground", x=pos.x, y=pos.y
-                )
+                item_reg.create_item(template_id, location="ground", x=pos.x, y=pos.y)
     else:
-        log.warning("Entity position unknown during death cleanup",
-                    entity_id=entity_id)
+        log.warning("Entity position unknown during death cleanup", entity_id=entity_id)
 
     # Remove the entity from the registry (and thus from AI/FOV systems)
     entity_reg.delete_entity(entity_id)
 
     # Remove from additional systems if necessary (e.g., lights)
     if hasattr(gs, "light_sources"):
-        gs.light_sources = [ls for ls in gs.light_sources if getattr(
-            ls, "owner_id", None) != entity_id]
+        gs.light_sources = [
+            ls for ls in gs.light_sources if getattr(ls, "owner_id", None) != entity_id
+        ]
 
     # Log death if visible to the player
     if pos is not None and gs.game_map.visible[pos.y, pos.x]:

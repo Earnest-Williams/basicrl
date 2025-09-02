@@ -51,8 +51,7 @@ def roll_dice(dice_str: str | None, rng: GameRNG | None) -> int:
             )
             raise  # Re-raise the error as this is unexpected
         except Exception as e:
-            log.error("Error during RNG dice roll",
-                      error=str(e), exc_info=True)
+            log.error("Error during RNG dice roll", error=str(e), exc_info=True)
             raise  # Re-raise other RNG errors
 
     else:

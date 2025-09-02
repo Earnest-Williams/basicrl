@@ -47,7 +47,9 @@ class ZoneManager:
         """Return the zone coordinate for the tile ``(x, y)``."""
         return x // self.zone_size, y // self.zone_size
 
-    def get_active_zones(self, player_pos: Tuple[int, int] | None) -> Set[Tuple[int, int]]:
+    def get_active_zones(
+        self, player_pos: Tuple[int, int] | None
+    ) -> Set[Tuple[int, int]]:
         """Return the set of zones considered active around ``player_pos``."""
         if player_pos is None:
             return set()
@@ -62,9 +64,7 @@ class ZoneManager:
     # ------------------------------------------------------------------
     # Event scheduling and processing
     # ------------------------------------------------------------------
-    def schedule_event(
-        self, x: int, y: int, callback: Callable[[Any], None]
-    ) -> None:
+    def schedule_event(self, x: int, y: int, callback: Callable[[Any], None]) -> None:
         """Schedule a callback for the zone containing ``(x, y)``."""
         zone = self.get_zone(x, y)
         self.schedule_zone_event(zone, callback)
@@ -143,14 +143,10 @@ class ZoneManager:
         )
         manager.last_update = defaultdict(
             int,
-            {
-                (zx, zy): turn
-                for zx, zy, turn in data.get("last_update", [])
-            },
+            {(zx, zy): turn for zx, zy, turn in data.get("last_update", [])},
         )
         manager.event_queue = {
-            (zx, zy): event_id
-            for zx, zy, event_id in data.get("event_queue", [])
+            (zx, zy): event_id for zx, zy, event_id in data.get("event_queue", [])
         }
         manager.event_registry = event_registry
         manager._next_event_id = data.get("next_event_id", 1)

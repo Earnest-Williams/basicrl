@@ -306,8 +306,7 @@ def _compute_octant_for_color(
     while x <= range_limit:
         if no_range:
             break
-        top_y = _calculate_top_y(
-            x, current_top, octant, origin, dungeon_instance)
+        top_y = _calculate_top_y(x, current_top, octant, origin, dungeon_instance)
         bottom_y = _calculate_bottom_y(
             x, current_bottom, octant, origin, dungeon_instance
         )
@@ -420,8 +419,7 @@ def _compute_octant_for_boolean_array(
     current_bottom = Slope(bottom.y, bottom.x)
     unlimited_range = range_limit < 0
     while unlimited_range or x <= range_limit:
-        top_y = _calculate_top_y(
-            x, current_top, octant, origin, dungeon_instance)
+        top_y = _calculate_top_y(x, current_top, octant, origin, dungeon_instance)
         bottom_y = _calculate_bottom_y(
             x, current_bottom, octant, origin, dungeon_instance
         )
@@ -667,8 +665,7 @@ class GameState:
         self.current_illumination_rgb_sum: np.ndarray = np.zeros(
             (height, width, 3), dtype=np.float32
         )
-        self.current_player_los: np.ndarray = np.zeros(
-            (height, width), dtype=np.bool_)
+        self.current_player_los: np.ndarray = np.zeros((height, width), dtype=np.bool_)
 
     # Modified to use self.rng
     def initialize_map_and_entities(self):  # No longer needs rng passed
@@ -702,8 +699,7 @@ class GameState:
                         player_y = 5
                         break
                 break
-        self.player = Player(player_x, player_y,
-                             light_radius=10, light_level=3)
+        self.player = Player(player_x, player_y, light_radius=10, light_level=3)
 
         # Light source placement (no RNG needed here for fixed positions)
         light_radius = 16
@@ -742,8 +738,7 @@ class GameState:
             ),
         ]
 
-        self.all_entities = (
-            [self.player] if self.player else []) + self.light_sources
+        self.all_entities = ([self.player] if self.player else []) + self.light_sources
         self.generate_player_path()  # Path generation is deterministic here
 
     def generate_player_path(self):  # Unchanged
@@ -769,8 +764,7 @@ class GameState:
         for light in self.light_sources:
             light.update()
         # Update all_entities list (no RNG needed here)
-        self.all_entities = (
-            [self.player] if self.player else []) + self.light_sources
+        self.all_entities = ([self.player] if self.player else []) + self.light_sources
 
     def update_visibility(self):  # Unchanged (visibility logic doesn't use random)
         if not self.player or not self.dungeon:
@@ -821,8 +815,7 @@ class GameState:
                         level_str = str(approx_level)
                         required_range = 0
                         try:
-                            level_info = constants.LIGHT_LEVEL_DATA.get(
-                                level_str)
+                            level_info = constants.LIGHT_LEVEL_DATA.get(level_str)
                             if level_info:
                                 category_info = level_info.get(obj_category)
                             if category_info:
@@ -844,8 +837,7 @@ class GameState:
         if not self.dungeon:
             return "Error: Dungeon not initialized."
         if self.current_illumination_rgb_sum is None or self.current_player_los is None:
-            logging.warning(
-                "Illum/LOS arrays None before render. Forcing update.")
+            logging.warning("Illum/LOS arrays None before render. Forcing update.")
             self.update_visibility()
             if self.current_illumination_rgb_sum is None:
                 return "Error: Failed Illum calc."
@@ -881,8 +873,7 @@ class GameState:
                 result.append(" ".join(row))
             return "\n".join(result) + "\n"
         if constants.DEBUG_RENDER_MODE == "level_color":
-            result.append(
-                "--- Blended RGB True Color (DEBUG, Clamped Sum) ---")
+            result.append("--- Blended RGB True Color (DEBUG, Clamped Sum) ---")
             for y in range(d.height):
                 row_chars = []
                 for x in range(d.width):
@@ -911,8 +902,7 @@ class GameState:
                         memory_intensity = d.memory_intensity[y, x]
                         if memory_intensity > 0.0:
                             tile_id = d.tiles[y, x]
-                            char = get_memory_character(
-                                tile_id, memory_intensity)
+                            char = get_memory_character(tile_id, memory_intensity)
                             row_chars.append(
                                 f"{constants.MEMORY_COLOR}{char}{
                                     constants.COLOR['RESET']}"
@@ -1008,8 +998,7 @@ def run_simulation():
         print("ERROR: Need 'readchar' or profiler mode.")
         return
 
-    print(
-        f"--- Running in {'PROFILER' if is_profiling else 'INTERACTIVE'} mode ---")
+    print(f"--- Running in {'PROFILER' if is_profiling else 'INTERACTIVE'} mode ---")
     print(f"--- Debug Render Mode: {constants.DEBUG_RENDER_MODE} ---")
 
     # --- Instantiate RNG ONCE here ---
@@ -1033,12 +1022,9 @@ def run_simulation():
     print("Pre-compiling Numba functions...")
     if game_state.dungeon and game_state.player:
         try:
-            dummy_rgb_sum_array = np.zeros_like(
-                game_state.current_illumination_rgb_sum)
-            dummy_los_array = np.zeros_like(
-                game_state.dungeon.tiles, dtype=np.bool_)
-            dummy_mem_intensity = np.zeros_like(
-                game_state.dungeon.memory_intensity)
+            dummy_rgb_sum_array = np.zeros_like(game_state.current_illumination_rgb_sum)
+            dummy_los_array = np.zeros_like(game_state.dungeon.tiles, dtype=np.bool_)
+            dummy_mem_intensity = np.zeros_like(game_state.dungeon.memory_intensity)
             dummy_last_seen = np.zeros_like(game_state.dungeon.last_seen_time)
             compute_illumination_color_array(
                 game_state.player.position,
@@ -1140,8 +1126,7 @@ def run_simulation():
                             )
                             profiler_path = None
             elif is_interactive:
-                print("Move (WASD/Arrows/Numpad 1-9), Q to quit: ",
-                      end="", flush=True)
+                print("Move (WASD/Arrows/Numpad 1-9), Q to quit: ", end="", flush=True)
                 key = readchar.readkey()
                 last_key_pressed = key
                 print(" " * 50, end="\r")
@@ -1208,8 +1193,7 @@ def run_simulation():
             current_frame_time - start_time
             update_count = frame_count + 1
             avg_vis_time_ms = (
-                (total_update_vis_time / update_count) *
-                1000 if update_count > 0 else 0
+                (total_update_vis_time / update_count) * 1000 if update_count > 0 else 0
             )
             mode_str = "PROFILER" if is_profiling else "INTERACTIVE"
             debug_str = (
