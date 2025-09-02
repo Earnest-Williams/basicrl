@@ -18,12 +18,14 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -191,11 +193,8 @@ class TileEditorWidget(QWidget):
                 copy_height = min(old_height, new_height)
                 copy_width = min(old_width, new_width)
                 for y in range(copy_height):
-                    # Bounds check
-                    if y < len(old_tiles) and x < len(old_tiles[y]):
-                        new_grid[y][:copy_width] = old_tiles[y][
-                            :copy_width
-                        ]  # Slice assignment
+                    if y < len(old_tiles):
+                        new_grid[y][:copy_width] = old_tiles[y][:copy_width]
             self.tilemap.tiles = new_grid
 
         self.update_widget_size()
