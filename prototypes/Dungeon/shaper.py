@@ -7,6 +7,7 @@ from common.constants import (
     MAT_CLIFF_EDGE,
 )
 import math
+import sys
 
 # Removed 'random' import
 import time
