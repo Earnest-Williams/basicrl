@@ -85,6 +85,12 @@ class Work:
     bounds: Bounds = field(default_factory=Bounds)
     adjuncts: List["Work"] = field(default_factory=list)
     flow: Flow = field(default_factory=Flow)
+    balances: Balances = field(default_factory=Balances)
+    seals: Seals = field(default_factory=Seals)
+    provisions: str = ""
+    intent: str = ""
+    seat: str = ""
+    tending: str = ""
 
     def calculate_effect_level(self) -> int:
         """Compute overall effect level."""
@@ -95,6 +101,9 @@ class Work:
 
         level += self.bounds.total()
         level += self.flow.total()
+        level += self.seals.power
+        level -= self.balances.cost
+        level -= self.balances.risk
         return level
 
 
@@ -259,6 +268,11 @@ def _parse_bounds(text: str) -> Bounds:
     )
 
 
+def _parse_balances(text: str) -> Balances:
+    kv = _kv_ints(text or "")
+    return Balances(cost=kv.get("cost", 0), risk=kv.get("risk", 0))
+
+
 def _parse_flow(text: str) -> Flow:
     kv = _kv_ints(text or "")
     return Flow(strength=kv.get("strength", 0))
@@ -275,13 +289,18 @@ def _parse_seals(text: str) -> Seals:
 def compile_ledger_work(decl: WorkDecl) -> Work:
     """
     Best-effort conversion from a parsed ledger `WorkDecl` to an engine `Work`.
-    Unknown or absent numeric fields default to zero. This function ignores
-    Provisions/Intent/Seat/Tending for now (they do not affect effect level).
+    Unknown or absent numeric fields default to zero. Non-numeric fields are
+    preserved verbatim but generally do not affect effect level.
     """
     art, art_rank, substance, sub_rank = _parse_art_and_ranks(decl.art.value)
     bounds = _parse_bounds(decl.bounds.value)
+    balances = _parse_balances(decl.balances.value)
     flow = _parse_flow(decl.flow.value)
-    _ = _parse_seals(decl.seals.value)  # parsed for future use, not yet applied
+    seals = _parse_seals(decl.seals.value)
+    provisions = (decl.provisions.value or "").strip()
+    intent = (decl.intent.value or "").strip()
+    seat = (decl.seat.value or "").strip() if decl.seat else ""
+    tending = (decl.tending.value or "").strip() if decl.tending else ""
 
     return Work(
         art=art,
@@ -291,6 +310,12 @@ def compile_ledger_work(decl: WorkDecl) -> Work:
         bounds=bounds,
         adjuncts=[],
         flow=flow,
+        balances=balances,
+        seals=seals,
+        provisions=provisions,
+        intent=intent,
+        seat=seat,
+        tending=tending,
     )
 
 

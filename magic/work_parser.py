@@ -134,13 +134,4 @@ def parse(source: str) -> Work:
         seat=seat,
         tending=tending,
     )
-
-    work = compile_ledger_work(decl)
-
-    # Preserve optional clauses for callers that care about them (e.g., scripting)
-    if seat is not None:
-        object.__setattr__(work, "seat", seat)
-    if tending is not None:
-        object.__setattr__(work, "tending", tending)
-
-    return work
+    return compile_ledger_work(decl)
