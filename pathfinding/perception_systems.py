@@ -826,10 +826,7 @@ if __name__ == "__main__":
         .alias("fx"),
     )
 
-    print(
-        f"Map: {height}x{width}, Player: ({player_y}, {player_x}), Monsters: {
-            num_monsters}"
-    )
+    print(f"Map: {height}x{width}, Player: ({player_y}, {player_x}), Monsters: {num_monsters}")
     print(f"Using {N_JOBS} parallel jobs for perception.")
 
     # --- Simulation Loop (Simplified Example) ---
@@ -890,10 +887,7 @@ if __name__ == "__main__":
                     cave_cost, flow_centers, FlowType.REAL_NOISE, m_y, m_x
                 )
                 scent = get_scent(cave_when, m_y, m_x)
-                print(
-                    f"Example Monster {example_monster_id} at ({m_y}, {
-                        m_x}): Noise Dist={noise}, Scent Age={scent}"
-                )
+                print(f"Example Monster {example_monster_id} at ({m_y}, {m_x}): Noise Dist={noise}, Scent Age={scent}")
 
         # (Player moves, monsters move, combat happens, etc. - not implemented)
         # Simple player movement example
