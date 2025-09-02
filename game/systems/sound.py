@@ -21,10 +21,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
+import numpy as np
+
 import structlog
 import yaml
 
 from game.world import line_of_sight
+from pathfinding.perception_systems import BASE_FLOW_CENTER, NOISE_STRENGTH
 
 if TYPE_CHECKING:
     from game.game_state import GameState
@@ -267,6 +270,7 @@ class SoundManager:
         listener_pos: Tuple[float, float, float] = self.listener_position
         listener_orient: Tuple[float, float] = self.listener_orientation
         game_map: Optional["GameMap"] = None
+        noise_map = None
         if context:
             source_pos = context.get("source_position") or context.get("position")
             lp = context.get("listener_position")
@@ -276,6 +280,7 @@ class SoundManager:
             if lo:
                 listener_orient = (lo[0], lo[1])
             game_map = context.get("game_map")
+            noise_map = context.get("noise_map")
             if source_pos and "distance" not in context:
                 sx, sy = source_pos
                 lx, ly, lz = listener_pos
@@ -291,6 +296,7 @@ class SoundManager:
             listener_pos,
             listener_orient,
             game_map,
+            noise_map,
         )
 
         # Apply environment DSP effects
@@ -381,6 +387,7 @@ class SoundManager:
         listener_pos: Optional[Tuple[float, float, float]] = None,
         listener_orientation: Optional[Tuple[float, float]] = None,
         game_map: Optional["GameMap"] = None,
+        noise_map: Optional[np.ndarray] = None,
     ) -> float:
         """Calculate final volume with all modifiers applied."""
         final_volume = base_volume * self.sfx_volume * self.master_volume
@@ -408,6 +415,21 @@ class SoundManager:
             final_volume *= tod_effects.get("volume_modifier", 1.0)
 
         occlusion_cfg = self.situational_modifiers.get("occlusion", {})
+
+        # Apply attenuation based on precomputed noise map
+        if noise_map is not None and listener_pos is not None:
+            nx = int(listener_pos[0])
+            ny = int(listener_pos[1])
+            if 0 <= ny < noise_map.shape[0] and 0 <= nx < noise_map.shape[1]:
+                cost = noise_map[ny, nx]
+                infinity = np.iinfo(noise_map.dtype).max // 2
+                if cost < infinity:
+                    noise_dist = cost - BASE_FLOW_CENTER
+                    if NOISE_STRENGTH > 0:
+                        noise_modifier = max(0.0, 1.0 - (noise_dist / NOISE_STRENGTH))
+                        final_volume *= noise_modifier
+                else:
+                    final_volume = 0.0
 
         # Apply directional attenuation for sounds behind the listener
         if source_pos and listener_pos and listener_orientation:

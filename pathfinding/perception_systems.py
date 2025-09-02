@@ -122,18 +122,12 @@ def _propagate_noise_kernel(
     cost_grid.fill(infinity)
 
     if not in_bounds(start_y, start_x, height, width):
-        log.warning(
-            "Noise start out of bounds", start_y=start_y, start_x=start_x
-        )
         return  # Start is outside map
 
     # Check if start location itself is blocked (e.g., inside a wall)
     if terrain_map[start_y, start_x] == FeatureType.WALL:
         # Cannot start noise inside a wall - might need refinement based on game rules
         # Or maybe allow it for specific effects? For now, just exit.
-        log.warning(
-            "Noise start is inside a wall", start_y=start_y, start_x=start_x
-        )
         return
 
     cost_grid[start_y, start_x] = start_cost
@@ -238,6 +232,89 @@ def update_noise(
         door_real_penalty=penalties.get("real", 5),  # Default from Sil if missing
         flow_type=flow_idx,  # Pass the integer value
     )
+
+
+def compute_noise_map(
+    terrain_map: np.ndarray,
+    cy: int,
+    cx: int,
+    which_flow: FlowType = FlowType.REAL_NOISE,
+    penalties: Dict[str, int] | None = None,
+) -> np.ndarray:
+    """Convenience wrapper that returns a noise map slice.
+
+    This function allocates the required arrays, runs :func:`update_noise` for a
+    single flow type and returns the resulting 2D cost grid.  Both AI agents and
+    the audio engine can use this to ensure they operate on identical
+    propagation data.
+    """
+
+    height, width = terrain_map.shape
+    try:
+        cave_cost = np.zeros((MAX_FLOWS, height, width), dtype=np.int32)
+        flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)
+        update_noise(
+            cave_cost,
+            flow_centers,
+            terrain_map,
+            cy,
+            cx,
+            which_flow,
+            penalties or {},
+        )
+        return cave_cost[int(which_flow)]
+    except Exception:
+        # Fallback to a simple Python implementation if the Numba kernel is
+        # unavailable (e.g., during testing environments without Numba
+        # compilation support).
+        return _compute_noise_map_python(
+            terrain_map, cy, cx, which_flow, penalties or {}
+        )
+
+
+def _compute_noise_map_python(
+    terrain_map: np.ndarray,
+    cy: int,
+    cx: int,
+    which_flow: FlowType,
+    penalties: Dict[str, int],
+) -> np.ndarray:
+    height, width = terrain_map.shape
+    infinity = np.iinfo(np.int32).max // 2
+    cost_grid = np.full((height, width), infinity, dtype=np.int32)
+    if not in_bounds(cy, cx, height, width):
+        return cost_grid
+    if terrain_map[cy, cx] == FeatureType.WALL:
+        return cost_grid
+
+    cost_grid[cy, cx] = BASE_FLOW_CENTER
+    queue: Deque[QueueItem] = deque([(cy, cx, BASE_FLOW_CENTER)])
+
+    while queue:
+        y, x, current = queue.popleft()
+        if current - BASE_FLOW_CENTER >= NOISE_STRENGTH:
+            continue
+        for dy, dx in NEIGHBORS_8:
+            ny, nx = y + dy, x + dx
+            if not in_bounds(ny, nx, height, width):
+                continue
+            terrain_feature = terrain_map[ny, nx]
+            if terrain_feature == FeatureType.WALL:
+                continue
+            cost_increase = 1
+            is_closed = cave_closed_door(terrain_feature)
+            if is_closed:
+                if which_flow == FlowType.NO_DOORS:
+                    continue
+                elif which_flow == FlowType.PASS_DOORS:
+                    cost_increase += penalties.get("pass", 3)
+                elif which_flow in (FlowType.REAL_NOISE, FlowType.MONSTER_NOISE):
+                    cost_increase += penalties.get("real", 5)
+            new_cost = current + cost_increase
+            if new_cost < cost_grid[ny, nx]:
+                cost_grid[ny, nx] = new_cost
+                queue.append((ny, nx, new_cost))
+    return cost_grid
 
 
 def get_noise_dist(
