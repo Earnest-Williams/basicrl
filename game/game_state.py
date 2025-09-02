@@ -61,6 +61,8 @@ class GameState:
         rng_seed: int | None = None,
         ai_config: Dict[str, Any] | None = None,
         memory_fade_config: Dict[str, Any] | None = None,
+        enable_sound: bool = True,
+        enable_ai: bool = True,
     ):
         log.info("Initializing GameState...")
 
@@ -89,6 +91,7 @@ class GameState:
         self.item_registry: ItemRegistry = ItemRegistry(item_templates)
         self.effect_definitions: Dict[str, Any] = effect_definitions or {}
         self.ai_config: Dict[str, Any] = ai_config or {}
+        self.ai_enabled: bool = enable_ai
         mf_config = memory_fade_config or {}
         duration = mf_config.get("duration", 60.0)
         self.memory_fade_enabled: bool = mf_config.get("enabled", True)
@@ -155,7 +158,9 @@ class GameState:
         # --- End NEW ---
         
         # --- Sound System ---
-        self.sound_manager = get_sound_manager() if SOUND_AVAILABLE else None
+        self.sound_manager = (
+            get_sound_manager() if SOUND_AVAILABLE and enable_sound else None
+        )
         if self.sound_manager:
             log.debug("Sound system initialized")
 
@@ -459,22 +464,25 @@ class GameState:
         self.update_fov()
 
         # --- AI processing for nearby entities ---
-        log.debug("Gathering perception data for AI")
-        perception = gather_perception(self)
+        if self.ai_enabled:
+            log.debug("Gathering perception data for AI")
+            perception = gather_perception(self)
 
-        log.debug("Processing AI-controlled entities")
-        ai_rows = []
-        for row in self.entity_registry.entities_df.iter_rows(named=True):
-            if not row.get("is_active", False):
-                continue
-            if row["entity_id"] == self.player_id:
-                continue
-            zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
-            if zone not in active_zones:
-                continue
-            ai_rows.append(row)
-        if ai_rows:
-            dispatch_ai(ai_rows, self, self.rng_instance, perception)
+            log.debug("Processing AI-controlled entities")
+            ai_rows = []
+            for row in self.entity_registry.entities_df.iter_rows(named=True):
+                if not row.get("is_active", False):
+                    continue
+                if row["entity_id"] == self.player_id:
+                    continue
+                zone = self.zone_manager.get_zone(row.get("x"), row.get("y"))
+                if zone not in active_zones:
+                    continue
+                ai_rows.append(row)
+            if ai_rows:
+                dispatch_ai(ai_rows, self, self.rng_instance, perception)
+        else:
+            log.debug("AI subsystem disabled; skipping AI processing")
 
 
         # Process any queued low-detail zone updates
