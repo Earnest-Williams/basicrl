@@ -34,13 +34,10 @@ except ImportError:
         from basicrl.game.game_state import GameState
         from basicrl.game.world.game_map import GameMap
         from basicrl.game.world.fov import compute_light_color_array
-    except ImportError:
-        GameState = object  # Define dummies if import fails
-        GameMap = object
-        compute_light_color_array = lambda *args, **kwargs: None
-        structlog.get_logger().error(
-            "CRITICAL: Failed to import GameState or GameMap in renderer."
-        )
+    except ImportError as exc:
+        raise RuntimeError(
+            "Failed to import GameState or GameMap in renderer"
+        ) from exc
 
 # Require GameRNG; abort if unavailable
 try:
@@ -49,10 +46,9 @@ except ImportError:
     try:
         from basicrl.game_rng import GameRNG
     except ImportError as exc:
-        structlog.get_logger().critical(
-            "CRITICAL: Failed to import GameRNG in renderer."
-        )
-        raise SystemExit from exc
+        raise RuntimeError(
+            "Failed to import GameRNG in renderer"
+        ) from exc
 
 
 if TYPE_CHECKING:
@@ -160,7 +156,7 @@ def render_viewport(
     coord_arrays = viewport.coord_arrays
 
     # --- Input Validation ---
-    if not isinstance(game_state, GameState) or GameState is object:
+    if not isinstance(game_state, GameState):
         log.error("render_viewport called with invalid GameState object")
         pw = max(1, viewport_width * max(1, tile_w))
         ph = max(1, viewport_height * max(1, tile_h))
