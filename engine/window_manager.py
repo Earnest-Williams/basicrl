@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from engine.window_manager_modules.input_handler import InputHandler
 from engine.window_manager_modules.tileset_manager import TilesetManager
 from engine.window_manager_modules.ui_overlay_manager import UIOverlayManager
+from engine.renderer import ViewportParams
 
 # --- Type Checking ---
 if TYPE_CHECKING:
@@ -344,22 +345,23 @@ class WindowManager(QWidget):
 
         # Call MainLoop's update_console to get the rendered image
         try:
-            rendered_image: Image.Image | None = self.main_loop.update_console(
-                game_state=gs,
-                viewport_x=viewport_tile_x, # Pass calculated viewport tile coords
+            viewport = ViewportParams(
+                viewport_x=viewport_tile_x,
                 viewport_y=viewport_tile_y,
-                viewport_width=vp_render_tile_w, # Pass calculated viewport tile dimensions
+                viewport_width=vp_render_tile_w,
                 viewport_height=vp_render_tile_h,
-                # Pass data from TilesetManager
                 tile_arrays=render_data["tile_arrays"],
                 tile_fg_colors=render_data["tile_fg_colors"],
                 tile_bg_colors=render_data["tile_bg_colors"],
                 tile_indices_render=render_data["tile_indices_render"],
                 max_defined_tile_id=render_data["max_defined_tile_id"],
-                tile_w=render_data["tile_w"], # Current tile dimensions
+                tile_w=render_data["tile_w"],
                 tile_h=render_data["tile_h"],
-                # Pass coordinate cache
                 coord_arrays=self._render_coord_cache,
+            )
+            rendered_image: Image.Image | None = self.main_loop.update_console(
+                game_state=gs,
+                viewport=viewport,
             )
         except Exception as e:
             # Catch errors during the update_console call itself

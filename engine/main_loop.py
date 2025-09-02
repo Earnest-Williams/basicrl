@@ -13,7 +13,7 @@ from simulation.zone_manager import ZoneManager
 # Use relative import for sibling module within the same package ('engine')
 # Import the renderer module and the RenderConfig dataclass
 from . import action_handler, renderer
-from .renderer import RenderConfig  # Import the dataclass
+from .renderer import RenderConfig, ViewportParams  # Import dataclasses
 
 if TYPE_CHECKING:
     # Relative import for sibling module within the same package ('engine')
@@ -125,30 +125,14 @@ class MainLoop:
             )
             return False
 
-    # --- MODIFIED: Update Console Signature ---
+    # --- Update Console Signature ---
     def update_console(
         self: Self,
-        # Accept all args passed from WindowManager
         game_state: GameState,
-        viewport_x: int,
-        viewport_y: int,
-        viewport_width: int,  # In tiles
-        viewport_height: int,  # In tiles
-        tile_arrays: Dict[int, np.ndarray | None],
-        tile_fg_colors: np.ndarray,
-        tile_bg_colors: np.ndarray,
-        tile_indices_render: np.ndarray,
-        max_defined_tile_id: int,
-        tile_w: int,
-        tile_h: int,
-        coord_arrays: Dict[str, np.ndarray],
+        viewport: "ViewportParams",
     ) -> Image.Image | None:
-        # --- End MODIFIED Signature ---
-        """
-        Orchestrates rendering by gathering data and calling the renderer module.
-        Called by WindowManager.update_frame(). Returns image or None on error.
-        """
-        gs = game_state  # Use the passed game_state
+        """Orchestrate rendering by gathering data and calling the renderer module."""
+        gs = game_state
 
         # Calculate FOV radius squared (needed for RenderConfig)
         fov_radius = np.float32(gs.fov_radius)
@@ -175,22 +159,10 @@ class MainLoop:
 
         # --- Call Renderer ---
         try:
-            # Pass arguments to the renderer function
             image = renderer.render_viewport(
                 game_state=gs,
-                tile_arrays=tile_arrays,
-                tile_fg_colors=tile_fg_colors,
-                tile_bg_colors=tile_bg_colors,
-                tile_indices_render=tile_indices_render,
-                max_defined_tile_id=max_defined_tile_id,
-                tile_w=tile_w,
-                tile_h=tile_h,
-                viewport_x=viewport_x,
-                viewport_y=viewport_y,
-                viewport_width=viewport_width,
-                viewport_height=viewport_height,
-                coord_arrays=coord_arrays,
-                render_config=render_config,  # Pass the config object
+                viewport=viewport,
+                render_config=render_config,
             )
             return image
         except Exception as e:

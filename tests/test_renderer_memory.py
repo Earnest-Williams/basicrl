@@ -23,6 +23,8 @@ from engine.render_lighting import (
     MEMORY_LEVEL_COUNT,
     NOISY_MEMORY_FLOOR_GLYPHS,
 )
+from engine.renderer import RenderConfig, ViewportParams, render_viewport
+from PIL import Image
 
 MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
 
@@ -220,3 +222,44 @@ def test_memory_fade_variance_and_noise_deterministic():
     assert not np.array_equal(final_fg[py, px], baseline_fg[py, px])
     level = int((1.0 - gm.memory_intensity[py, px]) * MEMORY_LEVEL_COUNT)
     assert glyphs[py, px] == NOISY_MEMORY_FLOOR_GLYPHS[level]
+
+
+def test_render_viewport_smoke():
+    gs = create_game_state()
+    gm = gs.game_map
+    max_defined_tile_id = 255
+    tile_fg_colors = np.zeros((max_defined_tile_id + 1, 3), dtype=np.uint8)
+    tile_bg_colors = np.zeros((max_defined_tile_id + 1, 3), dtype=np.uint8)
+    tile_indices_render = np.zeros(max_defined_tile_id + 1, dtype=np.uint16)
+    coord_arrays = {
+        "tile_coord_y": np.zeros((gm.height, gm.width), dtype=np.int16),
+        "tile_coord_x": np.zeros((gm.height, gm.width), dtype=np.int16),
+    }
+    viewport = ViewportParams(
+        viewport_x=0,
+        viewport_y=0,
+        viewport_width=gm.width,
+        viewport_height=gm.height,
+        tile_arrays={},
+        tile_fg_colors=tile_fg_colors,
+        tile_bg_colors=tile_bg_colors,
+        tile_indices_render=tile_indices_render,
+        max_defined_tile_id=max_defined_tile_id,
+        tile_w=1,
+        tile_h=1,
+        coord_arrays=coord_arrays,
+    )
+    render_config = RenderConfig(
+        show_height_vis=False,
+        vis_max_diff=0,
+        vis_color_high_np=np.zeros(3, dtype=np.uint8),
+        vis_color_mid_np=np.zeros(3, dtype=np.uint8),
+        vis_color_low_np=np.zeros(3, dtype=np.uint8),
+        vis_blend_factor=np.float32(0.0),
+        lighting_ambient=np.float32(1.0),
+        lighting_min_fov=np.float32(0.0),
+        lighting_falloff=np.float32(1.0),
+        fov_radius_sq=np.float32(1.0),
+    )
+    image = render_viewport(gs, viewport, render_config)
+    assert isinstance(image, Image.Image)
