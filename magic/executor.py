@@ -146,24 +146,42 @@ def execute_work(
 
 
 def _verify_seals(work: Work, context: GameState) -> bool:
-    """Placeholder check for seals."""
-    valid = bool(work.seals)
-    log.debug("Verifying seals", count=len(work.seals), result=valid)
-    return valid
+    """Check that all required seal tags exist on the acting entity.
+
+    The :class:`GameState` must expose a ``has_seal_tag`` method and a
+    ``player_id`` attribute referencing the acting entity. Each seal listed on
+    the work is verified against the game state's registry.
+    """
+    for seal in work.seals:
+        if not context.has_seal_tag(context.player_id, seal):
+            log.debug("Verifying seals", missing=seal, result=False)
+            return False
+    log.debug("Verifying seals", count=len(work.seals), result=True)
+    return True
 
 
 def _verify_fonts(work: Work, context: GameState) -> bool:
-    """Placeholder check for fonts."""
-    valid = bool(work.fonts)
-    log.debug("Verifying fonts", count=len(work.fonts), result=valid)
-    return valid
+    """Ensure all fonts required by ``work`` are available to the actor.
+
+    ``GameState`` must implement ``has_font_source`` mirroring
+    :func:`GameState.has_font_source`.
+    """
+    for font in work.fonts:
+        if not context.has_font_source(context.player_id, font):
+            log.debug("Verifying fonts", missing=font, result=False)
+            return False
+    log.debug("Verifying fonts", count=len(work.fonts), result=True)
+    return True
 
 
 def _verify_vents(work: Work, context: GameState) -> bool:
-    """Placeholder check for vents."""
-    valid = bool(work.vents)
-    log.debug("Verifying vents", count=len(work.vents), result=valid)
-    return valid
+    """Verify that all vent targets are present on the acting entity."""
+    for vent in work.vents:
+        if not context.has_vent_target(context.player_id, vent):
+            log.debug("Verifying vents", missing=vent, result=False)
+            return False
+    log.debug("Verifying vents", count=len(work.vents), result=True)
+    return True
 
 
 def _update_friction(work: Work, context: GameState) -> None:
