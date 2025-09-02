@@ -1,6 +1,7 @@
 # utils/helpers.py
+from __future__ import annotations
+
 import re
-from typing import Union
 
 import structlog
 
@@ -17,7 +18,7 @@ DICE_PATTERN = re.compile(r"(\d+)?d(\d+)(?:([+-])(\d+))?")
 
 
 # Make it a public function
-def roll_dice(dice_str: Union[str, None], rng: Union["GameRNG", None]) -> int:
+def roll_dice(dice_str: str | None, rng: GameRNG | None) -> int:
     """
     Rolls dice based on a string format (e.g., "1d6", "2d4+1").
     Requires a :class:`GameRNG` instance and raises ``ValueError`` if ``rng`` is
