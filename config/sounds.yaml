@@ -114,17 +114,23 @@ sound_effects:
 background_music:
   # Default exploration music
   exploration:
-    files: ["exploration_ambient_01.ogg", "exploration_ambient_02.ogg"]
+    generator:
+      tempo: 90
+      harmony: "major"
+      intensity: 0.3
     volume: 0.4
     loop: true
     fade_in_time: 2.0
     fade_out_time: 3.0
     conditions:
       game_state: ["exploring", "idle"]
-      
+
   # Combat music
   combat:
-    files: ["combat_intense_01.ogg", "combat_intense_02.ogg"]
+    generator:
+      tempo: 140
+      harmony: "minor"
+      intensity: 0.9
     volume: 0.6
     loop: true
     fade_in_time: 1.0
@@ -132,21 +138,43 @@ background_music:
     priority: 10              # Higher priority than exploration
     conditions:
       game_state: ["combat"]
-      
+
   # Dungeon depth-based music
   deep_dungeon:
-    files: ["deep_dungeon_ambient.ogg"]
+    generator:
+      tempo: 70
+      harmony: "minor"
+      intensity: 0.6
     volume: 0.5
     loop: true
     fade_in_time: 3.0
     fade_out_time: 4.0
+    priority: 5
     conditions:
       min_depth: 10
       game_state: ["exploring"]
-      
+
+  # Night-time exploration music
+  night:
+    generator:
+      tempo: 80
+      harmony: "minor"
+      intensity: 0.4
+    volume: 0.4
+    loop: true
+    fade_in_time: 2.0
+    fade_out_time: 3.0
+    priority: 3
+    conditions:
+      time_of_day: ["night"]
+      game_state: ["exploring"]
+
   # Boss encounter music
   boss_encounter:
-    files: ["boss_music_epic.ogg"]
+    generator:
+      tempo: 160
+      harmony: "minor"
+      intensity: 1.0
     volume: 0.7
     loop: true
     fade_in_time: 0.5

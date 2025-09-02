@@ -85,9 +85,10 @@ class SoundEffect:
 
 class BackgroundMusic:
     """Represents background music with situational awareness."""
-    
+
     def __init__(self, config: Dict[str, Any], base_path: Path):
-        self.files = config.get("files", [])
+        # ``generator`` holds parameters for :class:`MusicGenerator`
+        self.generator_settings = config.get("generator", {})
         self.volume = config.get("volume", 1.0)
         self.loop = config.get("loop", True)
         self.fade_in_time = config.get("fade_in_time", 1.0)
@@ -96,12 +97,26 @@ class BackgroundMusic:
         self.conditions = config.get("conditions", {})
         self.base_path = base_path
         self._current_track = None
-        
-    def get_random_file(self) -> Optional[Path]:
-        """Get a random music file from the available options."""
-        if not self.files:
+
+    def generate(self, context: Dict[str, Any]) -> Optional[Path]:
+        """Generate background music using configured parameters.
+
+        ``context`` may override tempo, harmony or intensity if those keys are
+        present.  The function returns a temporary WAV file or ``None`` on
+        failure.
+        """
+        settings = dict(self.generator_settings)
+        for key in ("tempo", "harmony", "intensity"):
+            if key in context:
+                settings[key] = context[key]
+        try:
+            from game.audio.music import MusicGenerator
+
+            generator = MusicGenerator()
+            return generator.generate(**settings)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning(f"Failed to generate music: {exc}")
             return None
-        return self.base_path / random.choice(self.files)
     
     def matches_conditions(self, context: Dict[str, Any]) -> bool:
         """Check if this background music matches the current game context."""
@@ -132,6 +147,7 @@ class SoundManager:
         self.situational_modifiers: Dict[str, Any] = {}
         self.current_music = None
         self.current_music_name = None
+        self.current_music_file: Optional[Path] = None
         self.active_sounds: Set[Any] = set()
         self.listener_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
         
@@ -308,20 +324,22 @@ class SoundManager:
             return
             
         # Stop current music
-        if self.current_music:
+        if self.current_music or self.current_music_file:
             self._stop_background_music()
-        
-        # Start new music
+
+        # Start new music using the generator
         if new_music:
-            music_file = new_music.get_random_file()
+            music_file = new_music.generate(context)
             if music_file:
                 volume = self._calculate_music_volume(new_music.volume, context)
                 try:
                     self._play_background_music_file(music_file, volume, new_music.loop)
                     self.current_music_name = music_name
+                    self.current_music_file = music_file
                     log.debug(f"Switched to background music: {music_name}")
                 except Exception as e:
                     log.warning(f"Failed to play background music {music_name}: {e}")
+                    self.current_music_file = None
     
     def _calculate_volume(self, base_volume: float, context: Optional[Dict[str, Any]] = None) -> float:
         """Calculate final volume with all modifiers applied."""
@@ -476,8 +494,16 @@ class SoundManager:
                     self.current_music.stop()
             except Exception:
                 pass
-            self.current_music = None
-            self.current_music_name = None
+
+        if self.current_music_file:
+            try:
+                self.current_music_file.unlink()
+            except Exception:
+                pass
+            self.current_music_file = None
+
+        self.current_music = None
+        self.current_music_name = None
     
     def handle_game_event(self, event_name: str, context: Optional[Dict[str, Any]] = None) -> None:
         """Handle a game event that might trigger sound effects."""
