@@ -10,7 +10,8 @@ from PySide6.QtCore import QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette
 
 # --- PySide6 Imports - Thoroughly Checked ---
-from PySide6.QtWidgets import QColorDialog  # Added QColorDialog explicitly where used
+# Added QColorDialog explicitly where used
+from PySide6.QtWidgets import QColorDialog
 from PySide6.QtWidgets import QDialog  # Added QDialog
 from PySide6.QtWidgets import (
     QApplication,
@@ -134,19 +135,23 @@ class MainWindow(QMainWindow):
             QIcon.fromTheme("document-save"), "&Save Map...", self
         )
         self.save_action.setShortcut(QKeySequence.StandardKey.Save)
-        self.save_action.setStatusTip("Save current map to named entry in JSON")
+        self.save_action.setStatusTip(
+            "Save current map to named entry in JSON")
         self.save_action.triggered.connect(self.save_map)
 
         self.save_selection_action = QAction(
-            QIcon.fromTheme("document-save-as"), "Save Selection As Map...", self
+            QIcon.fromTheme(
+                "document-save-as"), "Save Selection As Map...", self
         )
         self.save_selection_action.setStatusTip(
             "Save selected region as new named map entry"
         )
-        self.save_selection_action.triggered.connect(self.save_selection_as_map)
+        self.save_selection_action.triggered.connect(
+            self.save_selection_as_map)
         self.save_selection_action.setEnabled(False)
 
-        self.exit_action = QAction(QIcon.fromTheme("application-exit"), "E&xit", self)
+        self.exit_action = QAction(QIcon.fromTheme(
+            "application-exit"), "E&xit", self)
         self.exit_action.setShortcut(QKeySequence.StandardKey.Quit)
         self.exit_action.setStatusTip("Exit")
         self.exit_action.triggered.connect(self.close)
@@ -155,14 +160,16 @@ class MainWindow(QMainWindow):
         self.select_tool_action = QAction(
             QIcon.fromTheme("edit-select"), "Select Region Tool", self
         )
-        self.select_tool_action.setStatusTip("Activate region selection (click-drag)")
+        self.select_tool_action.setStatusTip(
+            "Activate region selection (click-drag)")
         self.select_tool_action.setCheckable(True)
         self.select_tool_action.triggered.connect(self.toggle_selection_tool)
 
         # Help Action
         help_ctrl = self._find_control_by_action("show_help")
         help_key = help_ctrl.get("key", "F1") if help_ctrl else "F1"
-        self.help_action = QAction(QIcon.fromTheme("help-contents"), "&Help...", self)
+        self.help_action = QAction(QIcon.fromTheme(
+            "help-contents"), "&Help...", self)
         self.help_action.setStatusTip("Show controls")
         try:
             std_key = getattr(QKeySequence.StandardKey, help_key, None)
@@ -255,7 +262,8 @@ class MainWindow(QMainWindow):
         for group, items in groups.items():
             if items:
                 help_text += (
-                    f"<b>{group}:</b><ul>{''.join(f'<li>{c}</li>' for c in items)}</ul>"
+                    f"<b>{
+                        group}:</b><ul>{''.join(f'<li>{c}</li>' for c in items)}</ul>"
                 )
         # Use QMessageBox directly
         msg = QMessageBox(self)
@@ -272,7 +280,8 @@ class MainWindow(QMainWindow):
         default_fname = os.path.basename(self.current_filepath or "map.json")
         # Use QFileDialog directly
         fpath, sel_filter = QFileDialog.getSaveFileName(
-            self, "Save Map", os.path.join(default_dir, default_fname), "*.json"
+            self, "Save Map", os.path.join(
+                default_dir, default_fname), "*.json"
         )
         if not fpath:
             return
@@ -280,7 +289,8 @@ class MainWindow(QMainWindow):
             fpath += ".json"
 
         # Use QInputDialog directly
-        key, ok = QInputDialog.getText(self, "Map Key", "Enter name/key for this map:")
+        key, ok = QInputDialog.getText(
+            self, "Map Key", "Enter name/key for this map:")
         if not ok or not key.strip():
             QMessageBox.warning(self, "Save", "Key empty.")
             return
@@ -343,7 +353,8 @@ class MainWindow(QMainWindow):
     def load_map(self):
         """Loads map(s) from JSON."""
         # Use QFileDialog directly
-        fpath, _ = QFileDialog.getOpenFileName(self, "Load Map(s)", "", "*.json")
+        fpath, _ = QFileDialog.getOpenFileName(
+            self, "Load Map(s)", "", "*.json")
         if not fpath:
             return
 
@@ -388,7 +399,8 @@ class MainWindow(QMainWindow):
                     return
 
             if not maps_to_load:
-                QMessageBox.warning(self, "Load", "No valid map data selected/found.")
+                QMessageBox.warning(
+                    self, "Load", "No valid map data selected/found.")
                 return
 
             # Validate maps & check tiles
@@ -404,7 +416,8 @@ class MainWindow(QMainWindow):
                     temp_maps[k] = temp
                     valid_keys.append(k)
                 else:
-                    QMessageBox.warning(self, "Warn", f"Skipping '{k}' (load error).")
+                    QMessageBox.warning(self, "Warn", f"Skipping '{
+                                        k}' (load error).")
             if not temp_maps:
                 QMessageBox.critical(self, "Error", "No maps loaded.")
                 return
@@ -436,10 +449,12 @@ class MainWindow(QMainWindow):
                         QMessageBox.warning(
                             self,
                             "Tiles",
-                            f"Added defaults: {', '.join(added)}\nConfig saved.",
+                            f"Added defaults: {
+                                ', '.join(added)}\nConfig saved.",
                         )
                     else:
-                        QMessageBox.critical(self, "Error", "Failed saving config.")
+                        QMessageBox.critical(
+                            self, "Error", "Failed saving config.")
 
             # Combine maps
             valid_maps = {k: temp_maps[k] for k in valid_keys}
@@ -485,7 +500,8 @@ class MainWindow(QMainWindow):
 
         combined_default = self.app_config.get("default_tile", ".")
         total_w, total_h = 0, 0
-        map_dims = {k: (m.width, m.height) for k, m in loaded_maps_dict.items()}
+        map_dims = {k: (m.width, m.height)
+                    for k, m in loaded_maps_dict.items()}
         cs, rs = [], []
         actual_cols = max(1, grid_cols)
         actual_rows = max(1, grid_rows)
@@ -569,7 +585,8 @@ class MainWindow(QMainWindow):
     def load_text_layout(self):
         """Loads map from text file."""
         # Use QFileDialog directly
-        fpath, _ = QFileDialog.getOpenFileName(self, "Load Text Layout", "", "*.txt")
+        fpath, _ = QFileDialog.getOpenFileName(
+            self, "Load Text Layout", "", "*.txt")
         if not fpath:
             return
 

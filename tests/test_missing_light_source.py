@@ -1,3 +1,6 @@
+from game.game_state import GameState
+from game.world.game_map import GameMap
+from structlog.testing import capture_logs
 import sys
 import types
 
@@ -11,10 +14,6 @@ def dispatch_ai(*args, **kwargs):
 
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
-
-from structlog.testing import capture_logs
-from game.world.game_map import GameMap
-from game.game_state import GameState
 
 
 def create_game_state():
@@ -46,4 +45,3 @@ def test_update_fov_missing_light_source_logs_error():
     assert any(
         log["event"] == "Failed to update player light source" for log in logs
     )
-

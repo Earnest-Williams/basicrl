@@ -18,16 +18,20 @@ from game_rng import GameRNG
 
 # Concrete dependency implementations
 
+
 @dataclass(frozen=True)
 class Home:
     """Resource storage and field references for an agent's dwelling."""
 
     water_storage: float = 0.0
-    raw_inventory: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
-    cooked_food: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
+    raw_inventory: Dict[str, float] = field(
+        default_factory=lambda: defaultdict(float))
+    cooked_food: Dict[str, float] = field(
+        default_factory=lambda: defaultdict(float))
     fiber: Dict[str, float] = field(default_factory=lambda: defaultdict(float))
     containers: Dict[str, Any] = field(default_factory=dict)
     fields: List[Any] = field(default_factory=list)
+
 
 @dataclass(frozen=True)
 class Behavior:
@@ -183,7 +187,8 @@ class IllnessSystem:
 
     def add_condition(self, name: str, severity: float, duration: int) -> None:
         if name not in self.active_conditions:
-            self.active_conditions[name] = {"severity": severity, "duration": duration}
+            self.active_conditions[name] = {
+                "severity": severity, "duration": duration}
 
     def has_condition(self, condition_name: str) -> bool:
         return condition_name in self.active_conditions
@@ -277,9 +282,11 @@ class SelfConcept:
         if behavior_name in self.behavior_identity_map:
             for aspect, weight in self.behavior_identity_map[behavior_name].items():
                 if weight < 0 and self.identity_aspects[aspect] > 0.7:
-                    dissonance += abs(weight) * (self.identity_aspects[aspect] - 0.5)
+                    dissonance += abs(weight) * \
+                        (self.identity_aspects[aspect] - 0.5)
                 elif weight > 0 and self.identity_aspects[aspect] < 0.3:
-                    dissonance += abs(weight) * (0.5 - self.identity_aspects[aspect])
+                    dissonance += abs(weight) * \
+                        (0.5 - self.identity_aspects[aspect])
         return dissonance
 
     def update_from_behavior(
@@ -306,7 +313,8 @@ class Weather:
 
 
 class Field:
-    plots: Dict[str, np.ndarray]  # Define structure e.g., {'status': [], 'health': []}
+    # Define structure e.g., {'status': [], 'health': []}
+    plots: Dict[str, np.ndarray]
 
     def __init__(self, size=10):
         # Example initialization
@@ -326,17 +334,20 @@ class Field:
         self, weather: Weather, calendar: Calendar
     ) -> Dict[str, int]:
         # Find ready plots
-        ready_indices = np.where(self.plots["status"] == PLOT_STATUS_MAP["ready"])[0]
+        ready_indices = np.where(
+            self.plots["status"] == PLOT_STATUS_MAP["ready"])[0]
         harvest_summary = defaultdict(int)
         if ready_indices.size > 0:
             for idx in ready_indices:
                 crop_type = self.plots["crop_type"][idx]
                 if crop_type:  # Ensure a crop was planted
                     # Yield based on health (example)
-                    yield_amount = int(max(1, (self.plots["health"][idx] / 25.0)))
+                    yield_amount = int(
+                        max(1, (self.plots["health"][idx] / 25.0)))
                     harvest_summary[crop_type] += yield_amount
                     # Reset plot status
-                    self.plots["status"][idx] = 0  # Assuming 0 is 'empty' or similar
+                    # Assuming 0 is 'empty' or similar
+                    self.plots["status"][idx] = 0
                     self.plots["health"][idx] = 50.0  # Reset health
                     self.plots["crop_type"][idx] = ""
         return dict(harvest_summary)
@@ -439,12 +450,15 @@ class AgentF:
         self._behavior_dispatch_map: Dict[str, Callable[..., Any]] = (
             self._build_dispatch_map()
         )
-        self.executed_habits_today: Dict[str, Tuple[bool, OutcomeResult | None]] = {}
+        self.executed_habits_today: Dict[str,
+                                         Tuple[bool, OutcomeResult | None]] = {}
 
-        self.habit_reflect_min_count = max(2, int(5 - 2 * self.traits.ingenuity))
+        self.habit_reflect_min_count = max(
+            2, int(5 - 2 * self.traits.ingenuity))
         self.habit_reflect_max_len = int(3 + self.traits.ingenuity)
         self.habit_prune_score_thr = 0.2
-        self.habit_prune_inactive_days = int(20 + 10 * (2.0 - self.traits.resonance))
+        self.habit_prune_inactive_days = int(
+            20 + 10 * (2.0 - self.traits.resonance))
 
         self._seed_initial_habits()
 
@@ -734,7 +748,8 @@ class AgentF:
                     if data["count"] > 0:
                         avg_pred_delta = data["sum"] / data["count"]
                         delta_key = f"delta_{key}"
-                        base_value = base_impact.get(delta_key, 0)  # Get base or 0
+                        base_value = base_impact.get(
+                            delta_key, 0)  # Get base or 0
                         # Weighted average, handling cases where key only exists in one source
                         base_impact[delta_key] = (
                             base_value * estimate_weight
@@ -773,7 +788,8 @@ class AgentF:
         }
 
         utility += (
-            max(0, -predicted_impact.get("delta_thirst", 0)) * self.thirst * W["thirst"]
+            max(0, -predicted_impact.get("delta_thirst", 0)) *
+            self.thirst * W["thirst"]
         )
         utility += (
             max(0, predicted_impact.get("delta_energy", 0))
@@ -786,7 +802,8 @@ class AgentF:
             * W["health"]
         )
         utility += (
-            max(0, -predicted_impact.get("delta_hunger", 0)) * self.hunger * W["hunger"]
+            max(0, -predicted_impact.get("delta_hunger", 0)) *
+            self.hunger * W["hunger"]
         )
         food_gain = sum(
             v
@@ -859,7 +876,8 @@ class AgentF:
         resonance_factor = 0.8 + 0.4 * self.traits.resonance
         score = base_score * resonance_factor + ingenuity_bonus
 
-        new_habit = Habit(name, sequence_objects, trigger_features, score, current_day)
+        new_habit = Habit(name, sequence_objects,
+                          trigger_features, score, current_day)
         self.habits.append(new_habit)
         self.base_logger.info(
             "habit_promoted",
@@ -931,7 +949,8 @@ class AgentF:
                     continue
 
                 predicted_impact = self._estimate_habit_impact(habit)
-                est_energy_cost = max(0, -predicted_impact.get("delta_energy", 0))
+                est_energy_cost = max(
+                    0, -predicted_impact.get("delta_energy", 0))
                 est_time_cost = max(0, predicted_impact.get("delta_time", 0))
 
                 if (
@@ -950,7 +969,8 @@ class AgentF:
                     identity_factor = 0.2 * self.traits.resonance * identity_alignment
                     adjusted_utility = utility + identity_factor
                     final_utility = adjusted_utility + habit.score * 0.01
-                    potential_choices.append((final_utility, identity_alignment, habit))
+                    potential_choices.append(
+                        (final_utility, identity_alignment, habit))
 
             if not potential_choices:
                 break
@@ -967,7 +987,8 @@ class AgentF:
                     # Avoid division by zero if len is 0 (shouldn't happen if habit_b_names is checked)
                     if len(habit_b_names_d) > 0:
                         for b_name in habit_b_names_d:
-                            dissonance += self.self_concept.calculate_dissonance(b_name)
+                            dissonance += self.self_concept.calculate_dissonance(
+                                b_name)
                         dissonance /= len(habit_b_names_d)
                         if dissonance > 0:
                             will_factor = 0.7 + 0.3 * self.traits.will
@@ -979,7 +1000,8 @@ class AgentF:
                 state_after = self._get_current_state_dict()
                 outcome_res = self._evaluate_outcome(state_before, state_after)
 
-                self.executed_habits_today[best_habit.name] = (completed, outcome_res)
+                self.executed_habits_today[best_habit.name] = (
+                    completed, outcome_res)
                 perceived_value = outcome_res.evaluation if outcome_res else 0
                 habit_b_names_u = flatten_behavior_names(
                     best_habit
@@ -1003,14 +1025,13 @@ class AgentF:
         if self.hours < self.day_length - 6 and self.energy > 7:
             current_features = self._capture_state_snapshot()
             behaviors_done_in_habits = planned_behaviors
-            action_taken = False
             if "forage_mushrooms" not in behaviors_done_in_habits and self.energy > 10:
-                self.daily_behavior_log.append((current_features, "forage_mushrooms"))
+                self.daily_behavior_log.append(
+                    (current_features, "forage_mushrooms"))
                 self.base_logger.debug(
                     "executing_fallback_action", action="forage_mushrooms"
                 )
                 self.forage_crop("mushrooms")
-                action_taken = True
 
     def end_of_day_update(self):
         self.reflect_on_day()
@@ -1048,7 +1069,8 @@ class AgentF:
                 self.conditions.discard(condition)
 
         base_recovery = 8.0
-        health_bonus = (self.health / 100.0) * 4.0 * (0.8 + 0.4 * self.traits.endurance)
+        health_bonus = (self.health / 100.0) * 4.0 * \
+            (0.8 + 0.4 * self.traits.endurance)
         fatigue_penalty = 1.0 - (self.fatigue.level / 100.0) * 0.5
         illness_mods = self.illness.get_performance_modifiers()
         illness_energy_mod = illness_mods.get("energy", 1.0)
@@ -1103,7 +1125,7 @@ class AgentF:
             min(self.habit_reflect_max_len + 1, len(behavior_names_today) + 1),
         ):
             for i in range(len(behavior_names_today) - length + 1):
-                seq_tuple = tuple(behavior_names_today[i : i + length])
+                seq_tuple = tuple(behavior_names_today[i: i + length])
                 # Find trigger state just before sequence started
                 trigger_state, _ = self.daily_behavior_log[
                     i
@@ -1221,8 +1243,9 @@ class AgentF:
         b_name = f"forage_{crop_name}"
         b = self.behaviors.get(b_name, self.behaviors.get("forage_item"))
         if not b:
-            b = Behavior(b_name, None, task_id="forage_item", primary_skill="forage")
-        start_e, start_t = self.energy, self.hours
+            b = Behavior(b_name, None, task_id="forage_item",
+                         primary_skill="forage")
+        _start_e, start_t = self.energy, self.hours
         success = False
         gathered = 0
         energy_cost = 0
@@ -1234,7 +1257,8 @@ class AgentF:
             if gathered > 0:
                 self.home.raw_inventory[crop_name] += gathered
                 base_energy_cost = 1.5
-                energy_cost = base_energy_cost / (0.7 + 0.3 * self.traits.endurance)
+                energy_cost = base_energy_cost / \
+                    (0.7 + 0.3 * self.traits.endurance)
                 self.energy -= energy_cost
                 self.fatigue.add_fatigue(amount=4.0, activity_intensity=0.8)
                 self.hours += 1.0
@@ -1258,8 +1282,9 @@ class AgentF:
         b_name = f"prepare_{crop_name}"
         b = self.behaviors.get(b_name)
         if not b:
-            b = Behavior(b_name, None, task_id="prep_fiber", primary_skill=skill)
-        start_e, start_t = self.energy, self.hours
+            b = Behavior(b_name, None, task_id="prep_fiber",
+                         primary_skill=skill)
+        _start_e, start_t = self.energy, self.hours
         success = False
         used = 0
         energy_cost = 0
@@ -1275,16 +1300,19 @@ class AgentF:
             used = min(avail, pot)
             if used > 0:
                 self.home.raw_inventory[crop_name] -= used
-                self.home.fiber[crop_name] = self.home.fiber.get(crop_name, 0) + used
+                self.home.fiber[crop_name] = self.home.fiber.get(
+                    crop_name, 0) + used
                 base_energy_cost = 1.0 * (used / base if base > 0 else 1.0)
-                energy_cost = base_energy_cost / (0.7 + 0.3 * self.traits.endurance)
+                energy_cost = base_energy_cost / \
+                    (0.7 + 0.3 * self.traits.endurance)
                 self.energy -= energy_cost
                 self.fatigue.add_fatigue(
                     amount=3.0, activity_intensity=used / base if base > 0 else 0.5
                 )
                 self.hours += 1.0
                 skill_factor = 0.015 * (0.7 + 0.3 * self.traits.ingenuity)
-                self.skills[skill] += skill_factor * (used / base if base > 0 else 1.0)
+                self.skills[skill] += skill_factor * \
+                    (used / base if base > 0 else 1.0)
                 success = True
             else:
                 energy_cost = 0.2
@@ -1314,7 +1342,8 @@ class AgentF:
             if weather:
                 cal = Calendar()
                 cal.day = day
-                n_ready = int(np.sum(field.plots["status"] == PLOT_STATUS_MAP["ready"]))
+                n_ready = int(
+                    np.sum(field.plots["status"] == PLOT_STATUS_MAP["ready"]))
                 if n_ready > 0:
                     if self.traits.perception > 1.2:
                         r_idx = np.where(
@@ -1323,7 +1352,8 @@ class AgentF:
                         if r_idx.size > 0:
                             perc_bonus = 5.0 * (self.traits.perception - 1.0)
                             field.plots["health"][r_idx] = np.minimum(
-                                100.0, field.plots["health"][r_idx] + perc_bonus
+                                100.0, field.plots["health"][r_idx] +
+                                perc_bonus
                             )
                     summary = field.harvest_ready_plots(weather, cal)
                     if summary:
@@ -1331,7 +1361,8 @@ class AgentF:
                             self.home.raw_inventory[c] += a
                             total_items += a
                         base_energy = 1.0 * n_ready
-                        energy_cost = base_energy / (0.7 + 0.3 * self.traits.endurance)
+                        energy_cost = base_energy / \
+                            (0.7 + 0.3 * self.traits.endurance)
                         self.energy -= energy_cost
                         self.fatigue.add_fatigue(
                             amount=8.0,
@@ -1339,7 +1370,8 @@ class AgentF:
                         )
                         time_cost = 1.5 * n_ready
                         self.hours += time_cost
-                        skill_factor = 0.03 * (0.7 + 0.3 * self.traits.ingenuity)
+                        skill_factor = 0.03 * \
+                            (0.7 + 0.3 * self.traits.ingenuity)
                         self.skills["farm"] += skill_factor * n_ready
                         success = True
                     else:
@@ -1347,7 +1379,8 @@ class AgentF:
                         energy_cost = 0
                 else:
                     success = True  # No plots ready is not a failure
-        energy_spent = -(self.energy - start_e)  # Calculate actual spent energy
+        # Calculate actual spent energy
+        energy_spent = -(self.energy - start_e)
         self._log_task(
             b.task_id,
             b.primary_skill,
@@ -1359,7 +1392,7 @@ class AgentF:
 
     def fetch_water(self) -> bool:
         b = self.behaviors["fetch_water"]
-        start_e, start_t = self.energy, self.hours
+        _start_e, start_t = self.energy, self.hours
         success = False
         amount = 0
         energy_cost = 0
@@ -1377,7 +1410,8 @@ class AgentF:
                 self.home.water_storage += amount
                 base_energy_cost = 1.0 + (cap * 0.2)
                 base_time_cost = 1.0 + (cap * 0.3)
-                energy_cost = base_energy_cost / (0.7 + 0.3 * self.traits.endurance)
+                energy_cost = base_energy_cost / \
+                    (0.7 + 0.3 * self.traits.endurance)
                 self.energy -= energy_cost
                 self.fatigue.add_fatigue(
                     amount=5.0, activity_intensity=cap / 2.0 if cap > 0 else 0.5
@@ -1407,7 +1441,8 @@ class AgentF:
             amount = 1
             self.hours += 0.1
             base_energy_cost = 0.1
-            perception_modifier = max(0.1, 1.0 - 0.2 * (self.traits.perception - 1.0))
+            perception_modifier = max(
+                0.1, 1.0 - 0.2 * (self.traits.perception - 1.0))
             energy_cost = base_energy_cost * perception_modifier
             self.energy -= energy_cost
             self.home.raw_inventory["prepared_tea"] = (
@@ -1439,7 +1474,8 @@ class AgentF:
         self.thirst = max(0.0, self.thirst - 0.3)
         base_energy_boost = 1.0
         resonance_modifier = 0.8 + 0.4 * self.traits.resonance
-        self.energy = min(16.0, self.energy + base_energy_boost * resonance_modifier)
+        self.energy = min(16.0, self.energy +
+                          base_energy_boost * resonance_modifier)
         self.fatigue.level = max(0, self.fatigue.level - 3.0)
         self.hours += 0.1
         success = True
@@ -1456,11 +1492,9 @@ class AgentF:
         b = self.behaviors["use_ipecac"]
         start_e, start_t = self.energy, self.hours
         success = False
-        amount = 0
         if self.home.raw_inventory.get("ipecac_root", 0) <= 0:
             self._log_task(b.task_id, b.primary_skill, 0, 0, 0)
             return False
-        amount = 1
         self.home.raw_inventory["ipecac_root"] -= 1
         success = True
         self.hours += 0.3
@@ -1479,7 +1513,8 @@ class AgentF:
             self.illness.active_conditions.pop("poisoned", None)
             cured_poison = True
             skill_factor = 0.05 * (0.7 + 0.3 * self.traits.ingenuity)
-            self.skills["first_aid"] = self.skills.get("first_aid", 1.0) + skill_factor
+            self.skills["first_aid"] = self.skills.get(
+                "first_aid", 1.0) + skill_factor
         outcome_value = 1.0 if cured_poison else 0.0
         self._log_task(
             b.task_id,
@@ -1509,7 +1544,8 @@ class AgentF:
         self.conditions.add("hungry")
         base_hunger_increase = 0.6
         will_modifier = 1.0 - 0.2 * (self.traits.will - 1.0)
-        self.hunger = min(1.0, self.hunger + base_hunger_increase * will_modifier)
+        self.hunger = min(1.0, self.hunger +
+                          base_hunger_increase * will_modifier)
         self.fatigue.level = max(0, self.fatigue.level - 5.0)
         self._log_task(
             b.task_id,
@@ -1574,7 +1610,8 @@ class AgentF:
         self.context["season"] = season
         self.context["weather"] = weather
         self.context["day"] = day
-        self.context["time_of_day"] = int(self.hours // (self.day_length / 3)) % 3
+        self.context["time_of_day"] = int(
+            self.hours // (self.day_length / 3)) % 3
 
     def _log_task(
         self,
@@ -1654,8 +1691,10 @@ class AgentF:
             if self.illness.active_conditions:
                 energy_factor = 0.6 + 0.4 * self.traits.will
                 hunger_factor = 0.7 + 0.3 * self.traits.will
-            self.energy = min(16.0, self.energy + base_energy_gain * energy_factor)
-            self.hunger = max(0.0, self.hunger - base_hunger_reduction * hunger_factor)
+            self.energy = min(16.0, self.energy +
+                              base_energy_gain * energy_factor)
+            self.hunger = max(0.0, self.hunger -
+                              base_hunger_reduction * hunger_factor)
             nutrient_factor = 0.9 + 0.2 * self.traits.perception
             for k, v in data.get("nutrients", {}).items():
                 self.nutrients[k] += v * eaten_amount * nutrient_factor
@@ -1673,15 +1712,17 @@ class AgentF:
 
     def tend_field(self, field_index: int = 0, max_plots: int = 5) -> bool:
         b = self.behaviors["tend_field"]
-        start_e, start_t = self.energy, self.hours
+        _start_e, start_t = self.energy, self.hours
         success = False
         tended_count = 0
         energy_cost = 0
         if field_index < len(self.home.fields):
             field = self.home.fields[field_index]
-            g_idx = np.where(field.plots["status"] == PLOT_STATUS_MAP["growing"])[0]
+            g_idx = np.where(field.plots["status"]
+                             == PLOT_STATUS_MAP["growing"])[0]
             if g_idx.size > 0:
-                perception_bonus = int(max_plots * (self.traits.perception - 1.0))
+                perception_bonus = int(
+                    max_plots * (self.traits.perception - 1.0))
                 effective_max = max(1, max_plots + perception_bonus)
                 n_tend = min(effective_max, g_idx.size)
                 # Ensure rng.sample exists and works as expected
@@ -1690,7 +1731,8 @@ class AgentF:
                     if hasattr(self.rng, "sample")
                     else g_idx[:n_tend]
                 )
-                idx_aff = np.array(idx_aff)  # Convert back to numpy array if needed
+                # Convert back to numpy array if needed
+                idx_aff = np.array(idx_aff)
                 if idx_aff.size > 0:
                     tended_count = idx_aff.size
                     base_effectiveness = 10.0
@@ -1705,15 +1747,18 @@ class AgentF:
                         * trait_modifier
                     )
                     field.tend_plots(idx_aff, h_inc)
-                    relative_effort = (n_tend / max_plots) if max_plots > 0 else 1.0
-                    energy_cost = b.est_energy_cost * (0.7 + 0.3 * relative_effort)
+                    relative_effort = (
+                        n_tend / max_plots) if max_plots > 0 else 1.0
+                    energy_cost = b.est_energy_cost * \
+                        (0.7 + 0.3 * relative_effort)
                     energy_cost /= 0.7 + 0.3 * self.traits.endurance
                     self.energy -= energy_cost
                     self.fatigue.add_fatigue(
                         amount=7.0,
                         activity_intensity=n_tend / 3.0 if n_tend > 0 else 0.5,
                     )
-                    self.hours += b.est_time_cost * (0.8 + 0.4 * relative_effort)
+                    self.hours += b.est_time_cost * \
+                        (0.8 + 0.4 * relative_effort)
                     skill_factor = 0.02 * (0.7 + 0.3 * self.traits.ingenuity)
                     self.skills["farm"] += skill_factor * n_tend
                     success = True

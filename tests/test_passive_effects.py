@@ -1,3 +1,7 @@
+from game.systems.equipment_system import apply_passive_effects, remove_passive_effects
+from game.world.game_map import GameMap, TILE_ID_FLOOR
+from game.game_state import GameState
+import polars as pl
 import sys
 import types
 
@@ -12,7 +16,6 @@ def dummy_dispatch_ai(*args, **kwargs):
 ai_module.dispatch_ai = dummy_dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
-import polars as pl
 
 # Patch DataFrame.row to ignore unsupported kwargs (compatibility across polars versions)
 _orig_row = pl.DataFrame.row
@@ -24,11 +27,9 @@ def _row_with_default(self, index, *, named=False, **kwargs):
 
 pl.DataFrame.row = _row_with_default
 
-from game.game_state import GameState
-from game.world.game_map import GameMap, TILE_ID_FLOOR
-from game.systems.equipment_system import apply_passive_effects, remove_passive_effects
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def _create_basic_map():
@@ -90,8 +91,9 @@ def test_apply_and_remove_passive_effects():
     base_mana = gs.entity_registry.get_entity_component(player_id, "mana")
 
     apply_passive_effects(item_id, player_id, gs)
-    assert gs.entity_registry.get_entity_component(player_id, "mana") == base_mana + 5
+    assert gs.entity_registry.get_entity_component(
+        player_id, "mana") == base_mana + 5
 
     remove_passive_effects(item_id, player_id, gs)
-    assert gs.entity_registry.get_entity_component(player_id, "mana") == base_mana
-
+    assert gs.entity_registry.get_entity_component(
+        player_id, "mana") == base_mana

@@ -1,10 +1,10 @@
-from game_rng import GameRNG
 
 from game.world.game_map import GameMap, TILE_ID_FLOOR
 from game.game_state import GameState
 from game.effects.handlers import heal_target, deal_damage, apply_status
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def make_game_state():

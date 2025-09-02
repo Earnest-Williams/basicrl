@@ -1,8 +1,9 @@
+from game.game_state import GameState
+from game.world.game_map import GameMap
 import numpy as np
 import pytest
 import sys
 import types
-from game_rng import GameRNG
 from game.world.fov import update_memory_fade
 
 # Minimal stubs for external modules
@@ -15,9 +16,6 @@ def dispatch_ai(*args, **kwargs):
 
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
-
-from game.world.game_map import GameMap
-from game.game_state import GameState
 
 
 def test_memory_fade_bounds():
@@ -123,7 +121,8 @@ def test_memory_fade_decay_and_mask():
 
     # Memory strength should decay for tiles no longer in view.
     expected_strength = max(initial_strength - 1.0, 0.0)
-    assert gs.game_map.memory_strength[py, px] == pytest.approx(expected_strength)
+    assert gs.game_map.memory_strength[py,
+                                       px] == pytest.approx(expected_strength)
 
 
 def test_memory_fade_skips_zero_intensity_tiles():
@@ -171,7 +170,6 @@ def test_memory_fade_skips_zero_intensity_tiles():
 
 def test_tile_type_modifiers_affect_fade():
     current_time = np.float32(10.0)
-    duration = 5.0
     midpoint = 2.5
     steepness = 1.2
 

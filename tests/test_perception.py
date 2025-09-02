@@ -1,3 +1,7 @@
+from game.systems import movement_system
+from game.ai.perception import gather_perception
+from game.game_state import GameState
+from game.world.game_map import GameMap
 import sys
 import types
 import numpy as np
@@ -13,12 +17,9 @@ def dispatch_ai(*args, **kwargs):
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
-from game.world.game_map import GameMap
-from game.game_state import GameState
-from game.ai.perception import gather_perception
-from game.systems import movement_system
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():

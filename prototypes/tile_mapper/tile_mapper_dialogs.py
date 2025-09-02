@@ -104,7 +104,8 @@ class EditTileDialog(QDialog):
 
     def pick_color(self):
         """Opens a color dialog to choose a new color."""
-        new_color = QColorDialog.getColor(self.current_color, self, "Select Tile Color")
+        new_color = QColorDialog.getColor(
+            self.current_color, self, "Select Tile Color")
         if new_color.isValid():
             self.set_button_color(new_color)
 
@@ -137,8 +138,10 @@ class EditTileDialog(QDialog):
             reply = QMessageBox.warning(
                 self,
                 "Confirm Default Tile Change",
-                f"Changing character ('{self.original_char}') designated as 'default_tile'.\n\n"
-                f"Update 'default_tile' in '{CONFIG_FILE}' manually if needed.\n\n"
+                f"Changing character ('{
+                    self.original_char}') designated as 'default_tile'.\n\n"
+                f"Update 'default_tile' in '{
+                    CONFIG_FILE}' manually if needed.\n\n"
                 f"Proceed?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
@@ -187,7 +190,8 @@ class MapSelectionDialog(QDialog):
         layout.addWidget(self.list_widget)
 
         self.selection_input = QLineEdit()
-        self.selection_input.setPlaceholderText("Or enter e.g., 1, 3-5, lobby, all")
+        self.selection_input.setPlaceholderText(
+            "Or enter e.g., 1, 3-5, lobby, all")
         layout.addWidget(QLabel("Selection String:"))
         layout.addWidget(self.selection_input)
 
@@ -195,7 +199,8 @@ class MapSelectionDialog(QDialog):
         tiling_layout = QHBoxLayout()
         tiling_layout.addWidget(QLabel("Tiling:"))
         self.tiling_combo = QComboBox()
-        self.tiling_combo.addItems(["Single", "Vertical", "Horizontal", "Grid"])
+        self.tiling_combo.addItems(
+            ["Single", "Vertical", "Horizontal", "Grid"])
         self.tiling_combo.currentTextChanged.connect(self.update_grid_options)
         tiling_layout.addWidget(self.tiling_combo)
         self.rows_label = QLabel("Rows:")
@@ -249,7 +254,8 @@ class MapSelectionDialog(QDialog):
             range_match = re.match(r"^(\d+)\s*-\s*(\d+)$", part)
             if range_match:
                 try:
-                    start, end = int(range_match.group(1)), int(range_match.group(2))
+                    start, end = int(range_match.group(1)), int(
+                        range_match.group(2))
                     if start <= end:
                         for key in self.map_keys:
                             try:
@@ -319,7 +325,8 @@ class MapSelectionDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Grid Too Small",
-                f"Grid ({self.grid_rows}x{self.grid_cols}) too small for {num_selected} maps.",
+                f"Grid ({self.grid_rows}x{self.grid_cols}) too small for {
+                    num_selected} maps.",
             )
             return
 

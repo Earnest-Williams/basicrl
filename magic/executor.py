@@ -56,7 +56,8 @@ def register_friction_callback(event: str, callback: FrictionCallback) -> None:
     """
 
     FRICTION_CALLBACKS.setdefault(event, []).append(callback)
-    log.debug("Registered friction callback", event_name=event, callback=callback)
+    log.debug("Registered friction callback",
+              event_name=event, callback=callback)
 
 
 def _dispatch_friction_event(event: str, work: "Work", context: "GameState") -> None:
@@ -65,7 +66,8 @@ def _dispatch_friction_event(event: str, work: "Work", context: "GameState") -> 
         try:
             cb(work, context)
         except Exception as err:  # pragma: no cover - defensive
-            log.error("Friction callback failed", event_name=event, error=str(err))
+            log.error("Friction callback failed",
+                      event_name=event, error=str(err))
 
 
 def register_handler(art: Art, substance: Substance, handler: EffectHandler) -> None:
@@ -137,7 +139,8 @@ def execute_work(
 
     # 1) Ward gate
     if is_blocked(work, wards, counterseals):
-        log.info("Work blocked by ward", art=work.art, substances=list(work.substances))
+        log.info("Work blocked by ward", art=work.art,
+                 substances=list(work.substances))
         return False
 
     # 2) Placeholder validations
@@ -155,7 +158,8 @@ def execute_work(
     handler = EFFECT_HANDLERS.get((work.art, work.substance))
     ran = False
     if handler:
-        log.debug("Applying effect handler", art=work.art, substance=work.substance)
+        log.debug("Applying effect handler",
+                  art=work.art, substance=work.substance)
         handler(work, context)
         ran = True
     elif work.func is not None:
@@ -255,7 +259,8 @@ def _drain_player_fuel(context: GameState, amount: int) -> None:
 def _drain_player_hp(context: GameState, amount: int) -> None:
     """Reduce the player's hit points via the entity registry."""
     try:
-        hp = context.entity_registry.get_entity_component(context.player_id, "hp")
+        hp = context.entity_registry.get_entity_component(
+            context.player_id, "hp")
         if hp is not None:
             context.entity_registry.set_entity_component(
                 context.player_id, "hp", max(0, hp - amount)

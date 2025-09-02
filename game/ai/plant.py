@@ -13,6 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 
 log = structlog.get_logger()
 
+
 def take_turn(
     entity_row,
     game_state: "GameState",

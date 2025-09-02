@@ -67,7 +67,8 @@ def setup_logging(
         structlog.stdlib.add_log_level,  # Add 'level' key
         structlog.stdlib.add_logger_name,  # Add logger name
         structlog.stdlib.PositionalArgumentsFormatter(),  # Format positional args
-        structlog.processors.TimeStamper(fmt="iso", utc=True),  # Add ISO timestamp
+        structlog.processors.TimeStamper(
+            fmt="iso", utc=True),  # Add ISO timestamp
         structlog.processors.StackInfoRenderer(),  # Add stack info on exceptions
         structlog.processors.format_exc_info,  # Format exception info
     ]
@@ -166,8 +167,6 @@ def cave_closed_door(feature_type: int) -> bool:
     )
 
 
-
-
 # --- Noise System ---
 
 
@@ -249,7 +248,8 @@ def update_noise(
 ) -> None:
     """Updates a specific noise flow map by calling the Numba kernel."""
     flow_idx: int = int(which_flow)
-    logger = log.bind(flow_type=which_flow.name, start_y=cy, start_x=cx)  # Bind context
+    logger = log.bind(flow_type=which_flow.name, start_y=cy,
+                      start_x=cx)  # Bind context
 
     if not (0 <= flow_idx < MAX_FLOWS):
         logger.error("invalid_flow_index", flow_index=flow_idx)
@@ -399,7 +399,8 @@ def update_smell(
 
     # 2. Handle scent cycle reset using NumPy vectorization
     if global_scent_when <= 0:
-        log_ctx.info("scent_cycle_resetting", old_scent_timer=global_scent_when)
+        log_ctx.info("scent_cycle_resetting",
+                     old_scent_timer=global_scent_when)
         reset_offset: int = SCENT_RESET_AGE - SMELL_STRENGTH
 
         # *** Logic requires verification against C code ***
@@ -585,7 +586,8 @@ def monster_perception(
     )
 
     # --- Aggregate Results ---
-    all_alerted_ids: List[int] = [item for sublist in results for item in sublist]
+    all_alerted_ids: List[int] = [
+        item for sublist in results for item in sublist]
     num_alerted = len(all_alerted_ids)
 
     end_time = time.monotonic()
@@ -604,7 +606,8 @@ def monster_perception(
         log_ctx.debug(
             "monsters_alerted_ids",
             alerted_ids=(
-                all_alerted_ids if num_alerted < 20 else all_alerted_ids[:20] + ["..."]
+                all_alerted_ids if num_alerted < 20 else all_alerted_ids[:20] + [
+                    "..."]
             ),
         )
 
@@ -628,8 +631,10 @@ if __name__ == "__main__":
     log.info("perception_systems_demo_start", sim_id=SIM_ID)
 
     # --- Initialize Map Data (Placeholders) ---
-    terrain_map = np.full((MAP_HGT, MAP_WID), FeatureType.FLOOR, dtype=np.int32)
-    terrain_map[MAP_HGT // 2, MAP_WID // 4 : 3 * MAP_WID // 4] = FeatureType.WALL
+    terrain_map = np.full((MAP_HGT, MAP_WID),
+                          FeatureType.FLOOR, dtype=np.int32)
+    terrain_map[MAP_HGT // 2, MAP_WID //
+                4: 3 * MAP_WID // 4] = FeatureType.WALL
     terrain_map[MAP_HGT // 2 + 5, MAP_WID // 2] = FeatureType.CLOSED_DOOR
     terrain_map[0, :] = FeatureType.WALL
     terrain_map[MAP_HGT - 1, :] = FeatureType.WALL
@@ -639,7 +644,8 @@ if __name__ == "__main__":
 
     # Noise cost map
     infinity_val = np.iinfo(np.int32).max // 2
-    cave_cost = np.full((MAX_FLOWS, MAP_HGT, MAP_WID), infinity_val, dtype=np.int32)
+    cave_cost = np.full((MAX_FLOWS, MAP_HGT, MAP_WID),
+                        infinity_val, dtype=np.int32)
     flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)
     log.debug("noise_cost_map_initialized", shape=cave_cost.shape)
 
@@ -723,7 +729,8 @@ if __name__ == "__main__":
             door_penalties,
         )
         noise_duration_ms = (time.monotonic() - noise_start_time) * 1000
-        turn_log.debug("noise_updated", duration_ms=round(noise_duration_ms, 2))
+        turn_log.debug("noise_updated",
+                       duration_ms=round(noise_duration_ms, 2))
 
         # 2. Update Smell
         smell_start_time = time.monotonic()
@@ -771,7 +778,8 @@ if __name__ == "__main__":
         player_x += 1
         if player_x >= MAP_WID - 1:
             player_x = 1
-        turn_log.debug("player_moved", new_pos=(player_y, player_x))  # Log player move
+        turn_log.debug("player_moved", new_pos=(
+            player_y, player_x))  # Log player move
 
         turn_duration_ms = (time.monotonic() - turn_start_time) * 1000
         turn_log.info("turn_end", duration_ms=round(turn_duration_ms, 2))

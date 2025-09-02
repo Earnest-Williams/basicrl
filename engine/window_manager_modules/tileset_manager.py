@@ -26,7 +26,7 @@ except ImportError:
     try:
         from basicrl.game.world.game_map import TILE_TYPES
     except ImportError:
-        TILE_TYPES = {} # Fallback to empty if not found
+        TILE_TYPES = {}  # Fallback to empty if not found
         structlog.get_logger().error("Could not import TILE_TYPES for TilesetManager.")
 
 
@@ -49,7 +49,8 @@ class TilesetManager:
         log.info("Initializing TilesetManager...")
         self.min_tile_size: int = min_tile_size_cfg
         self.current_tileset_path: str = ""
-        self.tiles: PyDict[int, Image.Image] = {} # PIL images {tile_index: Image}
+        # PIL images {tile_index: Image}
+        self.tiles: PyDict[int, Image.Image] = {}
         self.tile_width: int = 0
         self.tile_height: int = 0
 
@@ -59,11 +60,12 @@ class TilesetManager:
         _array_value_type = nb_types.uint8[:, :, ::1]
         self.tile_arrays: NumbaTypedDict = NumbaTypedDict.empty(
             key_type=nb_types.int_, value_type=_array_value_type
-        ) # Numba dict {tile_index: np.ndarray[h, w, 4]}
+        )  # Numba dict {tile_index: np.ndarray[h, w, 4]}
         self.max_defined_tile_id: int = -1
-        self._tile_fg_colors: np.ndarray | None = None # [max_id+1, 3] uint8
-        self._tile_bg_colors: np.ndarray | None = None # [max_id+1, 3] uint8
-        self._tile_indices_render: np.ndarray | None = None # [max_id+1] uint16
+        self._tile_fg_colors: np.ndarray | None = None  # [max_id+1, 3] uint8
+        self._tile_bg_colors: np.ndarray | None = None  # [max_id+1, 3] uint8
+        # [max_id+1] uint16
+        self._tile_indices_render: np.ndarray | None = None
         # --- End Numba Cache ---
 
         # Perform initial load
@@ -82,11 +84,11 @@ class TilesetManager:
             # Resolve path correctly
             target_path_obj = Path(folder)
             if not target_path_obj.is_absolute():
-                try: # Assume relative to project root if possible
+                try:  # Assume relative to project root if possible
                     # Adjust based on actual file structure if needed
                     base_path = Path(__file__).parent.parent.parent
                 except NameError:
-                    base_path = Path(".") # Fallback
+                    base_path = Path(".")  # Fallback
                 target_abs_path = (base_path / folder).resolve()
             else:
                 target_abs_path = target_path_obj.resolve()
@@ -100,7 +102,7 @@ class TilesetManager:
                 log.info(
                     "Tileset unchanged, skipping reload.", path=target_abs_path_str
                 )
-                return True # Considered successful as state is correct
+                return True  # Considered successful as state is correct
 
             log.info(
                 "Loading tileset",
@@ -116,16 +118,17 @@ class TilesetManager:
             self.current_tileset_path = target_abs_path_str
             # Ensure loaded_tiles is the correct type before assignment
             if isinstance(loaded_tiles, dict):
-                 self.tiles = loaded_tiles
+                self.tiles = loaded_tiles
             else:
-                 log.error("load_tiles did not return a dictionary.", received_type=type(loaded_tiles))
-                 self.tiles = {} # Reset to empty on error
-                 # Consider raising an error or returning False earlier
+                log.error("load_tiles did not return a dictionary.",
+                          received_type=type(loaded_tiles))
+                self.tiles = {}  # Reset to empty on error
+                # Consider raising an error or returning False earlier
 
             self.tile_width = clamped_width
             self.tile_height = clamped_height
 
-            self._update_tile_array_cache() # Update Numba cache
+            self._update_tile_array_cache()  # Update Numba cache
 
             log.info(
                 "Tileset loaded successfully",
@@ -171,36 +174,47 @@ class TilesetManager:
         if TILE_TYPES and isinstance(TILE_TYPES, dict):
             try:
                 # Filter out non-integer keys just in case
-                valid_tile_ids = [k for k in TILE_TYPES.keys() if isinstance(k, int)]
+                valid_tile_ids = [
+                    k for k in TILE_TYPES.keys() if isinstance(k, int)]
                 if not valid_tile_ids:
-                     log.warning("TILE_TYPES dictionary contains no integer keys.")
-                     self.max_defined_tile_id = -1
+                    log.warning(
+                        "TILE_TYPES dictionary contains no integer keys.")
+                    self.max_defined_tile_id = -1
                 else:
-                     self.max_defined_tile_id = max(valid_tile_ids)
+                    self.max_defined_tile_id = max(valid_tile_ids)
             except Exception as e:
-                 log.error("Error finding max key in TILE_TYPES", error=str(e), data=TILE_TYPES)
-                 self.max_defined_tile_id = -1
+                log.error("Error finding max key in TILE_TYPES",
+                          error=str(e), data=TILE_TYPES)
+                self.max_defined_tile_id = -1
 
             array_size = self.max_defined_tile_id + 1
             if array_size > 0:
-                self._tile_fg_colors = np.zeros((array_size, 3), dtype=np.uint8)
-                self._tile_bg_colors = np.zeros((array_size, 3), dtype=np.uint8)
-                self._tile_indices_render = np.zeros(array_size, dtype=np.uint16)
+                self._tile_fg_colors = np.zeros(
+                    (array_size, 3), dtype=np.uint8)
+                self._tile_bg_colors = np.zeros(
+                    (array_size, 3), dtype=np.uint8)
+                self._tile_indices_render = np.zeros(
+                    array_size, dtype=np.uint16)
                 valid_ids_loaded = 0
                 for tile_id_val, tile_type_data in TILE_TYPES.items():
-                    if not isinstance(tile_id_val, int): continue # Skip non-int keys
+                    if not isinstance(tile_id_val, int):
+                        continue  # Skip non-int keys
 
                     if 0 <= tile_id_val <= self.max_defined_tile_id:
                         # Safely access attributes using getattr with defaults
-                        fg_color = getattr(tile_type_data, 'color_fg', (255,0,255))
-                        bg_color = getattr(tile_type_data, 'color_bg', (0,0,0))
-                        tile_index = getattr(tile_type_data, 'tile_index', 0) # Default to glyph 0
+                        fg_color = getattr(
+                            tile_type_data, 'color_fg', (255, 0, 255))
+                        bg_color = getattr(
+                            tile_type_data, 'color_bg', (0, 0, 0))
+                        # Default to glyph 0
+                        tile_index = getattr(tile_type_data, 'tile_index', 0)
 
                         if isinstance(fg_color, tuple) and len(fg_color) == 3:
-                             self._tile_fg_colors[tile_id_val] = fg_color
+                            self._tile_fg_colors[tile_id_val] = fg_color
                         if isinstance(bg_color, tuple) and len(bg_color) == 3:
-                             self._tile_bg_colors[tile_id_val] = bg_color
-                        self._tile_indices_render[tile_id_val] = int(tile_index)
+                            self._tile_bg_colors[tile_id_val] = bg_color
+                        self._tile_indices_render[tile_id_val] = int(
+                            tile_index)
 
                         valid_ids_loaded += 1
                 log.debug(
@@ -218,12 +232,14 @@ class TilesetManager:
                     max_id=self.max_defined_tile_id
                 )
         else:
-            log.warning("TILE_TYPES is empty or invalid, cannot populate render cache.")
+            log.warning(
+                "TILE_TYPES is empty or invalid, cannot populate render cache.")
 
         # 2. Update Numba array cache from loaded PIL tiles
         if not self.tiles or self.tile_width <= 0 or self.tile_height <= 0:
-            log.warning("Cannot update Numba cache: Invalid tiles or dimensions.")
-            self.tile_arrays = temp_tile_arrays # Assign empty dict
+            log.warning(
+                "Cannot update Numba cache: Invalid tiles or dimensions.")
+            self.tile_arrays = temp_tile_arrays  # Assign empty dict
             return
 
         pil_tile_count = len(self.tiles)
@@ -250,7 +266,8 @@ class TilesetManager:
                     numba_tile_count += 1
                 else:
                     log.warning(
-                        f"Tile {tile_index} final shape {tile_np_array.shape} != expected ({self.tile_height}, {self.tile_width}, 4). Storing sentinel."
+                        f"Tile {tile_index} final shape {tile_np_array.shape} != expected ({self.tile_height}, {
+                            self.tile_width}, 4). Storing sentinel."
                     )
                     temp_tile_arrays[tile_index] = SENTINEL_TILE_ARRAY
             except Exception as e:
@@ -274,7 +291,7 @@ class TilesetManager:
             and self._tile_bg_colors is not None
             and self._tile_indices_render is not None
             and self.max_defined_tile_id >= 0
-            and self.tile_arrays is not None # Check Numba dict itself
+            and self.tile_arrays is not None  # Check Numba dict itself
         )
 
         # *** ADDED LOGGING ***
@@ -289,13 +306,13 @@ class TilesetManager:
         if not cache_ready:
             log.error("Render data cache is not ready in TilesetManager.")
             # Return empty/default data to avoid crashing renderer
-            _array_type = nb_types.uint8[:, :, ::1] # Match type
+            _array_type = nb_types.uint8[:, :, ::1]  # Match type
             return {
                 "tile_arrays": NumbaTypedDict.empty(key_type=nb_types.int_, value_type=_array_type),
                 "tile_fg_colors": np.zeros((1, 3), dtype=np.uint8),
                 "tile_bg_colors": np.zeros((1, 3), dtype=np.uint8),
                 "tile_indices_render": np.zeros(1, dtype=np.uint16),
-                "max_defined_tile_id": -1, # Indicate invalid cache
+                "max_defined_tile_id": -1,  # Indicate invalid cache
                 "tile_w": self.tile_width,
                 "tile_h": self.tile_height,
             }

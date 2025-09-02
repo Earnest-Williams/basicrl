@@ -38,7 +38,8 @@ def take_turn(
     if abs(dxp) <= 1 and abs(dyp) <= 1:
         from game.systems import combat_system
 
-        combat_system.handle_melee_attack(entity_id, game_state.player_id, game_state)
+        combat_system.handle_melee_attack(
+            entity_id, game_state.player_id, game_state)
         log.debug("Reptile AI entity attacked", entity_id=entity_id)
         return
 

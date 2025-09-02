@@ -1,21 +1,23 @@
 # game/systems/pathfinding/flowfield.py
-from typing import Final, List, Optional, Tuple, Union
+from typing import Final, List, Optional, Tuple
 
 import heapq
 import time
 
 import numpy as np
-import structlog # Added
+import structlog  # Added
 
 # --- Numba Acceleration ---
 try:
     from numba import njit
-    from numba.typed import Dict as NumbaDict # For type hinting Numba dict if needed
+    # For type hinting Numba dict if needed
+    from numba.typed import Dict as NumbaDict
 
     _NUMBA_AVAILABLE = True
 except ImportError:
     _NUMBA_AVAILABLE = False
-    NumbaDict = dict # Fallback type hint
+    NumbaDict = dict  # Fallback type hint
+
     def njit(func=None, **options):
         if func:
             return func
@@ -32,7 +34,8 @@ DIRECTIONS_8: Final[np.ndarray] = np.array(
     dtype=np.int8,
 )
 DIAGONAL_MOVE_COST: Final[float] = np.sqrt(2.0)
-DEFAULT_HEIGHT_COST_FACTOR: Final[float] = 0.5  # Multiplier for height difference cost
+# Multiplier for height difference cost
+DEFAULT_HEIGHT_COST_FACTOR: Final[float] = 0.5
 
 
 # --- Numba Helper Functions ---
@@ -56,7 +59,8 @@ def _calculate_light_intensity_scalar(
     dist = np.sqrt(dist_sq)
     radius = np.sqrt(radius_sq)
     falloff_ratio = dist / radius
-    light_value = max(np.float32(0.0), np.float32(1.0 - falloff_ratio)) ** falloff_power
+    light_value = max(np.float32(0.0), np.float32(
+        1.0 - falloff_ratio)) ** falloff_power
     intensity = max(light_value, min_light_level)
     return max(np.float32(0.0), min(np.float32(1.0), intensity))
 
@@ -127,11 +131,13 @@ class FlowFieldPathfinder:
                 "Passable map and terrain cost map must have the same shape."
             )
         if passable_map.shape != height_map.shape:  # ADDED height map shape check
-            raise ValueError("Passable map and height map must have the same shape.")
+            raise ValueError(
+                "Passable map and height map must have the same shape.")
         if not np.issubdtype(passable_map.dtype, np.bool_):
             raise TypeError("passable_map must be a boolean NumPy array.")
         if not np.issubdtype(terrain_cost_map.dtype, np.floating):
-            raise TypeError("terrain_cost_map must be a floating-point NumPy array.")
+            raise TypeError(
+                "terrain_cost_map must be a floating-point NumPy array.")
         if not np.issubdtype(
             height_map.dtype, np.integer
         ):  # ADDED height map type check
@@ -171,7 +177,8 @@ class FlowFieldPathfinder:
             return True
 
         log.info(
-            f"Computing flow field from {len(stimulus_sources)} sources (with height cost)..."
+            f"Computing flow field from {
+                len(stimulus_sources)} sources (with height cost)..."
         )
         start_time = time.time()
 
@@ -193,13 +200,14 @@ class FlowFieldPathfinder:
                 self.integration_field[y_s, x_s] = cost
                 heapq.heappush(pq, (cost, y_s, x_s))
             else:
-                log.warning(f"Source at ({y_s}, {x_s}) is on impassable terrain.")
+                log.warning(
+                    f"Source at ({y_s}, {x_s}) is on impassable terrain.")
         if not pq:
             log.warning("No valid stimulus sources on passable terrain.")
             self._last_sources = list(stimulus_sources)
             return False
 
-                # --- Dijkstra Loop ---
+            # --- Dijkstra Loop ---
         processed_count = 0
         while pq:
             cost, y, x = heapq.heappop(pq)
@@ -225,11 +233,13 @@ class FlowFieldPathfinder:
 
                 if self.passable[ny, nx] and delta_h <= self.max_traversable_step:
                     # --- Calculate Move Cost with Height Penalty ---
-                    base_move_cost = self.terrain_cost[ny, nx]  # Cost to enter neighbor
+                    # Cost to enter neighbor
+                    base_move_cost = self.terrain_cost[ny, nx]
                     diagonal_penalty = 0.0
                     if dy != 0 and dx != 0:  # Diagonal move
                         # Apply diagonal cost multiplier to base cost
-                        diagonal_penalty = base_move_cost * (DIAGONAL_MOVE_COST - 1.0)
+                        diagonal_penalty = base_move_cost * \
+                            (DIAGONAL_MOVE_COST - 1.0)
 
                     # Calculate height penalty (simple linear penalty for change)
                     height_penalty = delta_h * self.height_cost_factor
@@ -247,7 +257,8 @@ class FlowFieldPathfinder:
 
         integration_time = time.time()
         log.info(
-            f"  Integration field computed ({processed_count} nodes processed) in {integration_time - start_time:.4f}s"
+            f"  Integration field computed ({processed_count} nodes processed) in {
+                integration_time - start_time:.4f}s"
         )
 
         # Calculate Flow Vectors (unchanged Numba call)
@@ -258,8 +269,10 @@ class FlowFieldPathfinder:
         )
 
         flow_time = time.time()
-        log.info(f"  Flow vectors calculated in {flow_time - integration_time:.4f}s")
-        log.info(f"Total field computation time: {flow_time - start_time:.4f}s")
+        log.info(f"  Flow vectors calculated in {
+                 flow_time - integration_time:.4f}s")
+        log.info(f"Total field computation time: {
+                 flow_time - start_time:.4f}s")
 
         self._last_sources = list(stimulus_sources)
         return True
@@ -291,14 +304,14 @@ if __name__ == "__main__":
     heights = np.zeros((map_h, map_w), dtype=np.int16)  # Base height 0
 
     # Add walls
-    passable[map_h // 2, map_w // 4 : map_w * 3 // 4] = False
-    passable[map_h // 4 : map_h * 3 // 4, map_w // 2] = False
+    passable[map_h // 2, map_w // 4: map_w * 3 // 4] = False
+    passable[map_h // 4: map_h * 3 // 4, map_w // 2] = False
     passable[10:15, 10:15] = False  # Box wall
 
     # Add varying heights
     heights[15:35, 15:35] = 2  # Plateau
     heights[20:30, 20:30] = 4  # Higher plateau
-    heights[map_h // 2 + 5 : map_h // 2 + 15, map_w // 2 + 10 : map_w // 2 + 20] = (
+    heights[map_h // 2 + 5: map_h // 2 + 15, map_w // 2 + 10: map_w // 2 + 20] = (
         -2
     )  # Depression
 
@@ -310,7 +323,8 @@ if __name__ == "__main__":
     height_factor = 0.75  # Make height changes fairly costly
 
     log.info(f"Created map: {map_w}x{map_h} with height variations")
-    log.info(f"Max traversable step: {max_step}, Height cost factor: {height_factor}")
+    log.info(f"Max traversable step: {
+             max_step}, Height cost factor: {height_factor}")
 
     # 2. Initialize Pathfinder (Pass height map and max step)
     pathfinder = FlowFieldPathfinder(
@@ -322,7 +336,8 @@ if __name__ == "__main__":
     )
 
     # 3. Define Stimulus Source(s)
-    sources: List[GridPosition] = [(map_h - 5, map_w - 5)]  # Bottom-right corner
+    sources: List[GridPosition] = [
+        (map_h - 5, map_w - 5)]  # Bottom-right corner
 
     # Check source validity
     if not pathfinder.passable[sources[0]]:
@@ -335,9 +350,11 @@ if __name__ == "__main__":
     if success:
         agent_pos_y, agent_pos_x = 5, 5  # Top-left corner agent
         if pathfinder.passable[agent_pos_y, agent_pos_x]:
-            flow_dx, flow_dy = pathfinder.get_flow_vector(agent_pos_y, agent_pos_x)
+            flow_dx, flow_dy = pathfinder.get_flow_vector(
+                agent_pos_y, agent_pos_x)
             log.info(
-                f"Agent at ({agent_pos_y}, {agent_pos_x}) should move by: ({flow_dx}, {flow_dy})"
+                f"Agent at ({agent_pos_y}, {agent_pos_x}) should move by: ({
+                    flow_dx}, {flow_dy})"
             )
 
             cost_from_agent = pathfinder.get_integration_field()[
@@ -346,9 +363,11 @@ if __name__ == "__main__":
             if cost_from_agent == np.inf:
                 log.info("Cost from agent position to source: UNREACHABLE")
             else:
-                log.info(f"Cost from agent position to source: {cost_from_agent:.2f}")
+                log.info(f"Cost from agent position to source: {
+                         cost_from_agent:.2f}")
         else:
-            log.warning(f"Agent at ({agent_pos_y}, {agent_pos_x}) is on impassable terrain.")
+            log.warning(f"Agent at ({agent_pos_y}, {
+                        agent_pos_x}) is on impassable terrain.")
 
         # Test agent on plateau
         agent_on_plateau_y, agent_on_plateau_x = 25, 25
@@ -357,12 +376,14 @@ if __name__ == "__main__":
                 agent_on_plateau_y, agent_on_plateau_x
             )
             log.info(
-                f"Agent at ({agent_on_plateau_y}, {agent_on_plateau_x}) [H={heights[agent_on_plateau_y, agent_on_plateau_x]}] should move by: ({flow_dx_p}, {flow_dy_p})"
+                f"Agent at ({agent_on_plateau_y}, {agent_on_plateau_x}) [H={
+                    heights[agent_on_plateau_y, agent_on_plateau_x]}] should move by: ({flow_dx_p}, {flow_dy_p})"
             )
             cost_from_plateau = pathfinder.get_integration_field()[
                 agent_on_plateau_y, agent_on_plateau_x
             ]
-            log.info(f"Cost from plateau agent to source: {cost_from_plateau:.2f}")
+            log.info(f"Cost from plateau agent to source: {
+                     cost_from_plateau:.2f}")
 
         # (Visualization code unchanged - Source [source 1574-1578])
         print("\nVisualizing Flow Field (Sample):")

@@ -1,13 +1,12 @@
 # === basicrl/prototypes/roaming_entity_demo.py ===
+from game.world.game_map import GameMap
+from game.game_state import GameState
 import sys
 import time
 from pathlib import Path
 
 # Allow imports like 'from game.*' and 'from game_rng'
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-
-from game.game_state import GameState
-from game.world.game_map import GameMap
 
 
 def create_roamer(entity_registry, x, y):

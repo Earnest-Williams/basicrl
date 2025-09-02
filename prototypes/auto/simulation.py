@@ -8,6 +8,8 @@ import time
 import typing  # Use typing instead of from typing import ...
 import uuid
 from collections import defaultdict, deque
+
+import polars as pl
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -21,11 +23,9 @@ except ImportError as e:  # pragma: no cover - fail fast if unavailable
     ) from e
 
 
-
 # --- NumPy for potential future use ---
 # Use Polars instead of direct numpy for entity state usually
 # --- Polars DataFrame Library ---
-import polars as pl
 
 # --- Numba JIT Compiler ---
 try:
@@ -49,7 +49,8 @@ StateDict = dict[str, typing.Any]  # Keep Any for flexibility initially
 ActionPlan = deque["Action"]  # Use typing.Deque with forward reference
 
 # Forward reference for Entity if used before definition
-Entity = typing.ForwardRef("Entity")  # If needed, otherwise define Entity first
+# If needed, otherwise define Entity first
+Entity = typing.ForwardRef("Entity")
 OptionalEntity = typing.Optional[Entity]
 OptionalPosition = typing.Optional[Position]
 OptionalPath = typing.Optional[list[Position]]
@@ -188,7 +189,8 @@ class Entity:
         else:
             self.max_inventory = AGENT_MAX_INVENTORY if kind == "agent" else 3
 
-        self.equipped_weapon: Optional[Weapon] = None  # Use modern Optional hint
+        # Use modern Optional hint
+        self.equipped_weapon: Optional[Weapon] = None
 
         # --- Health Initialization ---
         if health is None:
@@ -208,7 +210,8 @@ class Entity:
         # --- Hunger Initialization ---
         if hunger is None:
             # Assume relevant entities start full, others have no hunger concept
-            self.hunger: float = START_HUNGER if kind in ["agent", "enemy", "slime"] else 0.0
+            self.hunger: float = START_HUNGER if kind in [
+                "agent", "enemy", "slime"] else 0.0
         else:
             self.hunger = float(hunger)
 
@@ -259,13 +262,16 @@ class World:
         self.rng: GameRNG = rng  # Store RNG instance
 
         # --- State Attributes ---
-        self.grid: list[list[OptionalEntity]] = [[None for _ in range(size)] for _ in range(size)]
+        self.grid: list[list[OptionalEntity]] = [
+            [None for _ in range(size)] for _ in range(size)]
         self.entities: dict[EntityID, Entity] = {}
         self.entity_df: pl.DataFrame = self._create_empty_entity_df()
-        self.entities_by_kind: defaultdict[str, dict[EntityID, Entity]] = defaultdict(dict)
+        self.entities_by_kind: defaultdict[str,
+                                           dict[EntityID, Entity]] = defaultdict(dict)
         self.agent: OptionalEntity = None
         self.turn: int = 0
-        self._free_tiles: set[Position] = set((x, y) for x in range(size) for y in range(size))
+        self._free_tiles: set[Position] = set(
+            (x, y) for x in range(size) for y in range(size))
 
         # --- Constants accessible via instance if needed ---
         self.HUNGER_PER_TURN = PASSIVE_HUNGER_PER_TURN  # Example constant
@@ -293,7 +299,8 @@ class World:
             return None
         # Grid access is typically fast for standard lists
         try:
-            return self.grid[x][y]  # Grid indexed [x][y] based on initialization
+            # Grid indexed [x][y] based on initialization
+            return self.grid[x][y]
         except IndexError:  # Should not happen if is_valid works
             return None
 
@@ -388,7 +395,8 @@ class World:
                 if self.entity_df.is_empty():
                     self.entity_df = new_df
                 else:
-                    self.entity_df = pl.concat([self.entity_df, new_df], how="vertical")
+                    self.entity_df = pl.concat(
+                        [self.entity_df, new_df], how="vertical")
             except Exception as e:
                 log.error(
                     "Error updating Polars DataFrame", error=str(e), exc_info=True
@@ -419,7 +427,8 @@ class World:
             # Remove from DataFrame if not item
             if entity.kind != "item":
                 if not self.entity_df.is_empty() and "id" in self.entity_df.columns:
-                    self.entity_df = self.entity_df.filter(pl.col("id") != entity_id)
+                    self.entity_df = self.entity_df.filter(
+                        pl.col("id") != entity_id)
 
             # Clear agent reference if it's the agent being removed
             if self.agent and entity_id == self.agent.id:
@@ -559,12 +568,15 @@ class World:
                 return None, float("inf")
 
             # Calculate Manhattan distances efficiently
-            distances = (target_df["x"] - sx).abs() + (target_df["y"] - sy).abs()
-            target_df_with_dist = target_df.with_columns(distances.alias("dist"))
+            distances = (target_df["x"] - sx).abs() + \
+                (target_df["y"] - sy).abs()
+            target_df_with_dist = target_df.with_columns(
+                distances.alias("dist"))
 
             # Filter by max_dist if provided
             if max_dist is not None:
-                target_df_filtered = target_df_with_dist.filter(pl.col("dist") <= max_dist)
+                target_df_filtered = target_df_with_dist.filter(
+                    pl.col("dist") <= max_dist)
                 if target_df_filtered.is_empty():
                     return None, float("inf")
                 target_df_to_search = target_df_filtered
@@ -604,7 +616,8 @@ class World:
             return None
         try:
             # Use rng.choice for deterministic selection from the set
-            return rng.choice(list(self._free_tiles))  # Convert set to list for choice
+            # Convert set to list for choice
+            return rng.choice(list(self._free_tiles))
         except IndexError:  # Should not happen if set is not empty
             return None
 
@@ -662,14 +675,16 @@ class World:
                 self.add_entity(slime)
 
         # Place Items (Potions, Daggers)
-        item_factories = [create_health_potion, create_dagger, create_torch]  # Example items
+        item_factories = [create_health_potion,
+                          create_dagger, create_torch]  # Example items
         for _ in range(num_items):
             pos = self._get_random_free_pos(rng)
             if pos:
                 # Use rng.choice to select item factory
                 item_factory = rng.choice(item_factories)
                 item_obj = item_factory()
-                item_entity = Entity(pos[0], pos[1], "item", rng=rng, item=item_obj)  # Pass rng
+                item_entity = Entity(
+                    pos[0], pos[1], "item", rng=rng, item=item_obj)  # Pass rng
                 self.add_entity(item_entity)
 
     def reset(  # Added rng parameter
@@ -681,13 +696,15 @@ class World:
         num_items: int = 2,
     ):
         """Resets the world state and repopulates it using the provided RNG."""
-        self.grid = [[None for _ in range(self.size)] for _ in range(self.size)]
+        self.grid = [[None for _ in range(self.size)]
+                     for _ in range(self.size)]
         self.entities = {}
         self.entity_df = self._create_empty_entity_df()
         self.entities_by_kind = defaultdict(dict)
         self.agent = None
         self.turn = 0
-        self._free_tiles = set((x, y) for x in range(self.size) for y in range(self.size))
+        self._free_tiles = set((x, y) for x in range(self.size)
+                               for y in range(self.size))
         # Populate using the provided RNG instance
         self.populate_world(rng, num_food, num_enemies, num_slimes, num_items)
 
@@ -782,9 +799,11 @@ class World:
                     came_from[neighbor_pos] = current_pos
                     g_score[neighbor_pos] = tentative_g_score
                     f_score[neighbor_pos] = tentative_g_score + float(
-                        distance(neighbor_pos[0], neighbor_pos[1], target_pos[0], target_pos[1])
+                        distance(
+                            neighbor_pos[0], neighbor_pos[1], target_pos[0], target_pos[1])
                     )
-                    heapq.heappush(open_set, (f_score[neighbor_pos], neighbor_pos))
+                    heapq.heappush(
+                        open_set, (f_score[neighbor_pos], neighbor_pos))
 
         return None  # No path found
 
@@ -847,7 +866,8 @@ class GOAPPlanner:  # Unchanged logic
                 return None
 
             # Get node with lowest f_score
-            f_score, _, current_state, action_plan, cost_so_far = heapq.heappop(open_list)
+            f_score, _, current_state, action_plan, cost_so_far = heapq.heappop(
+                open_list)
 
             # Check if goal is satisfied
             if self._goal_satisfied(current_state, goal_state):
@@ -868,10 +888,12 @@ class GOAPPlanner:  # Unchanged logic
                         continue
 
                     # Apply learned weights
-                    weighted_cost = action_base_cost * self.action_weights[action.name]
+                    weighted_cost = action_base_cost * \
+                        self.action_weights[action.name]
 
                     # Apply effects to get next state
-                    next_state = action.apply_effects_to_state(current_state.copy())
+                    next_state = action.apply_effects_to_state(
+                        current_state.copy())
                     next_state_tuple = frozenset(next_state.items())
 
                     # Skip if already explored
@@ -886,7 +908,8 @@ class GOAPPlanner:  # Unchanged logic
 
                     # Add to open list
                     heapq.heappush(
-                        open_list, (new_f_score, counter, next_state, new_plan, new_cost)
+                        open_list, (new_f_score, counter,
+                                    next_state, new_plan, new_cost)
                     )
                     counter += 1  # Increment tie-breaker
 
@@ -918,7 +941,8 @@ class GOAPPlanner:  # Unchanged logic
             isinstance(item, Consumable) and item.name == "Health Potion"
             for item in agent.inventory
         )
-        has_weapon_in_inv = any(isinstance(item, Weapon) for item in agent.inventory)
+        has_weapon_in_inv = any(isinstance(item, Weapon)
+                                for item in agent.inventory)
 
         state = {
             "agent_health": agent.health,
@@ -960,7 +984,8 @@ class GOAPPlanner:  # Unchanged logic
                 satisfied = current_value == desired_value
             elif callable(desired_value):
                 # Ensure current_value is passed to callable, handle None if key missing
-                satisfied = desired_value(current_value) if current_value is not None else False
+                satisfied = desired_value(
+                    current_value) if current_value is not None else False
             elif current_value is None:  # Goal requires a key that isn't in current state
                 satisfied = False
             else:  # Assume direct comparison for other types
@@ -982,7 +1007,8 @@ class GOAPPlanner:  # Unchanged logic
             if isinstance(desired_value, bool):
                 is_satisfied = current_value == desired_value
             elif callable(desired_value):
-                is_satisfied = desired_value(current_value) if current_value is not None else False
+                is_satisfied = desired_value(
+                    current_value) if current_value is not None else False
             elif current_value is None:
                 is_satisfied = False
             else:
@@ -1020,7 +1046,8 @@ class GOAPPlanner:  # Unchanged logic
             if state.get("has_weapon_in_inv"):
                 cost += 0.5  # Small cost if in inventory
             elif state.get("can_find_item"):
-                cost += state.get("nearest_item_dist", 0) / 4.0  # Cost related to finding item
+                cost += state.get("nearest_item_dist", 0) / \
+                    4.0  # Cost related to finding item
 
         return cost
 
@@ -1032,7 +1059,8 @@ class GOAPPlanner:  # Unchanged logic
             return
 
         # Calculate adjustment factor based on success (0 to 1) vs baseline
-        learning_adjustment = (success_metric - LEARNING_SCORE_BASELINE) * LEARNING_RATE_FACTOR
+        learning_adjustment = (
+            success_metric - LEARNING_SCORE_BASELINE) * LEARNING_RATE_FACTOR
         updated_names = set()  # Update each action in the plan only once per learning step
 
         for name in executed_action_names:
@@ -1051,7 +1079,8 @@ class GOAPPlanner:  # Unchanged logic
             new_weight = current_weight * (1.0 - learning_adjustment)
 
             # Clamp weight within bounds
-            self.action_weights[name] = max(ACTION_WEIGHT_MIN, min(new_weight, ACTION_WEIGHT_MAX))
+            self.action_weights[name] = max(
+                ACTION_WEIGHT_MIN, min(new_weight, ACTION_WEIGHT_MAX))
             updated_names.add(name)
 
 
@@ -1168,8 +1197,10 @@ class AgentAI:
             state["item_is_adjacent"] = False
             # Increment distances (heuristic) - might be inaccurate, planner should handle
             # state["nearest_food_dist"] = state.get("nearest_food_dist", float("inf")) + 1
-            state["nearest_enemy_dist"] = state.get("nearest_enemy_dist", float("inf")) + 1
-            state["nearest_item_dist"] = state.get("nearest_item_dist", float("inf")) + 1
+            state["nearest_enemy_dist"] = state.get(
+                "nearest_enemy_dist", float("inf")) + 1
+            state["nearest_item_dist"] = state.get(
+                "nearest_item_dist", float("inf")) + 1
             return state
 
         def effect_attack_enemy(state: StateDict) -> StateDict:
@@ -1181,7 +1212,8 @@ class AgentAI:
 
         def effect_explore(state: StateDict) -> StateDict:
             state = effect_update_position(state)
-            state["explored_something"] = True  # Mark that exploration happened
+            # Mark that exploration happened
+            state["explored_something"] = True
             return state
 
         def effect_flee(state: StateDict) -> StateDict:
@@ -1230,7 +1262,8 @@ class AgentAI:
 
         def effect_equip_weapon(state: StateDict) -> StateDict:
             state["weapon_equipped"] = True
-            state["has_weapon_in_inv"] = False  # Weapon moved from inv to equipped slot
+            # Weapon moved from inv to equipped slot
+            state["has_weapon_in_inv"] = False
             # Inventory count decreases as item leaves main inv
             state["inventory_count"] = state.get("inventory_count", 1) - 1
             state["inventory_full"] = False
@@ -1248,18 +1281,21 @@ class AgentAI:
                 target_obj = w.get_entity_object(target_id)
                 if target_obj:
                     damage_dealt = a.get_effective_damage()
-                    new_target_health = max(0.0, target_obj.health - damage_dealt)
+                    new_target_health = max(
+                        0.0, target_obj.health - damage_dealt)
                     w.update_entity_health(target_id, new_target_health)
 
                     # Apply hunger cost to attacker
-                    new_attacker_hunger = max(0.0, a.hunger - ATTACK_HUNGER_COST)
+                    new_attacker_hunger = max(
+                        0.0, a.hunger - ATTACK_HUNGER_COST)
                     w.update_entity_hunger(a.id, new_attacker_hunger)
 
                     # Handle enemy death and potential item drops
                     if new_target_health <= 0:
                         target_pos = target_obj.get_position()
                         target_kind = target_obj.kind  # Store kind before removing
-                        w.remove_entity(target_obj)  # Remove the defeated enemy
+                        # Remove the defeated enemy
+                        w.remove_entity(target_obj)
                         # Drop slime mold if slime was killed
                         if target_kind == "slime":
                             # Check if target position is now free before dropping
@@ -1269,11 +1305,14 @@ class AgentAI:
                                     target_pos[0], target_pos[1], "item", rng=w.rng, item=mold_item
                                 )
                                 w.add_entity(item_entity)
-                                print(f"Slime dropped {mold_item.name} at {target_pos}")
+                                print(f"Slime dropped {
+                                      mold_item.name} at {target_pos}")
                             else:
-                                print(f"Slime defeated at {target_pos}, but tile blocked for drop.")
+                                print(f"Slime defeated at {
+                                      target_pos}, but tile blocked for drop.")
                         else:
-                            print(f"{target_kind.capitalize()} defeated at {target_pos}")
+                            print(f"{target_kind.capitalize()
+                                     } defeated at {target_pos}")
                     return True  # Attack happened
             return False  # No adjacent target found
 
@@ -1294,7 +1333,8 @@ class AgentAI:
             if possible_moves:
                 # Use agent's RNG for choice
                 nx, ny = w.rng.choice(possible_moves)  # <- GAME RNG USED HERE
-                return w.move_entity(a, nx, ny)  # move_entity handles displacing items
+                # move_entity handles displacing items
+                return w.move_entity(a, nx, ny)
             return False  # No valid moves
 
         def execute_flee(w: World, a: Entity) -> bool:
@@ -1314,7 +1354,8 @@ class AgentAI:
                 nearest_hostile_id = slime_id
 
             if not nearest_hostile_id:
-                return execute_explore(w, a)  # No enemy nearby, explore instead
+                # No enemy nearby, explore instead
+                return execute_explore(w, a)
 
             nearest_hostile_obj = w.get_entity_object(nearest_hostile_id)
             if not nearest_hostile_obj:
@@ -1324,7 +1365,8 @@ class AgentAI:
             enemy_pos = nearest_hostile_obj.get_position()
             best_flee_spot: OptionalPosition = None
             max_dist_from_enemy = -1.0
-            current_dist = float(distance(agent_pos[0], agent_pos[1], enemy_pos[0], enemy_pos[1]))
+            current_dist = float(
+                distance(agent_pos[0], agent_pos[1], enemy_pos[0], enemy_pos[1]))
 
             # Evaluate adjacent walkable cells
             possible_moves: list[tuple[Position, float]] = []
@@ -1336,7 +1378,8 @@ class AgentAI:
                     if w.is_valid(nx, ny):
                         target_entity = w.grid[nx][ny]
                         if target_entity is None or target_entity.kind == "item":
-                            dist_from_enemy = float(distance(nx, ny, enemy_pos[0], enemy_pos[1]))
+                            dist_from_enemy = float(
+                                distance(nx, ny, enemy_pos[0], enemy_pos[1]))
                             possible_moves.append(((nx, ny), dist_from_enemy))
                             if dist_from_enemy > max_dist_from_enemy:
                                 max_dist_from_enemy = dist_from_enemy
@@ -1376,7 +1419,8 @@ class AgentAI:
                 and len(a.inventory) < a.max_inventory
             ):
                 print(
-                    f"Agent picking up {target_item_entity.item.name} at {target_item_entity.get_position()}"
+                    f"Agent picking up {target_item_entity.item.name} at {
+                        target_item_entity.get_position()}"
                 )
                 a.inventory.append(target_item_entity.item)
                 w.remove_entity(target_item_entity)
@@ -1391,7 +1435,8 @@ class AgentAI:
                 if isinstance(item, Consumable) and item.name == "Slime Mold":
                     print(f"Agent consuming {item.name}")
                     new_hunger = min(START_HUNGER, a.hunger + item.amount)
-                    w.update_entity_hunger(a.id, new_hunger)  # Update world state
+                    # Update world state
+                    w.update_entity_hunger(a.id, new_hunger)
                     a.inventory.pop(i)  # Remove from inventory
                     return True
             return False  # Item not found
@@ -1402,7 +1447,8 @@ class AgentAI:
                 if isinstance(item, Consumable) and item.name == "Health Potion":
                     print(f"Agent consuming {item.name}")
                     new_health = min(START_HEALTH, a.health + item.amount)
-                    w.update_entity_health(a.id, new_health)  # Update world state
+                    # Update world state
+                    w.update_entity_health(a.id, new_health)
                     a.inventory.pop(i)
                     return True
             return False
@@ -1430,7 +1476,8 @@ class AgentAI:
                         a.equipped_weapon = None  # Clear equipped slot
                     else:
                         print(
-                            f"Inventory full, cannot unequip {a.equipped_weapon.name} to equip {weapon_to_equip.name}"
+                            f"Inventory full, cannot unequip {
+                                a.equipped_weapon.name} to equip {weapon_to_equip.name}"
                         )
                         return False  # Cannot equip if inventory full after unequipping
 
@@ -1445,14 +1492,16 @@ class AgentAI:
             Action(
                 "MoveToNearestItem",
                 lambda w, a: cost_move_via_distance(w, a, "item"),
-                lambda s: s.get("can_find_item", False) and not s.get("inventory_full", True),
+                lambda s: s.get("can_find_item", False) and not s.get(
+                    "inventory_full", True),
                 effect_update_position,
                 lambda w, a: _execute_move_to(w, a, "item"),
             ),
             Action(
                 "PickupItem",
                 cost_pickup,
-                lambda s: s.get("item_is_adjacent", False) and not s.get("inventory_full", True),
+                lambda s: s.get("item_is_adjacent", False) and not s.get(
+                    "inventory_full", True),
                 effect_pickup_item,
                 execute_pickup_item,
             ),
@@ -1473,7 +1522,8 @@ class AgentAI:
             Action(
                 "EquipWeapon",
                 cost_equip,
-                lambda s: s.get("has_weapon_in_inv", False) and not s.get("weapon_equipped", True),
+                lambda s: s.get("has_weapon_in_inv", False) and not s.get(
+                    "weapon_equipped", True),
                 effect_equip_weapon,
                 execute_equip_weapon,
             ),
@@ -1491,9 +1541,11 @@ class AgentAI:
                 effect_attack_enemy,
                 execute_attack_adjacent_enemy,
             ),
-            Action("Explore", cost_explore, pre_always_true, effect_explore, execute_explore),
+            Action("Explore", cost_explore, pre_always_true,
+                   effect_explore, execute_explore),
             Action("Flee", cost_flee, pre_can_flee, effect_flee, execute_flee),
-            Action("Wait", cost_wait, pre_always_true, effect_wait, execute_wait),
+            Action("Wait", cost_wait, pre_always_true,
+                   effect_wait, execute_wait),
         ]
         return actions_list
 
@@ -1520,14 +1572,16 @@ class AgentAI:
             elif state["can_find_item"] and not state["inventory_full"]:
                 return {"has_health_potion": True}  # Find potion
             else:
-                return {"is_healthy": True}  # Default goal: try to rest/recover
+                # Default goal: try to rest/recover
+                return {"is_healthy": True}
 
         # 2. Immediate Threat: Adjacent Enemy or Low Health Flee
         if state["enemy_is_adjacent"]:
             # Equip weapon first if available and not equipped
             if not state["weapon_equipped"] and state["has_weapon_in_inv"]:
                 return {"has_weapon_equipped": True}
-            return {"enemy_is_adjacent": False}  # Goal is to make enemy not adjacent (attack/flee)
+            # Goal is to make enemy not adjacent (attack/flee)
+            return {"enemy_is_adjacent": False}
 
         if (
             agent.health < LOW_HEALTH_FLEE_THRESHOLD
@@ -1560,11 +1614,13 @@ class AgentAI:
 
         # 4. Engagement: Seek out enemy if healthy enough
         if state["can_find_enemy"] and agent.health > HEALTHY_THRESHOLD:
-            return {"enemy_is_adjacent": False}  # Goal: Engage the enemy (attack/move to)
+            # Goal: Engage the enemy (attack/move to)
+            return {"enemy_is_adjacent": False}
 
         # 5. Resource Gathering: Find items if not full
         if state["can_find_item"] and not state["inventory_full"]:
-            return {"has_any_item": True}  # Generic goal to trigger MoveToItem/Pickup
+            # Generic goal to trigger MoveToItem/Pickup
+            return {"has_any_item": True}
 
         # 6. Default: Explore
         return {"explored_something": True}
@@ -1574,13 +1630,15 @@ class AgentAI:
         if not self.current_plan:
             return False
         next_action = self.current_plan[0]
-        current_state_rep = self.planner._get_world_state_representation(self.world, agent)
+        current_state_rep = self.planner._get_world_state_representation(
+            self.world, agent)
         return next_action.check_preconditions(current_state_rep)
 
     def act(self, agent: Entity) -> ActionResult:
         """Determines the agent's action for the current turn."""
         self.last_action_name = None  # Reset last action
-        current_state_rep = self.planner._get_world_state_representation(self.world, agent)
+        current_state_rep = self.planner._get_world_state_representation(
+            self.world, agent)
 
         # --- Plan Validation and Replanning ---
         needs_replan = False
@@ -1606,7 +1664,8 @@ class AgentAI:
         if needs_replan:
             self.current_goal = self._select_goal(agent)
             # print(f"Selected new goal: {self.current_goal}") # Debug
-            new_plan_list = self.planner.plan(self.world, agent, self.current_goal)
+            new_plan_list = self.planner.plan(
+                self.world, agent, self.current_goal)
 
             if new_plan_list:
                 self.current_plan = deque(new_plan_list)
@@ -1620,8 +1679,10 @@ class AgentAI:
                 # print("Replanning failed. Executing fallback.") # Debug
                 # --- Fallback Action ---
                 # Prioritize basic survival or exploration
-                wait_action = next((a for a in self.actions if a.name == "Wait"), None)
-                explore_action = next((a for a in self.actions if a.name == "Explore"), None)
+                wait_action = next(
+                    (a for a in self.actions if a.name == "Wait"), None)
+                explore_action = next(
+                    (a for a in self.actions if a.name == "Explore"), None)
 
                 if wait_action and agent.health < START_HEALTH * 0.9:  # Wait if injured
                     if wait_action.execute(self.world, agent):
@@ -1679,7 +1740,8 @@ class AgentAI:
         # Update weights based on the *last attempted plan*
         if self.last_executed_plan_actions:
             # print(f"Learning: Score={final_score:.2f}, Actions={self.last_executed_plan_actions}") # Debug
-            self.planner.update_weights(self.last_executed_plan_actions, final_score)
+            self.planner.update_weights(
+                self.last_executed_plan_actions, final_score)
         # Reset last executed plan after learning
         self.last_executed_plan_actions = []
 
@@ -1693,7 +1755,8 @@ def enemy_act(enemy: Entity, world: World, rng: GameRNG):  # Added rng parameter
 
     enemy_pos = enemy.get_position()
     agent_pos = agent.get_position()
-    dist_to_agent = distance(enemy_pos[0], enemy_pos[1], agent_pos[0], agent_pos[1])
+    dist_to_agent = distance(
+        enemy_pos[0], enemy_pos[1], agent_pos[0], agent_pos[1])
 
     # --- Fleeing Logic ---
     # Use a base health reference (e.g., average start health or fixed value)
@@ -1718,7 +1781,8 @@ def enemy_act(enemy: Entity, world: World, rng: GameRNG):  # Added rng parameter
                 if world.is_valid(nx, ny):
                     target_entity = world.grid[nx][ny]
                     if target_entity is None or target_entity.kind == "item":
-                        dist_from_agent = float(distance(nx, ny, agent_pos[0], agent_pos[1]))
+                        dist_from_agent = float(
+                            distance(nx, ny, agent_pos[0], agent_pos[1]))
                         if dist_from_agent > max_dist_from_agent:
                             max_dist_from_agent = dist_from_agent
                             best_flee_spot = (nx, ny)

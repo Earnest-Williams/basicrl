@@ -40,7 +40,8 @@ if __name__ == "__main__":
             error_msg.setIcon(QMessageBox.Icon.Critical)
             error_msg.setWindowTitle("Application Startup Error")
             error_msg.setText(
-                f"Failed to start Tile Mapper:\n\n{e}\n\nSee console/stderr for details."
+                f"Failed to start Tile Mapper:\n\n{
+                    e}\n\nSee console/stderr for details."
             )
             # Limit detail length for QMessageBox
             tb_text = traceback.format_exc()

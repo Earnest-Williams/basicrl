@@ -21,9 +21,9 @@ import math
 import struct
 import tempfile
 import wave
-from typing import Dict, Any
 
 SAMPLE_RATE = 22050  # Hz – lower rate keeps files small for tests
+
 
 class MusicGenerator:
     """Create short musical motifs.

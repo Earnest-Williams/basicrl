@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Self
 import polars as pl
 import structlog
 
-from game.entities.components import CombatStats, Inventory, Position, Renderable
+from game.entities.components import Position
 
 try:
     from game.items.registry import BodySlotType, EquipSlot
@@ -92,15 +92,18 @@ class EntityRegistry:
             )
         self.entities_df: pl.DataFrame = pl.DataFrame(schema=ENTITY_SCHEMA)
         self._next_entity_id: int = 0
-        log.debug("EntityRegistry initialized", schema=list(ENTITY_SCHEMA.keys()))
+        log.debug("EntityRegistry initialized",
+                  schema=list(ENTITY_SCHEMA.keys()))
 
     def _get_next_id(self: Self) -> int:
         # (Implementation unchanged)
         current_id = self._next_entity_id
         self._next_entity_id += 1
         if self._next_entity_id > 2**32 - 1:
-            log.critical("Entity ID counter overflowed", next_id=self._next_entity_id)
-            raise OverflowError("Entity ID counter overflowed (UInt32 limit reached).")
+            log.critical("Entity ID counter overflowed",
+                         next_id=self._next_entity_id)
+            raise OverflowError(
+                "Entity ID counter overflowed (UInt32 limit reached).")
         return current_id
 
     def create_entity(
@@ -235,10 +238,12 @@ class EntityRegistry:
                 self.entities_df = new_entity_df
             else:
                 self.entities_df = pl.concat(
-                    [self.entities_df, new_entity_df.select(self.entities_df.columns)],
+                    [self.entities_df, new_entity_df.select(
+                        self.entities_df.columns)],
                     how="vertical",
                 )
-            log.info("Entity created successfully", entity_id=new_id, **log_context)
+            log.info("Entity created successfully",
+                     entity_id=new_id, **log_context)
             return new_id
         except Exception as e:
             log.error(
@@ -257,7 +262,8 @@ class EntityRegistry:
         if component_name not in self.entities_df.columns:
             log.warning("Component does not exist", **log_context)
             raise ValueError(
-                f"Component '{component_name}' does not exist in ENTITY_SCHEMA."
+                f"Component '{
+                    component_name}' does not exist in ENTITY_SCHEMA."
             )
 
         try:
@@ -316,11 +322,13 @@ class EntityRegistry:
         if component_name not in self.entities_df.columns:
             log.warning("Component does not exist", **log_context)
             raise ValueError(
-                f"Component '{component_name}' does not exist in ENTITY_SCHEMA."
+                f"Component '{
+                    component_name}' does not exist in ENTITY_SCHEMA."
             )
         if component_name in ("entity_id", "is_active"):
             log.warning("Attempted to set protected component", **log_context)
-            raise ValueError(f"Cannot directly set '{component_name}' component.")
+            raise ValueError(f"Cannot directly set '{
+                             component_name}' component.")
         try:
             target_dtype = ENTITY_SCHEMA[component_name]
             try:
@@ -328,14 +336,16 @@ class EntityRegistry:
                     value, (dict, list, type(None))
                 ):
                     log.warning(
-                        f"Potentially incompatible type for Object column '{component_name}'",
+                        f"Potentially incompatible type for Object column '{
+                            component_name}'",
                         type=type(value),
                         **log_context,
                     )
                 lit_value = pl.lit(value).cast(target_dtype, strict=False)
             except Exception as cast_err:
                 log.error(
-                    f"Type error setting component '{component_name}'. Expected compatible with {target_dtype}.",
+                    f"Type error setting component '{
+                        component_name}'. Expected compatible with {target_dtype}.",
                     value_type=type(value),
                     error=cast_err,
                     **log_context,
@@ -356,7 +366,8 @@ class EntityRegistry:
                 )
                 return False
             self.entities_df = self.entities_df.with_columns(
-                pl.when((pl.col("entity_id") == entity_id) & pl.col("is_active"))
+                pl.when((pl.col("entity_id") == entity_id)
+                        & pl.col("is_active"))
                 .then(lit_value)
                 .otherwise(pl.col(component_name))
                 .alias(component_name)
@@ -436,7 +447,8 @@ class EntityRegistry:
                 "is_active"
             )
             if self.entities_df.filter(entity_active_mask).height == 0:
-                log.debug("Entity already inactive or does not exist", **log_context)
+                log.debug(
+                    "Entity already inactive or does not exist", **log_context)
                 return False
             self.entities_df = self.entities_df.with_columns(
                 pl.when(entity_active_mask)
@@ -477,7 +489,8 @@ class EntityRegistry:
         try:
             return self.entities_df.filter(pl.col("is_active"))
         except Exception as e:
-            log.error("Error getting active entities", error=str(e), exc_info=True)
+            log.error("Error getting active entities",
+                      error=str(e), exc_info=True)
             return pl.DataFrame(schema=ENTITY_SCHEMA)
 
     def get_body_plan(self, entity_id: int) -> Dict[str, int] | None:
@@ -502,7 +515,8 @@ class EntityRegistry:
         # --- REMOVED Series check ---
         # The get_entity_component method should now handle returning a list directly.
         # Ensure a list is returned (or None if component retrieval failed)
-        return ids if isinstance(ids, list) else None  # Return None if not a list
+        # Return None if not a list
+        return ids if isinstance(ids, list) else None
 
     def set_equipped_ids(self, entity_id: int, equipped_ids: List[int]) -> bool:
         # (Implementation unchanged)

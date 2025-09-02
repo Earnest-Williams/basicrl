@@ -1,7 +1,17 @@
+from PIL import Image
+from engine.renderer import RenderConfig, ViewportParams, render_viewport
+from engine.render_lighting import (
+    apply_memory_fade,
+    MEMORY_FLOOR_GLYPHS,
+    MEMORY_LEVEL_COUNT,
+    NOISY_MEMORY_FLOOR_GLYPHS,
+)
+from engine.render_base_layers import prepare_base_layers
+from game.game_state import GameState
+from game.world.game_map import GameMap, TILE_ID_FLOOR
 import sys
 import types
 import numpy as np
-from game_rng import GameRNG
 
 # Provide a minimal ai_system module for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")
@@ -14,19 +24,9 @@ def dispatch_ai(*args, **kwargs):
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
-from game.world.game_map import GameMap, TILE_ID_FLOOR
-from game.game_state import GameState
-from engine.render_base_layers import prepare_base_layers
-from engine.render_lighting import (
-    apply_memory_fade,
-    MEMORY_FLOOR_GLYPHS,
-    MEMORY_LEVEL_COUNT,
-    NOISY_MEMORY_FLOOR_GLYPHS,
-)
-from engine.renderer import RenderConfig, ViewportParams, render_viewport
-from PIL import Image
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -108,7 +108,8 @@ def test_memory_fade_blend_and_glyph_substitution():
         viewport_y=0,
     )
 
-    assert (final_fg[py, px] == np.array([150, 150, 150], dtype=np.uint8)).all()
+    assert (final_fg[py, px] == np.array(
+        [150, 150, 150], dtype=np.uint8)).all()
     assert (final_bg[py, px] == np.array([55, 55, 55], dtype=np.uint8)).all()
     expected_glyph = MEMORY_FLOOR_GLYPHS[2]
     assert glyphs[py, px] == expected_glyph

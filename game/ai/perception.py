@@ -47,11 +47,13 @@ def gather_perception(game_state: 'GameState') -> Tuple[np.ndarray, np.ndarray, 
 
     # Apply queued noise events
     for x, y, intensity in getattr(game_state, 'noise_events', []):
-        _apply_event(game_map.noise_map, x, y, intensity, radius=2, game_map=game_map)
+        _apply_event(game_map.noise_map, x, y, intensity,
+                     radius=2, game_map=game_map)
 
     # Apply queued scent events
     for x, y, intensity in getattr(game_state, 'scent_events', []):
-        _apply_event(game_map.scent_map, x, y, intensity, radius=4, game_map=game_map)
+        _apply_event(game_map.scent_map, x, y, intensity,
+                     radius=4, game_map=game_map)
 
     # Clear processed events
     if hasattr(game_state, 'noise_events'):

@@ -53,7 +53,8 @@ class UIOverlayManager:
         self.window_manager_ref: "WindowManager" = window_manager_ref
         self.overlay_config_path = overlay_config_path
         self._overlay_base_path = self.overlay_config_path.parent
-        self.overlay_defs: List[PyDict[str, Any]] = self._load_overlay_definitions()
+        self.overlay_defs: List[PyDict[str, Any]
+                                ] = self._load_overlay_definitions()
         self._image_cache: PyDict[str, Image.Image] = {}
         # Inventory state
         self.inventory_cursor: int = 0
@@ -103,13 +104,15 @@ class UIOverlayManager:
                 h = self.window_manager_ref.label.height()
                 return Image.new("RGBA", (max(1, w), max(1, h)), (0, 0, 0, 0))
             except Exception:
-                return Image.new("RGBA", (100, 100), (0, 0, 0, 0))  # Fallback size
-    
+                # Fallback size
+                return Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+
         img_copy = base_image.copy()  # Work on a copy
         draw = ImageDraw.Draw(img_copy)
 
         # Font Loading (Consider centralizing or caching in WindowManager/Config)
-        font_cfg = self.window_manager_ref.app_config if hasattr(self.window_manager_ref, "app_config") else {}
+        font_cfg = self.window_manager_ref.app_config if hasattr(
+            self.window_manager_ref, "app_config") else {}
         font_path = font_cfg.get("ui_font_path", "arial.ttf")
         font_size = int(font_cfg.get("ui_font_size", 10))
         try:
@@ -143,7 +146,6 @@ class UIOverlayManager:
         # self._render_message_log(draw, text_font, gs)
 
         return img_copy
-        
 
     def _render_debug_overlay(
         self,
@@ -157,7 +159,8 @@ class UIOverlayManager:
             wm = self.window_manager_ref  # Shortcut for readability
             turn = gs.turn_count
             player_pos = gs.player_position
-            pos_str = f"({player_pos[0]},{player_pos[1]})" if player_pos else "N/A"
+            pos_str = f"({player_pos[0]},{
+                player_pos[1]})" if player_pos else "N/A"
 
             entities_count_str = "?"
             try:  # Safely get entity count
@@ -168,7 +171,8 @@ class UIOverlayManager:
                         ).height
                     )
             except Exception as e:
-                log.warning("Could not get entity count for debug overlay", error=e)
+                log.warning(
+                    "Could not get entity count for debug overlay", error=e)
 
             label_w = wm.label.width()
             label_h = wm.label.height()
@@ -185,12 +189,15 @@ class UIOverlayManager:
                 )
             # --- END CORRECTION ---
 
-            vp_cols = max(1, label_w // current_tile_w) if current_tile_w > 0 else "?"
-            vp_rows = max(1, label_h // current_tile_h) if current_tile_h > 0 else "?"
+            vp_cols = max(
+                1, label_w // current_tile_w) if current_tile_w > 0 else "?"
+            vp_rows = max(
+                1, label_h // current_tile_h) if current_tile_h > 0 else "?"
 
             debug_text = (
                 f"T:{turn} P:{pos_str} E:{entities_count_str} "
-                f"VP:{vp_cols}x{vp_rows} TR:{current_tile_w}x{current_tile_h} "  # Use fetched dimensions
+                f"VP:{vp_cols}x{vp_rows} TR:{current_tile_w}x{
+                    current_tile_h} "  # Use fetched dimensions
                 f"V:{'H' if ml.show_height_visualization else '-'} S:{gs.ui_state}"
             )
 
@@ -201,7 +208,8 @@ class UIOverlayManager:
 
             try:  # Calculate text bounding box
                 if hasattr(draw, "textbbox"):
-                    bbox = draw.textbbox((text_x, text_y), debug_text, font=font)
+                    bbox = draw.textbbox(
+                        (text_x, text_y), debug_text, font=font)
                 elif hasattr(draw, "textlength"):
                     w = draw.textlength(debug_text, font=font)
                     h = (
@@ -216,7 +224,8 @@ class UIOverlayManager:
                     bbox = (text_x, text_y, text_x + w, text_y + h)
             except Exception as e:
                 log.error("Error calculating debug text bounding box", error=e)
-                bbox = (text_x, text_y, text_x + 100, text_y + 15)  # Fallback bbox
+                bbox = (text_x, text_y, text_x + 100,
+                        text_y + 15)  # Fallback bbox
 
             # Draw background and text
             bg_rect = (bbox[0] - 2, bbox[1] - 2, bbox[2] + 2, bbox[3] + 2)
@@ -225,7 +234,8 @@ class UIOverlayManager:
             return bg_rect  # Return background rect for positioning other elements
 
         except Exception as e_get_dbg:
-            log.error("Error getting debug info for overlay", error=str(e_get_dbg))
+            log.error("Error getting debug info for overlay",
+                      error=str(e_get_dbg))
             return (0, 0, 0, 0)  # Return empty rect on error
 
     def _render_height_key_overlay(
@@ -283,7 +293,8 @@ class UIOverlayManager:
                 fill=line_color,
                 font=font,
             )
-            draw.text((text_label_x, mid_y_pos - 4), "0m", fill=line_color, font=font)
+            draw.text((text_label_x, mid_y_pos - 4),
+                      "0m", fill=line_color, font=font)
             draw.text(
                 (text_label_x, key_y + key_height - 10),
                 f"-{max_diff_meters:.1f}m",
@@ -327,13 +338,13 @@ class UIOverlayManager:
     ) -> Image.Image:
         """Renders the inventory overlay. Reuses the passed draw object."""
         # (Implementation unchanged from previous step)
-        player_id = gs.player_id
         item_reg = gs.item_registry
         entity_reg = gs.entity_registry
         if not item_reg or not entity_reg:
             log.error("Registries missing for inventory.")
             return base_image
-        font_cfg = self.window_manager_ref.app_config if hasattr(self.window_manager_ref, "app_config") else {}
+        font_cfg = self.window_manager_ref.app_config if hasattr(
+            self.window_manager_ref, "app_config") else {}
         font_path = font_cfg.get("ui_font_path", "arial.ttf")
         title_font = font
         line_height = 15
@@ -386,7 +397,8 @@ class UIOverlayManager:
         num_display_lines += len(equipped_items_tuples)
         for _, item_id, _ in equipped_items_tuples:
             try:
-                num_display_lines += item_reg.get_attached_items(item_id).height
+                num_display_lines += item_reg.get_attached_items(
+                    item_id).height
             except Exception:
                 pass
         if not has_equipped_items:
@@ -395,13 +407,15 @@ class UIOverlayManager:
         num_display_lines += len(inventory_items_tuples)
         for _, item_id, _ in inventory_items_tuples:
             try:
-                num_display_lines += item_reg.get_attached_items(item_id).height
+                num_display_lines += item_reg.get_attached_items(
+                    item_id).height
             except Exception:
                 pass
         if not has_inventory_items:
             num_display_lines += 1  # Placeholder
         panel_height = (
-            title_height + (num_display_lines * line_height) + (2 * panel_padding)
+            title_height + (num_display_lines * line_height) +
+            (2 * panel_padding)
         )
         panel_x = max(10, (base_image.width - panel_width) // 2)
         panel_y = max(10, (base_image.height - panel_height) // 2)
@@ -439,7 +453,8 @@ class UIOverlayManager:
         placeholder_color = (150, 150, 150, 255)
         list_index = 0
         self._inventory_ui_map.clear()
-        draw.text((text_x, current_y), "-- Equipped --", fill=header_color, font=font)
+        draw.text((text_x, current_y), "-- Equipped --",
+                  fill=header_color, font=font)
         current_y += line_height
         self._inventory_ui_map[list_index] = (None, False, False)
         list_index += 1
@@ -455,9 +470,11 @@ class UIOverlayManager:
                     cursor_color if list_index == self.inventory_cursor else item_color
                 )
                 prefix = "> " if list_index == self.inventory_cursor else "  "
-                draw.text((text_x, current_y), prefix + line_mod, fill=color, font=font)
+                draw.text((text_x, current_y), prefix +
+                          line_mod, fill=color, font=font)
                 current_y += line_height
-                self._inventory_ui_map[list_index] = (item_id, is_equipped, False)
+                self._inventory_ui_map[list_index] = (
+                    item_id, is_equipped, False)
                 list_index += 1
                 try:
                     attached_df = item_reg.get_attached_items(item_id)
@@ -472,7 +489,8 @@ class UIOverlayManager:
                             prefix = (
                                 "> " if list_index == self.inventory_cursor else "  "
                             )
-                            draw.text((text_x, current_y), prefix + att_line, fill=color, font=font)
+                            draw.text((text_x, current_y), prefix +
+                                      att_line, fill=color, font=font)
                             current_y += line_height
                             self._inventory_ui_map[list_index] = (
                                 att.get("item_id"),
@@ -493,7 +511,8 @@ class UIOverlayManager:
             self._inventory_ui_map[list_index] = (None, False, False)
             list_index += 1
         current_y += line_height // 2
-        draw.text((text_x, current_y), "-- Inventory --", fill=header_color, font=font)
+        draw.text((text_x, current_y), "-- Inventory --",
+                  fill=header_color, font=font)
         current_y += line_height
         self._inventory_ui_map[list_index] = (None, False, False)
         list_index += 1
@@ -509,9 +528,11 @@ class UIOverlayManager:
                     cursor_color if list_index == self.inventory_cursor else item_color
                 )
                 prefix = "> " if list_index == self.inventory_cursor else "  "
-                draw.text((text_x, current_y), prefix + line_mod, fill=color, font=font)
+                draw.text((text_x, current_y), prefix +
+                          line_mod, fill=color, font=font)
                 current_y += line_height
-                self._inventory_ui_map[list_index] = (item_id, is_equipped, False)
+                self._inventory_ui_map[list_index] = (
+                    item_id, is_equipped, False)
                 list_index += 1
                 try:
                     attached_df = item_reg.get_attached_items(item_id)
@@ -526,7 +547,8 @@ class UIOverlayManager:
                             prefix = (
                                 "> " if list_index == self.inventory_cursor else "  "
                             )
-                            draw.text((text_x, current_y), prefix + att_line, fill=color, font=font)
+                            draw.text((text_x, current_y), prefix +
+                                      att_line, fill=color, font=font)
                             current_y += line_height
                             self._inventory_ui_map[list_index] = (
                                 att.get("item_id"),
@@ -569,7 +591,8 @@ class UIOverlayManager:
                         name = item_data.get("name", "?")
                         slot = item_data.get("equipped_slot", "?")
                         line = f"{name} ({slot})"
-                        combined_list.append((line, item_data.get("item_id"), True))
+                        combined_list.append(
+                            (line, item_data.get("item_id"), True))
             except Exception as e:
                 log.error("Inv List: Equip fetch error", error=e)
         try:
@@ -581,7 +604,8 @@ class UIOverlayManager:
                         name = item_data.get("name", "?")
                         qty = item_data.get("quantity", 1)
                         line = f"{name}" + (f" (x{qty})" if qty > 1 else "")
-                        combined_list.append((line, item_data.get("item_id"), False))
+                        combined_list.append(
+                            (line, item_data.get("item_id"), False))
         except Exception as e:
             log.error("Inv List: Inv fetch error", error=e)
         return combined_list
@@ -635,14 +659,16 @@ class UIOverlayManager:
             if not is_equipped:
                 return {"type": "use", "item_id": item_id}
             if gs:
-                gs.add_message("Cannot use equipped items directly.", (255, 100, 0))
+                gs.add_message(
+                    "Cannot use equipped items directly.", (255, 100, 0))
             return None
         elif action_type == "drop":
             return {"type": "drop", "item_id": item_id}
         elif action_type == "attach":
             if is_equipped:
                 if gs:
-                    gs.add_message("Cannot attach an equipped item.", (255, 100, 0))
+                    gs.add_message(
+                        "Cannot attach an equipped item.", (255, 100, 0))
                 return None
             if is_attached:
                 if gs:
@@ -655,7 +681,8 @@ class UIOverlayManager:
                     break
             if host_item_id is None:
                 if gs:
-                    gs.add_message("No equipped item to attach to.", (255, 100, 0))
+                    gs.add_message(
+                        "No equipped item to attach to.", (255, 100, 0))
                 return None
             return {
                 "type": "attach",

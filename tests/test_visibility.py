@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from game_rng import GameRNG
 import game.world.fov as MyVisibility
 from game.world.fov import line_of_sight
 

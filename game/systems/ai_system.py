@@ -78,7 +78,6 @@ def dispatch_ai(
         )
 
     for i in range(0, len(entity_rows), batch_size):
-        batch = entity_rows[i : i + batch_size]
+        batch = entity_rows[i: i + batch_size]
         with ThreadPool(len(batch)) as pool:
             pool.map(_invoke, batch)
-

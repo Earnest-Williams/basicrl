@@ -1,24 +1,26 @@
+from game.ai import goap, community
+from game.game_state import GameState
+from game.world.game_map import GameMap, TILE_ID_FLOOR
 import sys
 import types
 
 import numpy as np
 import polars as pl
-from game_rng import GameRNG
 
 # Minimal ai_system module for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")
 
+
 def dispatch_ai(*args, **kwargs):
     return None
+
 
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
 
-from game.world.game_map import GameMap, TILE_ID_FLOOR
-from game.game_state import GameState
-from game.ai import goap, community
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state():
@@ -57,7 +59,8 @@ def test_goap_moves_toward_player():
         ai_type="goap",
     )
     entity_row = (
-        gs.entity_registry.entities_df.filter(pl.col("entity_id") == enemy_id).row(0, named=True)
+        gs.entity_registry.entities_df.filter(
+            pl.col("entity_id") == enemy_id).row(0, named=True)
     )
     initial_pos = gs.entity_registry.get_position(enemy_id)
     px, py = gs.player_position
@@ -79,7 +82,8 @@ def test_community_moves_toward_player():
         ai_type="community",
     )
     entity_row = (
-        gs.entity_registry.entities_df.filter(pl.col("entity_id") == enemy_id).row(0, named=True)
+        gs.entity_registry.entities_df.filter(
+            pl.col("entity_id") == enemy_id).row(0, named=True)
     )
     initial_pos = gs.entity_registry.get_position(enemy_id)
     px, py = gs.player_position

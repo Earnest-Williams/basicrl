@@ -7,7 +7,8 @@ import structlog
 # Imports seem correct now
 from PySide6.QtCore import QMutex, QMutexLocker, QObject, Signal, Slot
 
-from ...rng_utils.game_rng import GameRNG  # Assuming World passes a GameRNG instance
+# Assuming World passes a GameRNG instance
+from ...rng_utils.game_rng import GameRNG
 from ..simulation import (
     ENEMY_SPAWN_CHANCE,
     MAX_TURNS,
@@ -16,7 +17,6 @@ from ..simulation import (
     World,
     enemy_act,
 )
-
 
 log = structlog.get_logger(__name__)
 
@@ -34,7 +34,8 @@ class SimulationWorker(QObject):
     plan_updated = Signal(list)  # list of action names
     goal_updated = Signal(str)  # string representation of the goal
     actions_updated = Signal(dict)  # dict of action weights {name: weight}
-    simulation_step_done = Signal(int)  # turn number (emitted only when GUI updates)
+    # turn number (emitted only when GUI updates)
+    simulation_step_done = Signal(int)
     simulation_finished = Signal(str)  # End message (reason)
     status_update = Signal(str)  # General status messages
 
@@ -96,7 +97,8 @@ class SimulationWorker(QObject):
             initial_goal_str = "Goal: {}".format(
                 self.agent_ai.current_goal if self.agent_ai.current_goal else "None"
             )
-            initial_plan_list = [action.name for action in self.agent_ai.current_plan]
+            initial_plan_list = [
+                action.name for action in self.agent_ai.current_plan]
             self.goal_updated.emit(initial_goal_str)
             self.plan_updated.emit(initial_plan_list)
             self.last_emitted_goal_str = initial_goal_str
@@ -139,7 +141,8 @@ class SimulationWorker(QObject):
                 current_goal_str = "Goal: {}".format(
                     self.agent_ai.current_goal if self.agent_ai.current_goal else "None"
                 )
-                current_plan_list = [action.name for action in self.agent_ai.current_plan]
+                current_plan_list = [
+                    action.name for action in self.agent_ai.current_plan]
                 goal_changed = current_goal_str != self.last_emitted_goal_str
                 plan_changed = current_plan_list != self.last_emitted_plan_list
 
@@ -153,7 +156,8 @@ class SimulationWorker(QObject):
 
                 if agent.health <= 0:
                     self.status_update.emit(
-                        f"Agent died after its action (Turn {self.world.turn})."
+                        f"Agent died after its action (Turn {
+                            self.world.turn})."
                     )
                     self.emit_world_state()  # Show final state before loop breaks
                     with QMutexLocker(self.mutex):
@@ -163,21 +167,24 @@ class SimulationWorker(QObject):
                 # --- Hunger ---
                 agent.health -= PASSIVE_HUNGER_PER_TURN
                 if agent.health <= 0:
-                    self.status_update.emit(f"Agent starved (Turn {self.world.turn}).")
+                    self.status_update.emit(
+                        f"Agent starved (Turn {self.world.turn}).")
                     self.emit_world_state()  # Show final state
                     with QMutexLocker(self.mutex):
                         self._running = False
                     break
 
                 # --- Enemy Turn ---
-                current_enemy_ids = list(self.world.entities_by_kind["enemy"].keys())
+                current_enemy_ids = list(
+                    self.world.entities_by_kind["enemy"].keys())
                 for enemy_id in current_enemy_ids:
                     if enemy_id in self.world.entities:
                         enemy = self.world.entities[enemy_id]
                         enemy_act(enemy, self.world)  # Enemy logic execution
                     if agent.health <= 0:
                         self.status_update.emit(
-                            f"Agent defeated by an enemy (Turn {self.world.turn})."
+                            f"Agent defeated by an enemy (Turn {
+                                self.world.turn})."
                         )
                         break  # Exit inner enemy loop
                 if agent.health <= 0:  # Check if agent died during enemy turns
@@ -234,7 +241,8 @@ class SimulationWorker(QObject):
         if self.world.turn >= MAX_TURNS and agent_survived:
             end_reason = "Reached Max Turns"
         elif agent_survived:
-            end_reason = "Survived (Stopped)"  # Assume stopped externally if not max turns/defeated
+            # Assume stopped externally if not max turns/defeated
+            end_reason = "Survived (Stopped)"
         else:
             end_reason = "Defeated"
 
@@ -259,7 +267,8 @@ class SimulationWorker(QObject):
         try:
             entities_list = [
                 {"id": e.id, "x": e.x, "y": e.y, "kind": e.kind, "health": e.health}
-                for e in list(self.world.entities.values())  # Iterate over a copy
+                # Iterate over a copy
+                for e in list(self.world.entities.values())
             ]
             agent_health = self.world.agent.health if self.world.agent else 0
             self.world_updated.emit(
@@ -297,7 +306,8 @@ class SimulationWorker(QObject):
             if not self._running:
                 return
             self._paused = not self._paused
-            self.status_update.emit("Simulation Paused" if self._paused else "Simulation Resumed")
+            self.status_update.emit(
+                "Simulation Paused" if self._paused else "Simulation Resumed")
             if not self._paused:
                 self._step = False
 

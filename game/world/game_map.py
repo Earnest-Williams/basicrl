@@ -83,6 +83,7 @@ def get_memory_modifier_map(
             modifiers[tiles == tile_id] = mod
     return modifiers
 
+
 def get_transparency_map(tiles: np.ndarray) -> np.ndarray:
     """Creates a boolean array indicating transparency based on TILE_TYPES."""
     # Initialize with False (opaque)
@@ -115,20 +116,24 @@ class GameMap:
             raise ValueError("Map width and height must be positive integers.")
         self._width = width
         self._height = height
-        log.info("Initializing GameMap", width=self._width, height=self._height)
+        log.info("Initializing GameMap",
+                 width=self._width, height=self._height)
 
         # Core map data arrays - Use C order for compatibility with many libraries
         self.tiles: np.ndarray = np.full(
             (height, width), fill_value=TILE_ID_WALL, dtype=np.uint8, order="C"
         )
         # Visibility/Exploration state
-        self.explored: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
-        self.visible: np.ndarray = np.zeros((height, width), dtype=bool, order="C")
+        self.explored: np.ndarray = np.zeros(
+            (height, width), dtype=bool, order="C")
+        self.visible: np.ndarray = np.zeros(
+            (height, width), dtype=bool, order="C")
         # Cached transparency map
         self.transparent: np.ndarray = get_transparency_map(self.tiles)
         # Memory modifier map per tile
         self._tile_modifier_overrides: Dict[int, float] = {}
-        self.tile_memory_modifiers: np.ndarray = get_memory_modifier_map(self.tiles)
+        self.tile_memory_modifiers: np.ndarray = get_memory_modifier_map(
+            self.tiles)
         if tile_memory_modifiers:
             self.apply_memory_modifier_overrides(tile_memory_modifiers)
         # Height and Ceiling maps
@@ -178,13 +183,15 @@ class GameMap:
             self.tiles, self._tile_modifier_overrides
         )
         transparent_count = np.sum(self.transparent)
-        log.info("Transparency map updated", transparent_count=transparent_count)
+        log.info("Transparency map updated",
+                 transparent_count=transparent_count)
 
     def apply_memory_modifier_overrides(
         self, overrides: Dict[str | int, float]
     ) -> None:
         """Apply designer-provided memory fade overrides per tile type."""
-        self._tile_modifier_overrides = _normalize_tile_modifier_overrides(overrides)
+        self._tile_modifier_overrides = _normalize_tile_modifier_overrides(
+            overrides)
         self.tile_memory_modifiers = get_memory_modifier_map(
             self.tiles, self._tile_modifier_overrides
         )
@@ -277,7 +284,8 @@ class GameMap:
                 self.memory_strength[not_visible] - 1.0, 0.0
             )
 
-        np.clip(self.memory_strength, 0.0, MAX_MEMORY_STRENGTH, out=self.memory_strength)
+        np.clip(self.memory_strength, 0.0,
+                MAX_MEMORY_STRENGTH, out=self.memory_strength)
 
     # --- END MODIFIED compute_fov method ---
 
@@ -297,7 +305,7 @@ class GameMap:
 
         # --- Assign default height/ceiling to test room ---
         test_floor_height = 0
-        test_ceiling_height = 6 # e.g., 3 meters high
+        test_ceiling_height = 6  # e.g., 3 meters high
         self.height_map[y_start:y_end, x_start:x_end] = test_floor_height
         self.ceiling_map[y_start:y_end, x_start:x_end] = test_ceiling_height
         # --- End Assignment ---
@@ -318,20 +326,21 @@ class GameMap:
 
     def update_fov_with_tracking(
         self, x: int, y: int, radius: int
-    ) -> Set[Tuple[int, int]]: # Use Tuple, Set imported
+    ) -> Set[Tuple[int, int]]:  # Use Tuple, Set imported
         """
         Updates FOV and returns a set of (x, y) coordinates where
         visibility changed (either became visible or hidden).
         """
         previous_visible = self.visible.copy()
-        self.compute_fov(x, y, radius) # Calls the updated method
+        self.compute_fov(x, y, radius)  # Calls the updated method
         changed_positions = set()
 
         # Optimization: Use np.where for potentially faster comparison on large maps
         diff_indices = np.argwhere(previous_visible != self.visible)
         for y_idx, x_idx in diff_indices:
-            changed_positions.add((int(x_idx), int(y_idx))) # Store as (x, y)
+            changed_positions.add((int(x_idx), int(y_idx)))  # Store as (x, y)
 
         if changed_positions:
-            log.debug("Visibility changed", changed_count=len(changed_positions))
+            log.debug("Visibility changed",
+                      changed_count=len(changed_positions))
         return changed_positions

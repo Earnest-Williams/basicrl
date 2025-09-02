@@ -1,20 +1,24 @@
+from game.systems.combat_system import handle_melee_attack
+from game.game_state import GameState
+from game.world.game_map import GameMap
 import sys
 import types
 import polars as pl
-from game_rng import GameRNG
 
 # Stub ai_system dispatch
 ai_module = types.ModuleType('game.systems.ai_system')
+
+
 def dispatch_ai(*args, **kwargs):
     return None
+
+
 ai_module.dispatch_ai = dispatch_ai
 sys.modules['game.systems.ai_system'] = ai_module
 
-from game.world.game_map import GameMap
-from game.game_state import GameState
-from game.systems.combat_system import handle_melee_attack
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def create_game_state(item_templates=None, rng_seed: int = 1):
@@ -122,11 +126,15 @@ def test_dual_wield_damage():
     er = gs.entity_registry
     ir = gs.item_registry
 
-    attacker = er.create_entity(x=1, y=1, glyph=ord('a'), color_fg=(255, 0, 0), name='Orc', hp=5, max_hp=5)
-    defender = er.create_entity(x=1, y=2, glyph=ord('d'), color_fg=(0, 255, 0), name='Goblin', hp=10, max_hp=10)
+    attacker = er.create_entity(x=1, y=1, glyph=ord(
+        'a'), color_fg=(255, 0, 0), name='Orc', hp=5, max_hp=5)
+    defender = er.create_entity(x=1, y=2, glyph=ord(
+        'd'), color_fg=(0, 255, 0), name='Goblin', hp=10, max_hp=10)
 
-    main_id = ir.create_item('sword', location='equipped', owner_entity_id=attacker, equipped_slot='main_hand')
-    off_id = ir.create_item('dagger_off', location='equipped', owner_entity_id=attacker, equipped_slot='off_hand')
+    main_id = ir.create_item('sword', location='equipped',
+                             owner_entity_id=attacker, equipped_slot='main_hand')
+    off_id = ir.create_item('dagger_off', location='equipped',
+                            owner_entity_id=attacker, equipped_slot='off_hand')
     er.set_equipped_ids(attacker, [main_id, off_id])
 
     gs.game_map.visible[:, :] = True
@@ -153,10 +161,13 @@ def test_two_handed_bonus_damage():
     er = gs.entity_registry
     ir = gs.item_registry
 
-    attacker = er.create_entity(x=1, y=1, glyph=ord('a'), color_fg=(255, 0, 0), name='Orc', hp=5, max_hp=5)
-    defender = er.create_entity(x=1, y=2, glyph=ord('d'), color_fg=(0, 255, 0), name='Goblin', hp=10, max_hp=10)
+    attacker = er.create_entity(x=1, y=1, glyph=ord(
+        'a'), color_fg=(255, 0, 0), name='Orc', hp=5, max_hp=5)
+    defender = er.create_entity(x=1, y=2, glyph=ord(
+        'd'), color_fg=(0, 255, 0), name='Goblin', hp=10, max_hp=10)
 
-    main_id = ir.create_item('greatsword', location='equipped', owner_entity_id=attacker, equipped_slot='main_hand')
+    main_id = ir.create_item('greatsword', location='equipped',
+                             owner_entity_id=attacker, equipped_slot='main_hand')
     er.set_equipped_ids(attacker, [main_id])
 
     gs.game_map.visible[:, :] = True
@@ -238,7 +249,8 @@ def test_xp_and_loot_on_death():
     er = gs.entity_registry
     ir = gs.item_registry
 
-    attacker = er.create_entity(x=1, y=1, glyph=ord('a'), color_fg=(255, 0, 0), name='Hero', hp=5, max_hp=5, xp=0)
+    attacker = er.create_entity(x=1, y=1, glyph=ord('a'), color_fg=(
+        255, 0, 0), name='Hero', hp=5, max_hp=5, xp=0)
     drop_table = [{'template_id': 'coin', 'chance': 1.0}]
     defender = er.create_entity(
         x=1,
@@ -255,7 +267,8 @@ def test_xp_and_loot_on_death():
     handle_melee_attack(attacker, defender, gs)
     assert er.get_entity_component(attacker, 'xp') == 5
     ground = ir.items_df.filter(
-        (pl.col('location_type') == 'ground') & (pl.col('x') == 1) & (pl.col('y') == 2)
+        (pl.col('location_type') == 'ground') & (
+            pl.col('x') == 1) & (pl.col('y') == 2)
     )
     assert ground.height == 1
     assert ground.select('template_id').item() == 'coin'

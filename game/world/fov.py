@@ -7,7 +7,7 @@ Includes height/ceiling checks and explored tile tracking.
 
 import time
 from collections import deque
-from typing import TypeAlias, List, Optional
+from typing import TypeAlias
 
 import numba
 import numpy as np
@@ -19,6 +19,7 @@ from .los import line_of_sight as _los_line_of_sight
 def line_of_sight(x0: int, y0: int, x1: int, y1: int, transparency_map):
     """Return True if tiles (x0, y0) and (x1, y1) have clear line of sight."""
     return _los_line_of_sight(y0, x0, y1, x1, transparency_map)
+
 
 # --- Type Aliases ---
 Point: TypeAlias = tuple[int, int]
@@ -44,56 +45,91 @@ _THRESHOLD_AT_CUTOFF: int = CLOSE_RANGE_SQ_THRESHOLD // CLOSE_RANGE_DIVISOR
 MAX_SECTORS: int = 10000  # Safety limit for sector processing
 
 # --- Numba Helper Functions ---
+
+
 @numba.njit(cache=True, inline="always")
 def slope_greater(slope1_yx: Slope, y: int, x: int) -> bool:
     """Check if slope1 is greater than the slope to point (y,x)."""
     slope_y, slope_x = slope1_yx
-    if slope_x == 0 and x == 0: return slope_y > y
-    if slope_x == 0: return True if x > 0 else False
-    if x == 0: return False if slope_x > 0 else True
+    if slope_x == 0 and x == 0:
+        return slope_y > y
+    if slope_x == 0:
+        return True if x > 0 else False
+    if x == 0:
+        return False if slope_x > 0 else True
     return slope_y * x > slope_x * y
+
 
 @numba.njit(cache=True, inline="always")
 def slope_greater_or_equal(slope1_yx: Slope, y: int, x: int) -> bool:
     """Check if slope1 is greater than or equal to the slope to point (y,x)."""
     slope_y, slope_x = slope1_yx
-    if slope_x == 0 and x == 0: return slope_y >= y
-    if slope_x == 0: return True if x >= 0 else False
-    if x == 0: return False if slope_x >= 0 else True
+    if slope_x == 0 and x == 0:
+        return slope_y >= y
+    if slope_x == 0:
+        return True if x >= 0 else False
+    if x == 0:
+        return False if slope_x >= 0 else True
     return slope_y * x >= slope_x * y
+
 
 @numba.njit(cache=True, inline="always")
 def slope_less(slope1_yx: Slope, y: int, x: int) -> bool:
     """Check if slope1 is less than the slope to point (y,x)."""
     slope_y, slope_x = slope1_yx
-    if slope_x == 0 and x == 0: return slope_y < y
-    if slope_x == 0: return False if x > 0 else True
-    if x == 0: return True if slope_x > 0 else False
+    if slope_x == 0 and x == 0:
+        return slope_y < y
+    if slope_x == 0:
+        return False if x > 0 else True
+    if x == 0:
+        return True if slope_x > 0 else False
     return slope_y * x < slope_x * y
+
 
 @numba.njit(cache=True, inline="always")
 def slope_less_or_equal(slope1_yx: Slope, y: int, x: int) -> bool:
     """Check if slope1 is less than or equal to the slope to point (y,x)."""
     slope_y, slope_x = slope1_yx
-    if slope_x == 0 and x == 0: return slope_y <= y
-    if slope_x == 0: return False if x > 0 else True
-    if x == 0: return True if slope_x > 0 else False
+    if slope_x == 0 and x == 0:
+        return slope_y <= y
+    if slope_x == 0:
+        return False if x > 0 else True
+    if x == 0:
+        return True if slope_x > 0 else False
     return slope_y * x <= slope_x * y
+
 
 @numba.njit(cache=True)
 def _transform_coords(octant_x: int, octant_y: int, octant: int, origin_xy: Point) -> Point:
     """Transform coordinates based on octant."""
     ox, oy = origin_xy
     nx, ny = ox, oy
-    if octant == 0: nx += octant_x; ny -= octant_y
-    elif octant == 1: nx += octant_y; ny -= octant_x
-    elif octant == 2: nx -= octant_y; ny -= octant_x
-    elif octant == 3: nx -= octant_x; ny -= octant_y
-    elif octant == 4: nx -= octant_x; ny += octant_y
-    elif octant == 5: nx -= octant_y; ny += octant_x
-    elif octant == 6: nx += octant_y; ny += octant_x
-    elif octant == 7: nx += octant_x; ny += octant_y
+    if octant == 0:
+        nx += octant_x
+        ny -= octant_y
+    elif octant == 1:
+        nx += octant_y
+        ny -= octant_x
+    elif octant == 2:
+        nx -= octant_y
+        ny -= octant_x
+    elif octant == 3:
+        nx -= octant_x
+        ny -= octant_y
+    elif octant == 4:
+        nx -= octant_x
+        ny += octant_y
+    elif octant == 5:
+        nx -= octant_y
+        ny += octant_x
+    elif octant == 6:
+        nx += octant_y
+        ny += octant_x
+    elif octant == 7:
+        nx += octant_x
+        ny += octant_y
     return nx, ny
+
 
 @numba.njit(cache=True)
 def blocks_light_at(
@@ -104,30 +140,32 @@ def blocks_light_at(
     """Check if a tile blocks light, considering bounds, opacity, and height."""
     nx, ny = _transform_coords(octant_x, octant_y, octant, origin_xy)
     width, height = grid_shape
-    
+
     if not (0 <= nx < width and 0 <= ny < height):
         return True
-    
+
     if opaque_grid[ny, nx]:
         return True
-    
+
     # Height and ceiling checks
     target_h = height_map[ny, nx]
     target_ceiling = ceiling_map[ny, nx]
-    
+
     if target_ceiling <= origin_height:
         return True  # Ceiling too low
-    
+
     # Calculate height difference threshold based on distance
     dist_sq = octant_x * octant_x + octant_y * octant_y
     threshold = BASE_THRESHOLD
-    
+
     if dist_sq <= CLOSE_RANGE_SQ_THRESHOLD:
         threshold = dist_sq // CLOSE_RANGE_DIVISOR
     else:
-        threshold = _THRESHOLD_AT_CUTOFF + (dist_sq - CLOSE_RANGE_SQ_THRESHOLD) // FAR_RANGE_DIVISOR
-    
+        threshold = _THRESHOLD_AT_CUTOFF + \
+            (dist_sq - CLOSE_RANGE_SQ_THRESHOLD) // FAR_RANGE_DIVISOR
+
     return abs(target_h - origin_height) > threshold
+
 
 @numba.njit(cache=True)
 def set_visible_at(
@@ -140,6 +178,7 @@ def set_visible_at(
     if 0 <= nx < width and 0 <= ny < height:
         visible_grid[ny, nx] = True
         explored_grid[ny, nx] = True
+
 
 @numba.njit(cache=True)
 def is_in_range(octant_x: int, octant_y: int, range_limit_sq: int | float) -> bool:
@@ -156,79 +195,21 @@ def _compute_fov_numba_core(
     """Numba-optimized FOV core computation."""
     range_limit_sq = range_limit * range_limit
     grid_shape = opaque_grid.shape
-    
+
     # Initialize with Numba-compatible list
     sectors = NumbaList()
     for octant in range(8):
         sectors.append((octant, 1, (1, 1), (0, 1)))
-    
+
     sector_count = 0
     while len(sectors) > 0 and sector_count < MAX_SECTORS:
         sector_count += 1
-        
+
         # Pop first element (FIFO behavior)
         current = sectors.pop(0)
         octant, current_x = current[0], current[1]
         top_slope, bottom_slope = current[2], current[3]
-        
-        blocked = False
-        for current_y in range(current_x, range_limit + 1):
-            if not is_in_range(current_x, current_y, range_limit_sq):
-                break
 
-            cell_top_y = 2 * current_y + 1
-            cell_bottom_y = 2 * current_y - 1
-            cell_x = 2 * current_x
-            center_y, center_x = current_y, current_x
-
-            if slope_less(top_slope, center_y, center_x) or \
-               slope_less_or_equal(bottom_slope, center_y, center_x):
-                continue
-
-            set_visible_at(current_x, current_y, octant, origin_xy, 
-                         grid_shape, visible_grid, explored_grid)
-
-            cell_blocks = blocks_light_at(
-                current_x, current_y, octant, origin_xy, grid_shape,
-                opaque_grid, height_map, ceiling_map, origin_height
-            )
-
-            if blocked:
-                if cell_blocks:
-                    continue
-                else:
-                    blocked = False
-                    bottom_slope = (cell_top_y, cell_x)
-            else:
-                if cell_blocks:
-                    blocked = True
-                    if slope_greater(top_slope, cell_bottom_y, cell_x):
-                        sectors.append((octant, current_x + 1, 
-                                     top_slope, (cell_bottom_y, cell_x)))
-                    top_slope = (cell_top_y, cell_x)
-
-        if not blocked:
-            sectors.append((octant, current_x + 1, top_slope, bottom_slope))
-
-def _compute_fov_python_fallback(
-    origin_xy: Point, range_limit: int, opaque_grid: np.ndarray,
-    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int,
-    visible_grid: np.ndarray, explored_grid: np.ndarray
-) -> None:
-    """Python fallback implementation for debugging and fallback."""
-    range_limit_sq = range_limit * range_limit
-    grid_shape = opaque_grid.shape
-    
-    sectors: deque = deque()
-    for octant in range(8):
-        sectors.append((octant, 1, (1, 1), (0, 1)))
-    
-    sector_count = 0
-    while sectors and sector_count < MAX_SECTORS:
-        sector_count += 1
-        
-        octant, current_x, top_slope, bottom_slope = sectors.popleft()
-        
         blocked = False
         for current_y in range(current_x, range_limit + 1):
             if not is_in_range(current_x, current_y, range_limit_sq):
@@ -244,7 +225,7 @@ def _compute_fov_python_fallback(
                 continue
 
             set_visible_at(current_x, current_y, octant, origin_xy,
-                         grid_shape, visible_grid, explored_grid)
+                           grid_shape, visible_grid, explored_grid)
 
             cell_blocks = blocks_light_at(
                 current_x, current_y, octant, origin_xy, grid_shape,
@@ -262,7 +243,66 @@ def _compute_fov_python_fallback(
                     blocked = True
                     if slope_greater(top_slope, cell_bottom_y, cell_x):
                         sectors.append((octant, current_x + 1,
-                                     top_slope, (cell_bottom_y, cell_x)))
+                                        top_slope, (cell_bottom_y, cell_x)))
+                    top_slope = (cell_top_y, cell_x)
+
+        if not blocked:
+            sectors.append((octant, current_x + 1, top_slope, bottom_slope))
+
+
+def _compute_fov_python_fallback(
+    origin_xy: Point, range_limit: int, opaque_grid: np.ndarray,
+    height_map: np.ndarray, ceiling_map: np.ndarray, origin_height: int,
+    visible_grid: np.ndarray, explored_grid: np.ndarray
+) -> None:
+    """Python fallback implementation for debugging and fallback."""
+    range_limit_sq = range_limit * range_limit
+    grid_shape = opaque_grid.shape
+
+    sectors: deque = deque()
+    for octant in range(8):
+        sectors.append((octant, 1, (1, 1), (0, 1)))
+
+    sector_count = 0
+    while sectors and sector_count < MAX_SECTORS:
+        sector_count += 1
+
+        octant, current_x, top_slope, bottom_slope = sectors.popleft()
+
+        blocked = False
+        for current_y in range(current_x, range_limit + 1):
+            if not is_in_range(current_x, current_y, range_limit_sq):
+                break
+
+            cell_top_y = 2 * current_y + 1
+            cell_bottom_y = 2 * current_y - 1
+            cell_x = 2 * current_x
+            center_y, center_x = current_y, current_x
+
+            if slope_less(top_slope, center_y, center_x) or \
+               slope_less_or_equal(bottom_slope, center_y, center_x):
+                continue
+
+            set_visible_at(current_x, current_y, octant, origin_xy,
+                           grid_shape, visible_grid, explored_grid)
+
+            cell_blocks = blocks_light_at(
+                current_x, current_y, octant, origin_xy, grid_shape,
+                opaque_grid, height_map, ceiling_map, origin_height
+            )
+
+            if blocked:
+                if cell_blocks:
+                    continue
+                else:
+                    blocked = False
+                    bottom_slope = (cell_top_y, cell_x)
+            else:
+                if cell_blocks:
+                    blocked = True
+                    if slope_greater(top_slope, cell_bottom_y, cell_x):
+                        sectors.append((octant, current_x + 1,
+                                        top_slope, (cell_bottom_y, cell_x)))
                     top_slope = (cell_top_y, cell_x)
 
         if not blocked:
@@ -295,8 +335,9 @@ def compute_fov(
         opaque_grid = opaque_grid.astype(np.bool_)
     if not np.issubdtype(visible_grid.dtype, np.bool_) or \
        not np.issubdtype(explored_grid.dtype, np.bool_):
-        raise TypeError("visible_grid and explored_grid must be boolean arrays")
-    
+        raise TypeError(
+            "visible_grid and explored_grid must be boolean arrays")
+
     height, width = opaque_grid.shape
     ox, oy = origin_xy
     if not (0 <= ox < width and 0 <= oy < height):
@@ -315,7 +356,8 @@ def compute_fov(
             visible_grid, explored_grid
         )
     except Exception as e:
-        func_log.warning("Numba FOV failed, falling back to Python", error=str(e))
+        func_log.warning(
+            "Numba FOV failed, falling back to Python", error=str(e))
         try:
             # Fall back to Python version
             _compute_fov_python_fallback(
@@ -324,7 +366,8 @@ def compute_fov(
                 visible_grid, explored_grid
             )
         except Exception as e:
-            func_log.error("FOV calculation failed", error=str(e), exc_info=True)
+            func_log.error("FOV calculation failed",
+                           error=str(e), exc_info=True)
             visible_grid.fill(False)
             visible_grid[oy, ox] = True
 
@@ -335,6 +378,7 @@ def compute_fov(
         duration_ms=f"{duration_ms:.2f}",
         visible_count=np.sum(visible_grid)
     )
+
 
 def update_memory_fade(
     current_time: int,
@@ -381,7 +425,6 @@ def update_memory_fade(
     midpoint_scaled = midpoint * scale
     exponent = decay_rate * (elapsed_time - midpoint_scaled)
 
-
     new_intensity = np.zeros_like(elapsed_time, dtype=np.float32)
     mask = exponent < 70.0
     safe_exp = np.exp(np.minimum(exponent[mask], 70.0))
@@ -390,12 +433,10 @@ def update_memory_fade(
 
     memory_intensity[ys, xs] = np.maximum(0.0, new_intensity)
 
-
     # Prune tiles that have faded completely
     needs_update_mask[ys, xs] = memory_intensity[ys, xs] > 0.0
 
     return
-
 
 
 @numba.njit(cache=True)
@@ -442,4 +483,3 @@ def compute_light_color_array(
                         target_rgb_array[y, x, 0] += r * intensity
                         target_rgb_array[y, x, 1] += g * intensity
                         target_rgb_array[y, x, 2] += b * intensity
-

@@ -27,7 +27,6 @@ def line_of_sight(
     y1: int,
     transparency_map: np.ndarray,
 ) -> bool:
-
     """Return ``True`` if a clear line exists between two points.
 
     The function expects coordinates in ``(x, y)`` order to align with

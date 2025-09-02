@@ -59,7 +59,8 @@ COLOR = {
 TORCH_COLOR_RGB: Tuple[int, int, int] = (255, 160, 60)  # Orangey-yellow
 ORB_COLOR_RGB: Tuple[int, int, int] = (160, 200, 255)  # Bluish-white
 # Ambient color for unlit areas or minimum light
-AMBIENT_COLOR_RGB: Tuple[int, int, int] = (30, 30, 45)  # Dim, slightly blue/purple
+AMBIENT_COLOR_RGB: Tuple[int, int, int] = (
+    30, 30, 45)  # Dim, slightly blue/purple
 # Max level used for mapping intensity -> level for visibility checks
 MAX_LIGHT_LEVEL_FOR_VIS_CHECK = 6
 
@@ -72,7 +73,8 @@ MEMORY_COLOR = COLOR["DIM"] + COLOR["BRIGHT_BLACK"]
 LIGHT_LEVEL_FALLOFF_RATE = 5
 
 # --- Debugging ---
-DEBUG_RENDER_MODE = "normal"  # Options: "normal", "level" (shows brightness), "intensity" (memory), "level_color" (shows blended color)
+# Options: "normal", "level" (shows brightness), "intensity" (memory), "level_color" (shows blended color)
+DEBUG_RENDER_MODE = "normal"
 
 # --- Light Level Data --- (Used for visibility checks based on mapped level)
 LIGHT_LEVEL_DATA: Dict[str, Dict[str, Dict[str, int]]] = {

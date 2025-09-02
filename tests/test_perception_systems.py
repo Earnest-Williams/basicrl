@@ -31,7 +31,8 @@ def test_cave_closed_door_feature_detection():
 def test_process_chunk_perception_outcome():
     rng_seed = 42
     rng = GameRNG(rng_seed)
-    cave_cost = np.full((MAX_FLOWS, 5, 5), BASE_FLOW_CENTER + NOISE_MAX_DIST + 1, dtype=np.int32)
+    cave_cost = np.full((MAX_FLOWS, 5, 5), BASE_FLOW_CENTER +
+                        NOISE_MAX_DIST + 1, dtype=np.int32)
     flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)
     cave_cost[FlowType.REAL_NOISE, 1, 1] = BASE_FLOW_CENTER + 5
     cave_cost[FlowType.REAL_NOISE, 1, 2] = BASE_FLOW_CENTER + 50

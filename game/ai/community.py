@@ -57,7 +57,6 @@ def take_turn(
     x, y = entity_row["x"], entity_row["y"]
     noise_map, scent_map, los_map = perception
 
-
     player_pos = game_state.player_position
     move = None
     dx = dy = 0
@@ -81,7 +80,6 @@ def take_turn(
             if noise_map[ny, nx] > best_noise:
                 best_noise = noise_map[ny, nx]
                 move = (ndx, ndy)
-
 
     if move is None:
         current_scent = scent_map[y, x]

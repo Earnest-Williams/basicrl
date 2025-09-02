@@ -1,18 +1,18 @@
+from game.game_state import GameState
+from game.world.game_map import GameMap, TILE_ID_FLOOR
 import sys
 import types
-from game_rng import GameRNG
 
 # Minimal ai_system dispatch for GameState imports
 ai_module = types.ModuleType("game.systems.ai_system")
 
+
 def dispatch_ai(*args, **kwargs):
     return None
 
+
 ai_module.dispatch_ai = dispatch_ai
 sys.modules["game.systems.ai_system"] = ai_module
-
-from game.world.game_map import GameMap, TILE_ID_FLOOR
-from game.game_state import GameState
 
 
 def make_gs():
@@ -39,7 +39,8 @@ def test_status_effects_expire():
         [{"id": "poison", "duration": 1, "intensity": 1.0}],
     )
     gs.advance_turn()
-    effects = gs.entity_registry.get_entity_component(gs.player_id, "status_effects")
+    effects = gs.entity_registry.get_entity_component(
+        gs.player_id, "status_effects")
     assert effects == []
 
 
@@ -47,7 +48,9 @@ def test_starvation_progression():
     gs = make_gs()
     gs.entity_registry.set_entity_component(gs.player_id, "fullness", 2.0)
     gs.advance_turn()
-    assert gs.entity_registry.get_entity_component(gs.player_id, "fullness") == 1.0
+    assert gs.entity_registry.get_entity_component(
+        gs.player_id, "fullness") == 1.0
     gs.advance_turn()
-    assert gs.entity_registry.get_entity_component(gs.player_id, "fullness") == 0.0
+    assert gs.entity_registry.get_entity_component(
+        gs.player_id, "fullness") == 0.0
     assert any("starving" in msg[0] for msg in gs.message_log)

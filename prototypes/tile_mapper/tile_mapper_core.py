@@ -1,7 +1,6 @@
 # tile_mapper_core.py
 
 import os
-import traceback
 
 import structlog
 
@@ -107,7 +106,8 @@ class TileMap:
                     row_len = len(row)
                     if row_len != new_width:
                         row_lengths_consistent = False
-                        padded_rows.append(row.ljust(new_width, map_default_tile))
+                        padded_rows.append(
+                            row.ljust(new_width, map_default_tile))
                     else:
                         padded_rows.append(row)
                 if not row_lengths_consistent:
@@ -124,7 +124,8 @@ class TileMap:
             self.height = new_height
             self.width = new_width
             self.default_tile = map_default_tile
-            self.tiles = [[map_default_tile] * new_width for _ in range(new_height)]
+            self.tiles = [[map_default_tile] *
+                          new_width for _ in range(new_height)]
 
             copy_h = min(len(padded_rows), new_height)
             for y in range(copy_h):
@@ -141,7 +142,8 @@ class TileMap:
             return True
 
         except (ValueError, TypeError) as e:
-            log.error("Error processing map data values", error=str(e), exc_info=True)
+            log.error("Error processing map data values",
+                      error=str(e), exc_info=True)
             return False
         except Exception as e:
             log.error("Error loading map data", error=str(e), exc_info=True)
@@ -447,7 +449,8 @@ def save_extracted_map(
             with open(target_filepath, FILE_READ_MODE) as f:
                 content = f.read()
                 if content:
-                    existing_data = JSON_HANDLER.loads(content, **JSON_LOADS_KWARGS)
+                    existing_data = JSON_HANDLER.loads(
+                        content, **JSON_LOADS_KWARGS)
                     # Basic validation of existing format
                     if isinstance(existing_data, dict) and isinstance(
                         existing_data.get("maps"), dict

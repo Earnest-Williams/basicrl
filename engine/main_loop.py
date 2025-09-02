@@ -75,7 +75,8 @@ class MainLoop:
 
         # Store rendering configs needed by Renderer (to pass them later)
         self._cfg_vis_max_diff = vis_max_diff
-        self._cfg_height_color_high_np = np.array(vis_color_high, dtype=np.uint8)
+        self._cfg_height_color_high_np = np.array(
+            vis_color_high, dtype=np.uint8)
         self._cfg_height_color_mid_np = np.array(vis_color_mid, dtype=np.uint8)
         self._cfg_height_color_low_np = np.array(vis_color_low, dtype=np.uint8)
         self._cfg_vis_blend_factor = np.float32(vis_blend_factor)
@@ -112,7 +113,8 @@ class MainLoop:
             player_acted = False  # Invalid action means no turn taken
 
         if player_acted:
-            log.debug("Player action resulted in turn", action_type=action.get("type"))
+            log.debug("Player action resulted in turn",
+                      action_type=action.get("type"))
             gs.advance_turn()
             # FOV recalculated inside GameState.advance_turn
             # Trigger redraw via WindowManager after state changes
@@ -135,7 +137,8 @@ class MainLoop:
 
         # Calculate FOV radius squared (needed for RenderConfig)
         fov_radius = np.float32(gs.fov_radius)
-        fov_radius_sq = fov_radius * fov_radius if fov_radius >= 0 else np.float32(-1.0)
+        fov_radius_sq = fov_radius * \
+            fov_radius if fov_radius >= 0 else np.float32(-1.0)
 
         # --- Create RenderConfig instance ---
         render_config = RenderConfig(

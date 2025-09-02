@@ -31,7 +31,8 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
     """
     gs: "GameState" | None = context.get("game_state")  # Type hint with | None
     source_id = context.get("source_entity_id")
-    item_id = context.get("item_instance_id")  # Still needed for item_charge cost
+    # Still needed for item_charge cost
+    item_id = context.get("item_instance_id")
 
     costs = effect_definition.get("cost", [])
     if not costs:
@@ -91,14 +92,16 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
         elif cost_type in ("mana", "fullness"):  # Handle generic resources
             if source_id is None:
                 log.warning(
-                    f"Cost check failed: {cost_type} cost requires source_entity_id"
+                    f"Cost check failed: {
+                        cost_type} cost requires source_entity_id"
                 )
                 can_pay = False
                 failure_reason = (
                     f"{cost_type.capitalize()} cost requires a source entity"
                 )
                 break
-            current_value = entity_registry.get_entity_component(source_id, cost_type)
+            current_value = entity_registry.get_entity_component(
+                source_id, cost_type)
             if current_value is None or current_value < amount:
                 log.debug(
                     f"Cost check failed: Insufficient {cost_type}",
@@ -157,10 +160,12 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
 
         elif cost_type in ("mana", "fullness"):  # Handle generic resources
             # Re-get value
-            current_value = entity_registry.get_entity_component(source_id, cost_type)
+            current_value = entity_registry.get_entity_component(
+                source_id, cost_type)
             if current_value is None or current_value < amount:
                 log.error(
-                    f"{cost_type.capitalize()} deduction failed: value changed between check and deduct",
+                    f"{cost_type.capitalize(
+                    )} deduction failed: value changed between check and deduct",
                     source=source_id,
                 )
                 deduction_failed = True
@@ -235,7 +240,8 @@ def _consume_item(item_id: int, context: Dict[str, Any]):
         log.warning("Cannot consume item: quantity is None", item_id=item_id)
         return
     if quantity > 1:
-        log.debug("Decrementing consumable quantity", item_id=item_id, old_qty=quantity)
+        log.debug("Decrementing consumable quantity",
+                  item_id=item_id, old_qty=quantity)
         gs.item_registry.set_item_component(item_id, "quantity", quantity - 1)
     else:
         log.debug("Deleting consumed item", item_id=item_id)
@@ -264,7 +270,8 @@ def execute_effect(effect_id: str, context: Dict[str, Any]) -> bool:
 
     effect_definition = gs.effect_definitions.get(effect_id)
     if not effect_definition:
-        log.warning("execute_effect failed: Unknown effect_id", effect_id=effect_id)
+        log.warning("execute_effect failed: Unknown effect_id",
+                    effect_id=effect_id)
         return False
 
     # --- Execute Pre-Checks ---
@@ -279,14 +286,16 @@ def execute_effect(effect_id: str, context: Dict[str, Any]) -> bool:
     # --- Check and Deduct Costs ---
     # This function now potentially adds messages on failure
     if not _check_and_deduct_costs(effect_definition, context):
-        log.debug("Effect cost check failed or deduction failed", effect_id=effect_id)
+        log.debug("Effect cost check failed or deduction failed",
+                  effect_id=effect_id)
         # Message is now added inside _check_and_deduct_costs if needed
         return False
 
     # --- Find and Execute Logic Handler ---
     logic_handler_id = effect_definition.get("logic_handler")
     if not logic_handler_id:
-        log.warning("Effect definition missing 'logic_handler'", effect_id=effect_id)
+        log.warning("Effect definition missing 'logic_handler'",
+                    effect_id=effect_id)
         return False
 
     handler_func = EFFECT_LOGIC_HANDLERS.get(logic_handler_id)

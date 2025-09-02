@@ -107,9 +107,11 @@ class MetricsCollector:
                     if k.endswith("_generated") or k in {"shuffles", "samples"}
                 )
                 self.stats["operations_per_second"] = ops / elapsed
-                total_cache = self.metrics["cache_hits"] + self.metrics["cache_misses"]
+                total_cache = self.metrics["cache_hits"] + \
+                    self.metrics["cache_misses"]
                 self.stats["cache_hit_rate"] = (
-                    self.metrics["cache_hits"] / total_cache if total_cache else 0.0
+                    self.metrics["cache_hits"] /
+                    total_cache if total_cache else 0.0
                 )
             self.stats["last_collection_time"] = now
 
@@ -138,7 +140,8 @@ class GameRNG:
         metrics: bool = False,
         noise_seed: Optional[int] = None,
     ) -> None:
-        self.initial_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self.initial_seed = seed if seed is not None else random.randint(
+            0, 2**32 - 1)
         self.rng = np.random.default_rng(self.initial_seed)
         self.noise_seed = noise_seed if noise_seed is not None else self.initial_seed
         self.metrics_enabled = metrics
@@ -255,7 +258,8 @@ class GameRNG:
         if cache_key is not None:
             cdf = self.weighted_choice_cache.get(cache_key)
             if self.metrics:
-                self.metrics.update("cache_hits" if cdf is not None else "cache_misses")
+                self.metrics.update(
+                    "cache_hits" if cdf is not None else "cache_misses")
         if cdf is None:
             cdf = np.cumsum(np.asarray(weights, dtype=float))
             cdf[-1] = total
@@ -323,7 +327,8 @@ class GameRNG:
             if weights is None:
                 choices = self.rng.choice(items, size=k, replace=True)
             else:
-                choices = [self.weighted_choice(items, weights) for _ in range(k)]
+                choices = [self.weighted_choice(
+                    items, weights) for _ in range(k)]
         else:
             if weights is None:
                 choices = self.rng.choice(items, size=k, replace=False)
@@ -411,7 +416,8 @@ class GameRNG:
             return 0.0
         input_x = int(x / scale)
         input_y = int(y / scale)
-        rng = np.random.default_rng(self._hash_seed(input_x, input_y, seed_offset))
+        rng = np.random.default_rng(
+            self._hash_seed(input_x, input_y, seed_offset))
         return float(rng.uniform(-1.0, 1.0))
 
     # ------------------------------------------------------------------
@@ -447,10 +453,12 @@ class GameRNG:
         return self.metrics.get_metrics()
 
     def reset(self, seed: Optional[int] = None, noise_seed: Optional[int] = None) -> None:
-        self.initial_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
+        self.initial_seed = seed if seed is not None else random.randint(
+            0, 2**32 - 1)
         self.rng = np.random.default_rng(self.initial_seed)
         if noise_seed == "reset" or noise_seed is None:
-            self.noise_seed = self.initial_seed if noise_seed == "reset" else random.randint(0, 2**32 - 1)
+            self.noise_seed = self.initial_seed if noise_seed == "reset" else random.randint(
+                0, 2**32 - 1)
         else:
             self.noise_seed = noise_seed
         self.weighted_choice_cache.clear()

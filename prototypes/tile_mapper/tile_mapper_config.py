@@ -1,5 +1,6 @@
 # tile_mapper_config.py
 
+from PySide6.QtGui import QColor  # Needed for default color conversion
 import copy  # For deep copying defaults
 import io
 import os
@@ -8,7 +9,6 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-from PySide6.QtGui import QColor  # Needed for default color conversion
 
 # --- Orjson/JSON Handling ---
 try:
@@ -158,7 +158,8 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
     if validated_config.get("format_version") != CURRENT_FORMAT_VERSION:
         log.warning("Config file format mismatch or missing. Applying defaults")
         base_config = defaults  # Start with defaults
-        base_config.update(validated_config)  # Overwrite defaults with loaded values
+        # Overwrite defaults with loaded values
+        base_config.update(validated_config)
         validated_config = base_config
         config_was_modified = True
 
@@ -187,7 +188,8 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
             log.warning(
                 "Missing control, adding default", control=control_key
             )
-            loaded_controls[control_key] = default_control_data  # Use copied defaults
+            # Use copied defaults
+            loaded_controls[control_key] = default_control_data
             config_was_modified = True
         elif isinstance(loaded_controls[control_key], dict):
             loaded_control_data = loaded_controls[control_key]
@@ -204,7 +206,8 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
             log.warning(
                 "Control is not a dictionary. Resetting", control=control_key
             )
-            loaded_controls[control_key] = default_control_data  # Use copied defaults
+            # Use copied defaults
+            loaded_controls[control_key] = default_control_data
             config_was_modified = True
 
     # Convert/Validate Tile Colors and add QColor objects
@@ -280,7 +283,8 @@ def _validate_and_populate_config(loaded_config_dict: dict) -> tuple[dict, bool]
                         "Invalid preview_line_color value. Using default"
                     )
                     default_rgb = defaults["preview_line_color"]
-                    validated_config["preview_line_color_qt"] = QColor(*default_rgb)
+                    validated_config["preview_line_color_qt"] = QColor(
+                        *default_rgb)
                 if validated_config.get("preview_line_color") != default_rgb:
                     config_was_modified = True
                 validated_config["preview_line_color"] = default_rgb

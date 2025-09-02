@@ -185,7 +185,8 @@ class BranchConvergenceAnalyzer:  # Unchanged logic
             return "continue"
 
         # Check parallel escape condition
-        delta_n = abs(new_node.branch_segment_count - other_node.branch_segment_count)
+        delta_n = abs(new_node.branch_segment_count -
+                      other_node.branch_segment_count)
         delta_depth = abs(new_node.depth_m - other_node.depth_m)
         if (
             delta_n > PARALLEL_ESCAPE_DELTA_N
@@ -245,7 +246,8 @@ class CaveGenerator:
 
         self.cavern_type_counts: dict[str, int] = {t: 0 for t in CAVERN_TYPES}
         self.nodes: list[CaveNode] = []
-        self.steps: list[CaveStep] = []  # For logging/debugging generation steps
+        # For logging/debugging generation steps
+        self.steps: list[CaveStep] = []
         self.id_counter = 0
         self.analyzer = BranchConvergenceAnalyzer()
         self.active_nodes: list[CaveNode] = []
@@ -323,7 +325,8 @@ class CaveGenerator:
         """Performs weighted choice using GameRNG and assigns feature."""
         types, weights = self._get_weights()
         # USE self.rng for weighted choice
-        chosen_type = self.rng.weighted_choice(types, weights)  # <- GAME RNG USED HERE
+        chosen_type = self.rng.weighted_choice(
+            types, weights)  # <- GAME RNG USED HERE
 
         parent.feature = f"big_room:{chosen_type}"
         self.cavern_type_counts[chosen_type] += 1
@@ -333,7 +336,8 @@ class CaveGenerator:
             t: round(w, 3) for t, w in zip(types, weights)
         }  # Log weights used
         self.steps.append(
-            CaveStep(f"Assign Feature {parent.id}: {parent.feature}", step_vars)
+            CaveStep(f"Assign Feature {parent.id}: {
+                     parent.feature}", step_vars)
         )
 
     def _rebuild_kdtree(self):  # Unchanged logic
@@ -367,13 +371,15 @@ class CaveGenerator:
             "segment_count": segment_count,
         }
         if len(self.nodes) >= self.max_nodes:
-            self.steps.append(CaveStep("Node add failed: Max nodes", step_vars))
+            self.steps.append(
+                CaveStep("Node add failed: Max nodes", step_vars))
             parent.can_grow = False
             return None
 
         final_angle = parent.angle + angle_delta
         # USE self.rng for random values
-        length = self.rng.get_float(*SEGMENT_LENGTH_RANGE)  # <- GAME RNG USED HERE
+        length = self.rng.get_float(
+            *SEGMENT_LENGTH_RANGE)  # <- GAME RNG USED HERE
         x = parent.x + math.cos(math.radians(final_angle)) * length
         y = parent.y + math.sin(math.radians(final_angle)) * length
         depth_increase_m = self.rng.get_float(
@@ -429,10 +435,12 @@ class CaveGenerator:
                     candidate = self.node_map.get(self.kdtree_node_ids[i])
                     # Ensure candidate exists and is not the direct parent
                     if candidate and candidate is not parent:
-                        action = self.analyzer.action_for_pair(new_node, candidate)
+                        action = self.analyzer.action_for_pair(
+                            new_node, candidate)
                         if action == "converged":
                             converged_node = candidate
-                            step_vars.update({"converged_with": converged_node.id})
+                            step_vars.update(
+                                {"converged_with": converged_node.id})
 
                             # Check for feature creation on convergence
                             # USE self.rng for random chance
@@ -459,7 +467,8 @@ class CaveGenerator:
                                         "Terminate convergence (loops off/no "
                                         "feature/parent flagged)"
                                     )
-                                    self.steps.append(CaveStep(desc, step_vars))
+                                    self.steps.append(
+                                        CaveStep(desc, step_vars))
                                 else:
                                     # Add node but mark it as non-growing (creates loop end)
                                     new_node.can_grow = False
@@ -481,9 +490,11 @@ class CaveGenerator:
             self._nodes_since_kdtree += 1
             # Add log entry based on outcome
             if converged_node and self.loops_enabled:
-                self.steps.append(CaveStep(desc, step_vars))  # Log loop creation
+                self.steps.append(CaveStep(desc, step_vars)
+                                  )  # Log loop creation
             elif not converged_node:
-                self.steps.append(CaveStep("Added node", step_vars))  # Log normal add
+                # Log normal add
+                self.steps.append(CaveStep("Added node", step_vars))
             return new_node
         else:
             # Log why node wasn't added (already logged if feature created or terminated)
@@ -493,7 +504,8 @@ class CaveGenerator:
                 )
             return None
 
-    def _calculate_context_modifier(self, parent: CaveNode) -> float:  # Unchanged logic
+    # Unchanged logic
+    def _calculate_context_modifier(self, parent: CaveNode) -> float:
         """Calculates a multiplier for feature chances based on context."""
         # Angle modifier
         angle_mod = 1.0
@@ -526,7 +538,8 @@ class CaveGenerator:
             ) * self.density_check_radius_factor
             try:
                 num_neighbors = len(
-                    self.kdtree.query_ball_point([parent.x, parent.y], r=check_radius)
+                    self.kdtree.query_ball_point(
+                        [parent.x, parent.y], r=check_radius)
                 )
                 if num_neighbors >= DENSITY_HIGH_THRESHOLD:
                     density_mod = self.dense_area_feature_mod_factor
@@ -551,7 +564,8 @@ class CaveGenerator:
         if restart_depth_level >= self.max_depth:
             self.steps.append(
                 CaveStep(
-                    "Cliff restart aborted: Max depth level", {"parent_id": parent.id}
+                    "Cliff restart aborted: Max depth level", {
+                        "parent_id": parent.id}
                 )
             )
             return
@@ -577,7 +591,8 @@ class CaveGenerator:
             if len(self.nodes) >= self.max_nodes:
                 self.steps.append(
                     CaveStep(
-                        "Cliff restart aborted: Max nodes", {"parent_id": parent.id}
+                        "Cliff restart aborted: Max nodes", {
+                            "parent_id": parent.id}
                     )
                 )
                 break
@@ -590,7 +605,8 @@ class CaveGenerator:
                 self.branch_left_range, self.branch_right_range
             )  # <- GAME RNG USED HERE
             angle_delta = max(
-                ANGLE_CLAMP_SINGLE[0], min(ANGLE_CLAMP_SINGLE[1], random_component)
+                ANGLE_CLAMP_SINGLE[0], min(
+                    ANGLE_CLAMP_SINGLE[1], random_component)
             )
             final_angle = initial_angle + angle_delta
             # Start slightly offset from parent
@@ -617,7 +633,8 @@ class CaveGenerator:
             self.id_counter += 1
             self.node_map[restart_node.id] = restart_node
             self.nodes.append(restart_node)
-            self.active_nodes.append(restart_node)  # Add to active nodes to grow
+            # Add to active nodes to grow
+            self.active_nodes.append(restart_node)
             self.steps.append(
                 CaveStep(
                     f"Added cliff restart node {restart_node.id}",
@@ -680,12 +697,14 @@ class CaveGenerator:
                     )
                     self.steps.append(
                         CaveStep(
-                            f"Assign Feature {parent.id}: {parent.feature}", step_vars
+                            f"Assign Feature {parent.id}: {
+                                parent.feature}", step_vars
                         )
                     )
                     # USE self.rng for random chance
                     if (
-                        self.rng.get_float(0, 100) < self.restart_from_cliff_chance
+                        self.rng.get_float(
+                            0, 100) < self.restart_from_cliff_chance
                     ):  # <- GAME RNG
                         self._perform_cliff_restart(parent)
                 else:
@@ -709,7 +728,8 @@ class CaveGenerator:
                 )
                 self.steps.append(
                     CaveStep(
-                        f"Terminate Node {parent.id}. Reason: {terminate_reason}.",
+                        f"Terminate Node {parent.id}. Reason: {
+                            terminate_reason}.",
                         step_vars,
                     )
                 )
@@ -726,7 +746,8 @@ class CaveGenerator:
                 and parent.branch_segment_count % BRANCH_CHECK_INTERVAL == 0
             ):
                 # USE self.rng for random chance
-                split_roll = self.rng.get_float(0.0, 100.0)  # <- GAME RNG USED HERE
+                split_roll = self.rng.get_float(
+                    0.0, 100.0)  # <- GAME RNG USED HERE
                 if split_roll <= temp_n:
                     temp_n = max(0.0, temp_n - PROBABILITY_DECAY)
                     branch_roll = self.rng.get_float(
@@ -764,7 +785,8 @@ class CaveGenerator:
                 )  # <- GAME RNG USED HERE
                 angle_delta = max(
                     ANGLE_CLAMP_SINGLE[0],
-                    min(ANGLE_CLAMP_SINGLE[1], momentum_bias + random_component),
+                    min(ANGLE_CLAMP_SINGLE[1],
+                        momentum_bias + random_component),
                 )
                 # Attempt to add the node
                 new_node = self._add_node(
@@ -784,7 +806,8 @@ class CaveGenerator:
                 step_vars["final_action"] = f"branch_start_{num_branches}"
                 available_slots = self.max_nodes - len(self.nodes)
                 if available_slots < num_branches:
-                    self.steps.append(CaveStep("Branch slots limited", step_vars))
+                    self.steps.append(
+                        CaveStep("Branch slots limited", step_vars))
                     num_branches = max(0, available_slots)
 
                 # Calculate branch angles
@@ -824,7 +847,8 @@ class CaveGenerator:
                         angle_delta = max(
                             ANGLE_CLAMP_BRANCH[0],
                             min(
-                                ANGLE_CLAMP_BRANCH[1], momentum_bias + random_component
+                                ANGLE_CLAMP_BRANCH[1], momentum_bias +
+                                random_component
                             ),
                         )
                         target_angle = branch_base_angle + angle_delta
@@ -848,7 +872,8 @@ class CaveGenerator:
                 if num_branches > 0:
                     self.steps.append(
                         CaveStep(
-                            f"Branched ({num_branches}) from {parent.id}", step_vars
+                            f"Branched ({num_branches}) from {
+                                parent.id}", step_vars
                         )
                     )
 
@@ -920,7 +945,8 @@ if __name__ == "__main__":
         INSTANCE_MAX_NODES = 50
         INSTANCE_MAX_DEPTH = 10
         print(
-            f"Test Params: Max Nodes={INSTANCE_MAX_NODES}, Max Depth={INSTANCE_MAX_DEPTH}"
+            f"Test Params: Max Nodes={
+                INSTANCE_MAX_NODES}, Max Depth={INSTANCE_MAX_DEPTH}"
         )
 
         test_gen = CaveGenerator(
@@ -937,8 +963,10 @@ if __name__ == "__main__":
         print(f"Test cave data saved to {output_filename}")
 
         # Print feature summary for test run
-        cliff_edges = sum(1 for n in test_gen.nodes if n.feature == "cliff_edge")
-        shaft_openings = sum(1 for n in test_gen.nodes if n.feature == "shaft_opening")
+        cliff_edges = sum(
+            1 for n in test_gen.nodes if n.feature == "cliff_edge")
+        shaft_openings = sum(
+            1 for n in test_gen.nodes if n.feature == "shaft_opening")
         restarts = sum(
             1 for n in test_gen.nodes if n.feature == "restarted_below_cliff"
         )
@@ -946,14 +974,16 @@ if __name__ == "__main__":
             1 for n in test_gen.nodes if n.feature and n.feature.startswith("big_room")
         )
         print(
-            f"Test Features generated: Cliffs={cliff_edges}, Shafts={shaft_openings}, "
+            f"Test Features generated: Cliffs={
+                cliff_edges}, Shafts={shaft_openings}, "
             f"Restarts={restarts}, BigRooms={big_rooms}"
         )
         print(f"Test Cavern type counts: {test_gen.cavern_type_counts}")
 
         test_end_time = time.time()
         print(
-            f"Total core.py isolation test time: {test_end_time - test_start_time:.2f} seconds"
+            f"Total core.py isolation test time: {
+                test_end_time - test_start_time:.2f} seconds"
         )
 
     except Exception as e:

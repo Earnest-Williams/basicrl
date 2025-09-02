@@ -1,5 +1,5 @@
 # game/game_state.py
-from typing import Any, Callable, Dict, Literal, Set, Tuple, Union
+from typing import Any, Callable, Dict, Literal, Set, Tuple
 
 import structlog
 import heapq
@@ -96,7 +96,8 @@ class GameState:
         duration = mf_config.get("duration", 60.0)
         self.memory_fade_enabled: bool = mf_config.get("enabled", True)
         self.memory_fade_duration: float = duration
-        self.memory_fade_midpoint: float = mf_config.get("midpoint", duration / 2.0)
+        self.memory_fade_midpoint: float = mf_config.get(
+            "midpoint", duration / 2.0)
         self.memory_fade_steepness: float = mf_config.get(
             "steepness", 6.0 / duration if duration else 0.0
         )
@@ -138,7 +139,8 @@ class GameState:
         # Track light sources (player has a default white light)
         self.light_sources: list[LightSource] = self.game_map.light_sources
         self.light_sources.append(
-            LightSource(player_start_x, player_start_y, player_fov_radius, (255, 255, 255))
+            LightSource(player_start_x, player_start_y,
+                        player_fov_radius, (255, 255, 255))
         )
         self.player_light_index: int = 0
         self.player_max_fuel: int = 100
@@ -148,7 +150,8 @@ class GameState:
         self.zone_manager: ZoneManager = ZoneManager(
             self._map_width, self._map_height
         )
-        self.timed_events: list[tuple[int, int, Callable[["GameState"], None]]] = []
+        self.timed_events: list[tuple[int, int,
+                                      Callable[["GameState"], None]]] = []
         self._next_timed_event_id: int = 0
 
         # --- NEW: UI State ---
@@ -156,7 +159,7 @@ class GameState:
             "PLAYER_TURN"
         )
         # --- End NEW ---
-        
+
         # --- Sound System ---
         self.sound_manager = (
             get_sound_manager() if SOUND_AVAILABLE and enable_sound else None
@@ -176,7 +179,7 @@ class GameState:
         )
 
         self.update_fov()  # Initial FOV calculation
-        
+
         # Initial sound context update
         if self.sound_manager:
             self._update_sound_context()
@@ -187,8 +190,10 @@ class GameState:
         if player_pos:
             px, py = player_pos
             if not self.game_map.in_bounds(px, py):
-                log.warning("Player out of bounds, cannot compute FOV.", pos=(px, py))
-                self.game_map.visible[:] = False  # Clear visibility if player is OOB
+                log.warning(
+                    "Player out of bounds, cannot compute FOV.", pos=(px, py))
+                # Clear visibility if player is OOB
+                self.game_map.visible[:] = False
                 return
             self.game_map.compute_fov(
                 px, py, self.fov_radius
@@ -289,7 +294,8 @@ class GameState:
     def _process_status_effects_for_entity(self, entity_id: int) -> None:
         """Tick down status effects for a single entity."""
         status_effects = (
-            self.entity_registry.get_entity_component(entity_id, "status_effects") or []
+            self.entity_registry.get_entity_component(
+                entity_id, "status_effects") or []
         )
         if not status_effects:
             return
@@ -304,7 +310,8 @@ class GameState:
                     "Status effect expired", entity_id=entity_id, effect=effect_id
                 )
                 entity_name = (
-                    self.entity_registry.get_entity_component(entity_id, "name")
+                    self.entity_registry.get_entity_component(
+                        entity_id, "name")
                     or f"Entity {entity_id}"
                 )
                 self.add_message(f"{entity_name}'s {effect_id} wears off.")
@@ -317,7 +324,8 @@ class GameState:
         """Reduce generic per-turn resources like fullness or fuel."""
         for res in ("fullness", "fuel"):
             try:
-                value = self.entity_registry.get_entity_component(entity_id, res)
+                value = self.entity_registry.get_entity_component(
+                    entity_id, res)
             except ValueError:
                 continue
             if value is None:
@@ -356,7 +364,8 @@ class GameState:
             return False
         updated = list(items)
         updated.remove(value)
-        self.entity_registry.set_entity_component(entity_id, component, updated)
+        self.entity_registry.set_entity_component(
+            entity_id, component, updated)
         return True
 
     def has_seal_tag(self, entity_id: int, tag: str) -> bool:
@@ -484,13 +493,12 @@ class GameState:
         else:
             log.debug("AI subsystem disabled; skipping AI processing")
 
-
         # Process any queued low-detail zone updates
         self.zone_manager.process(self.turn_count, active_zones, self)
 
         # --- Other turn-based updates ---
         # (e.g., hunger increase, light source fuel consumption)
-        
+
         # Update sound context for situational music
         if self.sound_manager:
             self._update_sound_context()
@@ -511,10 +519,10 @@ class GameState:
         """Update the sound system with current game context for situational music."""
         if not self.sound_manager:
             return
-            
+
         # Determine current game state
         game_state = "exploring"  # Default state
-        
+
         # Check if player is in combat (nearby hostile entities)
         player_pos = self.player_position
         if player_pos:
@@ -523,7 +531,7 @@ class GameState:
             for row in self.entity_registry.entities_df.iter_rows(named=True):
                 if not row.get("is_active", False) or row["entity_id"] == self.player_id:
                     continue
-                    
+
                 ex, ey = row.get("x", 0), row.get("y", 0)
                 # Check if entity is within reasonable combat distance and visible
                 distance_sq = (px - ex) ** 2 + (py - ey) ** 2
@@ -532,10 +540,10 @@ class GameState:
                         # Assume any visible nearby entity means combat
                         game_state = "combat"
                         break
-        
+
         # Determine depth (if available)
         depth = getattr(self, 'current_depth', 1)
-        
+
         # Check for special entity types nearby
         enemy_types = []
         if player_pos:
@@ -543,7 +551,7 @@ class GameState:
             for row in self.entity_registry.entities_df.iter_rows(named=True):
                 if not row.get("is_active", False) or row["entity_id"] == self.player_id:
                     continue
-                    
+
                 ex, ey = row.get("x", 0), row.get("y", 0)
                 distance_sq = (px - ex) ** 2 + (py - ey) ** 2
                 if distance_sq <= self.fov_radius ** 2:
@@ -552,7 +560,7 @@ class GameState:
                         enemy_types.append("boss")
                     elif "elite" in entity_name or "champion" in entity_name:
                         enemy_types.append("elite")
-        
+
         # Build context for sound system
         context = {
             "game_state": game_state,
@@ -561,17 +569,19 @@ class GameState:
             "player_hp_percent": 1.0,  # Default
             "ui_state": self.ui_state.lower()
         }
-        
+
         # Add enemy type if any special enemies nearby
         if enemy_types:
             context["enemy_type"] = enemy_types
-        
+
         # Get player HP percentage if available
-        player_hp = self.entity_registry.get_entity_component(self.player_id, "hp")
-        player_max_hp = self.entity_registry.get_entity_component(self.player_id, "max_hp")
+        player_hp = self.entity_registry.get_entity_component(
+            self.player_id, "hp")
+        player_max_hp = self.entity_registry.get_entity_component(
+            self.player_id, "max_hp")
         if player_hp is not None and player_max_hp is not None and player_max_hp > 0:
             context["player_hp_percent"] = player_hp / player_max_hp
-        
+
         # Update background music based on context
         update_music_context(context)
 

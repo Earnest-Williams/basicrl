@@ -73,13 +73,15 @@ ITEM_SCHEMA: dict[str, pl.DataType] = {
     "color_fg_b": pl.UInt8,
     # --- Location and Ownership ---
     "location_type": pl.Enum(ItemLocation.__args__),
-    "owner_entity_id": pl.UInt32,  # Nullable. ID of entity holding in inv/equipped DIRECTLY
+    # Nullable. ID of entity holding in inv/equipped DIRECTLY
+    "owner_entity_id": pl.UInt32,
     "x": pl.Int16,  # Nullable
     "y": pl.Int16,  # Nullable
     # --- Equip/Attach State ---
     "equipped_slot": pl.Enum(
         list(EquipSlot.__args__)
-    ),  # Nullable. Stores the SPECIFIC slot used (e.g. finger_3, neck_1) when location="equipped"
+        # Nullable. Stores the SPECIFIC slot used (e.g. finger_3, neck_1) when location="equipped"
+    ),
     # -- Mount Points (on Host Item) --
     # List[Dict{'id': str, 'compatible_types': List[str], 'accepted_item_id': int | None, 'flags': List[str]}]
     "mount_points": pl.Object,  # Nullable
@@ -87,8 +89,10 @@ ITEM_SCHEMA: dict[str, pl.DataType] = {
     # Dict{'compatible_mount_types': List[str], 'flags_required': List[str]}
     "attachable_info": pl.Object,  # Nullable
     # -- Attachment Link (on Attached Item) --
-    "parent_attachment_item_id": pl.UInt64,  # Nullable. ID of the item it's attached TO
-    "parent_attachment_slot_id": pl.Utf8,  # Nullable. 'id' of the mount point used on parent
+    # Nullable. ID of the item it's attached TO
+    "parent_attachment_item_id": pl.UInt64,
+    # Nullable. 'id' of the mount point used on parent
+    "parent_attachment_slot_id": pl.Utf8,
     # -- Other Components --
     "quantity": pl.UInt16,
     "current_charge": pl.Int16,  # Nullable
@@ -135,7 +139,8 @@ class ItemRegistry:
             self.items_df = pl.DataFrame()  # Fallback
 
         self._next_item_id: int = 0
-        log.debug("ItemRegistry initialized", templates_loaded=len(item_templates))
+        log.debug("ItemRegistry initialized",
+                  templates_loaded=len(item_templates))
 
     def _get_next_id(self: Self) -> int:
         """Generates the next available unique item ID."""
@@ -165,17 +170,20 @@ class ItemRegistry:
             return None
 
         new_id = self._get_next_id()
-        log_context = {"template": template_id, "item_id": new_id, "location": location}
+        log_context = {"template": template_id,
+                       "item_id": new_id, "location": location}
 
         # --- Validation Logic ---
         if location == "ground" and (x is None or y is None):
             log.error("Ground item created without coordinates", **log_context)
             return None
         if location in ("inventory", "equipped") and owner_entity_id is None:
-            log.error(f"{location} item created without owner_entity_id", **log_context)
+            log.error(
+                f"{location} item created without owner_entity_id", **log_context)
             return None
         if location == "equipped" and equipped_slot is None:
-            log.error("Equipped item created without equipped_slot", **log_context)
+            log.error("Equipped item created without equipped_slot",
+                      **log_context)
             return None
         if location == "attached" and (
             parent_attachment_item_id is None or parent_attachment_slot_id is None
@@ -254,12 +262,14 @@ class ItemRegistry:
             current_schema = self.items_df.schema
             for col, target_dtype in current_schema.items():
                 if col in new_item_df.columns:
-                    cast_exprs.append(pl.col(col).cast(target_dtype, strict=False))
+                    cast_exprs.append(pl.col(col).cast(
+                        target_dtype, strict=False))
             new_item_df = new_item_df.with_columns(cast_exprs)
             for col, target_dtype in current_schema.items():
                 if col not in new_item_df.columns:
                     log.warning(
-                        f"Column '{col}' missing in create_item data, adding null."
+                        f"Column '{
+                            col}' missing in create_item data, adding null."
                     )
                     new_item_df = new_item_df.with_columns(
                         pl.lit(None, dtype=target_dtype).alias(col)
@@ -357,7 +367,8 @@ class ItemRegistry:
         log_context = {"item_id": item_id, "component": component_name}
         current_schema = self.items_df.schema
         if component_name not in current_schema:
-            log.warning("Component does not exist in ITEM_SCHEMA", **log_context)
+            log.warning("Component does not exist in ITEM_SCHEMA",
+                        **log_context)
             raise ValueError(
                 f"Item component '{component_name}' not in instance schema."
             )
@@ -404,7 +415,8 @@ class ItemRegistry:
             "parent_attachment_slot_id",
         }
         if component_name not in current_schema:
-            log.warning("Component does not exist in ITEM_SCHEMA", **log_context)
+            log.warning("Component does not exist in ITEM_SCHEMA",
+                        **log_context)
             raise ValueError(
                 f"Item component '{component_name}' not in instance schema."
             )
@@ -413,7 +425,8 @@ class ItemRegistry:
                 "Attempted to set protected/location component directly", **log_context
             )
             raise ValueError(
-                f"Cannot directly set '{component_name}'. Use move_item or specific actions."
+                f"Cannot directly set '{
+                    component_name}'. Use move_item or specific actions."
             )
 
         target_dtype = current_schema[component_name]
@@ -463,7 +476,8 @@ class ItemRegistry:
             log.warning("Move failed: Ground requires coords", **log_context)
             return False
         if new_location in ("inventory", "equipped") and owner_entity_id is None:
-            log.warning(f"Move failed: {new_location} requires owner", **log_context)
+            log.warning(f"Move failed: {
+                        new_location} requires owner", **log_context)
             return False
         if new_location == "equipped" and equipped_slot is None:
             log.warning("Move failed: Equipped requires slot", **log_context)
@@ -479,14 +493,16 @@ class ItemRegistry:
 
         item_mask = (pl.col("item_id") == item_id) & pl.col("is_active")
         if self.items_df.filter(item_mask).height == 0:
-            log.warning("Move failed: Item not found or inactive", **log_context)
+            log.warning("Move failed: Item not found or inactive",
+                        **log_context)
             return False
 
         # --- Prepare Updates and Clear Conflicting State ---
         final_x = x if new_location == "ground" else None
         final_y = y if new_location == "ground" else None
         final_owner = (
-            owner_entity_id if new_location in ("inventory", "equipped") else None
+            owner_entity_id if new_location in (
+                "inventory", "equipped") else None
         )
         final_equipped_slot = equipped_slot if new_location == "equipped" else None
         final_parent_item = (
@@ -547,7 +563,8 @@ class ItemRegistry:
             )
             return True
         except Exception as e:
-            log.error("Error moving item", error=str(e), exc_info=True, **log_context)
+            log.error("Error moving item", error=str(
+                e), exc_info=True, **log_context)
             return False
 
     def delete_item(self: Self, item_id: int) -> bool:
@@ -558,7 +575,8 @@ class ItemRegistry:
             was_active = self.items_df.filter(item_mask).height > 0
 
             if not was_active:
-                log.debug("Item already inactive or does not exist", **log_context)
+                log.debug("Item already inactive or does not exist",
+                          **log_context)
                 return False
 
             self.items_df = self.items_df.with_columns(
@@ -593,7 +611,8 @@ class ItemRegistry:
                 removed=removed_count,
             )
         except Exception as e:
-            log.error("Error compacting item registry", error=str(e), exc_info=True)
+            log.error("Error compacting item registry",
+                      error=str(e), exc_info=True)
 
     # --- Utility Methods ---
     def get_template(self: Self, template_id: str) -> dict | None:

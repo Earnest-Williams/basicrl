@@ -19,7 +19,7 @@ def _adapt_handler(handler):
 
     return wrapper
 
+
 # Populate the magic executor's registry with all known art/substance mappings
 for (art, substance), handler in ART_SUBSTANCE_DISPATCHER.items():
     register_handler(art, substance, _adapt_handler(handler))
-

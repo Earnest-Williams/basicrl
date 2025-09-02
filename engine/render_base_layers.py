@@ -48,8 +48,10 @@ def prepare_base_layers(
 
     map_y_slice = slice(viewport_y, viewport_y + viewport_height)
     map_x_slice = slice(viewport_x, viewport_x + viewport_width)
-    safe_y_slice = slice(max(0, map_y_slice.start), min(game_map.height, map_y_slice.stop))
-    safe_x_slice = slice(max(0, map_x_slice.start), min(game_map.width, map_x_slice.stop))
+    safe_y_slice = slice(max(0, map_y_slice.start),
+                         min(game_map.height, map_y_slice.stop))
+    safe_x_slice = slice(max(0, map_x_slice.start),
+                         min(game_map.width, map_x_slice.stop))
 
     actual_vp_h = safe_y_slice.stop - safe_y_slice.start
     actual_vp_w = safe_x_slice.stop - safe_x_slice.start
@@ -138,4 +140,3 @@ def prepare_base_layers(
         map_tiles_vp,
         (vp_h, vp_w),
     )
-

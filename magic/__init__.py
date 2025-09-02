@@ -21,4 +21,3 @@ __all__ = [
     "Counterseal",
     "is_blocked",
 ]
-

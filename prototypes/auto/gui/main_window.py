@@ -68,7 +68,8 @@ class MainWindow(QMainWindow):
         planning_dock.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, planning_dock)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, planning_dock)
 
         # --- Toolbar / Controls ---
         logging.debug("Creating toolbar controls...")
@@ -108,7 +109,8 @@ class MainWindow(QMainWindow):
 
         # --- Initial State Display ---
         # Display initial weights before simulation starts
-        self.action_view.update_actions(dict(self.agent_ai.planner.action_weights))
+        self.action_view.update_actions(
+            dict(self.agent_ai.planner.action_weights))
         logging.info("MainWindow initialization complete.")
 
     @Slot()
@@ -156,7 +158,8 @@ class MainWindow(QMainWindow):
         self.worker.simulation_finished.connect(
             self.simulation_thread.quit, Qt.ConnectionType.QueuedConnection
         )
-        logging.debug("Connected worker.simulation_finished -> simulation_thread.quit")
+        logging.debug(
+            "Connected worker.simulation_finished -> simulation_thread.quit")
 
         # 2. When the thread's event loop has *actually* finished, THEN
         # schedule deletion.
@@ -166,8 +169,10 @@ class MainWindow(QMainWindow):
         self.simulation_thread.finished.connect(
             self.simulation_thread.deleteLater
         )  # Delete thread AFTER thread finishes
-        logging.debug("Connected simulation_thread.finished -> worker.deleteLater")
-        logging.debug("Connected simulation_thread.finished -> simulation_thread.deleteLater")
+        logging.debug(
+            "Connected simulation_thread.finished -> worker.deleteLater")
+        logging.debug(
+            "Connected simulation_thread.finished -> simulation_thread.deleteLater")
         # --- End Revised Cleanup ---
 
         logging.info("Starting simulation thread...")
@@ -191,7 +196,8 @@ class MainWindow(QMainWindow):
             target_pause_state = not is_currently_paused
             self.worker.pause_simulation()  # Worker toggles its internal state
             # Update button based on the NEW state
-            self.pause_button.setText("Resume" if target_pause_state else "Pause")
+            self.pause_button.setText(
+                "Resume" if target_pause_state else "Pause")
             self.step_button.setEnabled(target_pause_state)
             logging.info(
                 f"Simulation {
@@ -270,14 +276,16 @@ class MainWindow(QMainWindow):
         """Ensure thread is stopped cleanly on window close."""
         logging.info("Close event received. Cleaning up simulation...")
         if self.simulation_thread and self.simulation_thread.isRunning():
-            logging.debug("Simulation thread is running, attempting graceful stop.")
+            logging.debug(
+                "Simulation thread is running, attempting graceful stop.")
             # Request stop
             self.stop_simulation()
             # Wait a short time for the thread to finish.
             # This WILL block the GUI momentarily, but increases chance of clean exit.
             # Adjust timeout as needed.
             if not self.simulation_thread.wait(1500):  # Wait max 1.5 seconds
-                logging.warning("Simulation thread did not finish cleanly after 1.5s.")
+                logging.warning(
+                    "Simulation thread did not finish cleanly after 1.5s.")
             else:
                 logging.debug("Simulation thread finished.")
         else:

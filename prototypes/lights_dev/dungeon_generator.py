@@ -34,13 +34,13 @@ def dungeon_generate_map_u_shape(dungeon: Dungeon, rng: GameRNG) -> None:
     block_x_max = open_x_max - 10
 
     dungeon.tiles.fill(WALL_ID)  # Fill using instance attribute
-    dungeon.tiles[open_y_min : open_y_max + 1, open_x_min : open_x_max + 1] = (
+    dungeon.tiles[open_y_min: open_y_max + 1, open_x_min: open_x_max + 1] = (
         FLOOR_ID  # Carve floor
     )
 
     if block_x_min < block_x_max and block_y_start < block_y_end:
         dungeon.tiles[
-            block_y_start : block_y_end + 1, block_x_min : block_x_max + 1
+            block_y_start: block_y_end + 1, block_x_min: block_x_max + 1
         ] = WALL_ID  # Add block
 
     num_pillars = 25

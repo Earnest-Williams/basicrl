@@ -199,7 +199,8 @@ _SUBSTANCE_ALIASES = {
     "spirit": Substance.SPIRIT,
 }
 
-_INT_RE = re.compile(r"(?P<key>range|duration|target|strength|power|cost|risk)\s*=\s*(-?\d+)", re.I)
+_INT_RE = re.compile(
+    r"(?P<key>range|duration|target|strength|power|cost|risk)\s*=\s*(-?\d+)", re.I)
 
 
 def _kv_ints(s: str) -> dict[str, int]:

@@ -1,3 +1,6 @@
+from game.effects.handlers import create_portal, attempt_spawn_entity
+from game.world.game_map import GameMap, TILE_ID_FLOOR
+from game.game_state import GameState
 import sys
 import types
 from game_rng import GameRNG
@@ -5,17 +8,17 @@ from game_rng import GameRNG
 # Provide a minimal game.systems.ai_system module for tests
 ai_module = types.ModuleType('game.systems.ai_system')
 
+
 def dummy_dispatch_ai(*args, **kwargs):
     return None
+
 
 ai_module.dispatch_ai = dummy_dispatch_ai
 sys.modules['game.systems.ai_system'] = ai_module
 
-from game.game_state import GameState
-from game.world.game_map import GameMap, TILE_ID_FLOOR
-from game.effects.handlers import create_portal, attempt_spawn_entity
 
-MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0, "midpoint": 2.5, "steepness": 1.2}
+MEMORY_FADE_CFG = {"enabled": True, "duration": 5.0,
+                   "midpoint": 2.5, "steepness": 1.2}
 
 
 def _make_game_state(entity_templates):
