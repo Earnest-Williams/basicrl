@@ -335,8 +335,7 @@ class CaveGenerator:
         }  # Log weights used
         self.steps.append(
             CaveStep(
-                f"Assign Feature {parent.id}: {
-                     parent.feature}",
+                f"Assign Feature {parent.id}: {parent.feature}",
                 step_vars,
             )
         )
@@ -688,8 +687,7 @@ class CaveGenerator:
                     )
                     self.steps.append(
                         CaveStep(
-                            f"Assign Feature {parent.id}: {
-                                parent.feature}",
+                            f"Assign Feature {parent.id}: {parent.feature}",
                             step_vars,
                         )
                     )
@@ -719,8 +717,7 @@ class CaveGenerator:
                 )
                 self.steps.append(
                     CaveStep(
-                        f"Terminate Node {parent.id}. Reason: {
-                            terminate_reason}.",
+                        f"Terminate Node {parent.id}. Reason: {terminate_reason}.",
                         step_vars,
                     )
                 )
@@ -859,8 +856,7 @@ class CaveGenerator:
                 if num_branches > 0:
                     self.steps.append(
                         CaveStep(
-                            f"Branched ({num_branches}) from {
-                                parent.id}",
+                            f"Branched ({num_branches}) from {parent.id}",
                             step_vars,
                         )
                     )
@@ -933,8 +929,7 @@ if __name__ == "__main__":
         INSTANCE_MAX_NODES = 50
         INSTANCE_MAX_DEPTH = 10
         print(
-            f"Test Params: Max Nodes={
-                INSTANCE_MAX_NODES}, Max Depth={INSTANCE_MAX_DEPTH}"
+            f"Test Params: Max Nodes={INSTANCE_MAX_NODES}, Max Depth={INSTANCE_MAX_DEPTH}"
         )
 
         test_gen = CaveGenerator(
@@ -960,16 +955,14 @@ if __name__ == "__main__":
             1 for n in test_gen.nodes if n.feature and n.feature.startswith("big_room")
         )
         print(
-            f"Test Features generated: Cliffs={
-                cliff_edges}, Shafts={shaft_openings}, "
+            f"Test Features generated: Cliffs={cliff_edges}, Shafts={shaft_openings}, "
             f"Restarts={restarts}, BigRooms={big_rooms}"
         )
         print(f"Test Cavern type counts: {test_gen.cavern_type_counts}")
 
         test_end_time = time.time()
         print(
-            f"Total core.py isolation test time: {
-                test_end_time - test_start_time:.2f} seconds"
+            f"Total core.py isolation test time: {test_end_time - test_start_time:.2f} seconds"
         )
 
     except Exception as e:

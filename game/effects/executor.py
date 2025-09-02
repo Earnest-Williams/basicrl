@@ -92,8 +92,7 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
         elif cost_type in ("mana", "fullness"):  # Handle generic resources
             if source_id is None:
                 log.warning(
-                    f"Cost check failed: {
-                        cost_type} cost requires source_entity_id"
+                    f"Cost check failed: {cost_type} cost requires source_entity_id"
                 )
                 can_pay = False
                 failure_reason = (

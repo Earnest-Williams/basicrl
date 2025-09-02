@@ -170,8 +170,7 @@ def _handle_fall(
                     handle_entity_death(
                         entity_id,
                         gs,
-                        f"The {
-                                        name} dies from the fall!",
+                        f"The {name} dies from the fall!",
                     )
                     return True
             else:
@@ -563,8 +562,7 @@ def process_player_action(
                         if not effect_ids_to_run:
                             item_name = template.get("name", "item")
                             gs.add_message(
-                                f"You can't use the {
-                                    item_name}.",
+                                f"You can't use the {item_name}.",
                                 (255, 100, 100),
                             )
                             player_acted = False

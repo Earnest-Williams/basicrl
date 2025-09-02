@@ -138,8 +138,7 @@ def main():
     original_music = sound_manager.music_volume
 
     print(
-        f"      Original volumes - Master: {original_master}, SFX: {
-          original_sfx}, Music: {original_music}"
+        f"      Original volumes - Master: {original_master}, SFX: {original_sfx}, Music: {original_music}"
     )
 
     sound_manager.set_master_volume(0.5)
@@ -147,8 +146,7 @@ def main():
     sound_manager.set_music_volume(0.8)
 
     print(
-        f"      New volumes - Master: {sound_manager.master_volume}, SFX: {
-          sound_manager.sfx_volume}, Music: {sound_manager.music_volume}"
+        f"      New volumes - Master: {sound_manager.master_volume}, SFX: {sound_manager.sfx_volume}, Music: {sound_manager.music_volume}"
     )
 
     # Restore original volumes
@@ -172,8 +170,7 @@ def main():
         priority = music.priority
         conditions = list(music.conditions.keys()) if music.conditions else ["none"]
         print(
-            f"      • {name} (priority: {
-              priority}, conditions: {', '.join(conditions)})"
+            f"      • {name} (priority: {priority}, conditions: {', '.join(conditions)})"
         )
 
     print("\n   🔗 Event Mappings:")

@@ -111,16 +111,13 @@ def setup_logging(
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
         print(
-            f"Logging configured. Console: {
-                logging.getLevelName(log_level)}, File: {
-                logging.getLevelName(file_log_level)} ({filename})",
+            f"Logging configured. Console: {logging.getLevelName(log_level)}, File: {logging.getLevelName(file_log_level)} ({filename})",
             file=sys.stderr,
         )
     except Exception as e:
         # Fallback if file logging fails (e.g., permissions)
         print(
-            f"Error setting up file logger ({filename}): {
-                e}. Logging to console only.",
+            f"Error setting up file logger ({filename}): {e}. Logging to console only.",
             file=sys.stderr,
         )
 

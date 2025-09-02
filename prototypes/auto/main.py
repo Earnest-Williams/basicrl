@@ -184,8 +184,7 @@ def run_single_headless(
 
     end_time = time.time()
     print(
-        f"--- Finished Headless Run {run_id} ({final_outcome}) --- Turns: {
-            turns_survived}, "
+        f"--- Finished Headless Run {run_id} ({final_outcome}) --- Turns: {turns_survived}, "
         f"Time: {end_time - start_time:.2f}s ---"
     )
 
@@ -268,8 +267,7 @@ if __name__ == "__main__":
     # --- Headless Mode ---
     elif args.mode == "headless":
         print(
-            f"Starting Headless Mode: {args.num_runs} runs, {
-                args.workers} workers, "
+            f"Starting Headless Mode: {args.num_runs} runs, {args.workers} workers, "
             f"{args.learn} learning. Base Seed: {args.seed}"
         )
         total_start_time = time.time()
@@ -308,8 +306,7 @@ if __name__ == "__main__":
         try:
             if num_actual_workers > 1:
                 print(
-                    f"Using multiprocessing Pool with {
-                      num_actual_workers} workers..."
+                    f"Using multiprocessing Pool with {num_actual_workers} workers..."
                 )
                 with Pool(processes=num_actual_workers) as pool:
                     if profiler:
@@ -369,8 +366,7 @@ if __name__ == "__main__":
 
         total_end_time = time.time()
         print(
-            f"\nTotal Headless Execution Time: {
-              total_end_time - total_start_time:.2f}s"
+            f"\nTotal Headless Execution Time: {total_end_time - total_start_time:.2f}s"
         )
 
         if profiler:

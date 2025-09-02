@@ -561,15 +561,13 @@ def deal_damage(context: Dict[str, Any], params: Dict[str, Any]):
                 )
             elif player_can_see:
                 gs.add_message(
-                    f"The {source_name} hits the {
-                        target_name} for {amount_damaged}.",
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
                     (200, 200, 0),
                 )
             else:
                 gs.queue_message(
                     target_id,
-                    f"The {source_name} hits the {
-                        target_name} for {amount_damaged}.",
+                    f"The {source_name} hits the {target_name} for {amount_damaged}.",
                     (200, 200, 0),
                 )
 

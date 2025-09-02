@@ -1347,14 +1347,10 @@ class AgentAI:
                                     item=mold_item,
                                 )
                                 w.add_entity(item_entity)
-                                print(
-                                    f"Slime dropped {
-                                      mold_item.name} at {target_pos}"
-                                )
+                                print(f"Slime dropped {mold_item.name} at {target_pos}")
                             else:
                                 print(
-                                    f"Slime defeated at {
-                                      target_pos}, but tile blocked for drop."
+                                    f"Slime defeated at {target_pos}, but tile blocked for drop."
                                 )
                         else:
                             print(
@@ -1471,8 +1467,7 @@ class AgentAI:
                 and len(a.inventory) < a.max_inventory
             ):
                 print(
-                    f"Agent picking up {target_item_entity.item.name} at {
-                        target_item_entity.get_position()}"
+                    f"Agent picking up {target_item_entity.item.name} at {target_item_entity.get_position()}"
                 )
                 a.inventory.append(target_item_entity.item)
                 w.remove_entity(target_item_entity)
@@ -1528,8 +1523,7 @@ class AgentAI:
                         a.equipped_weapon = None  # Clear equipped slot
                     else:
                         print(
-                            f"Inventory full, cannot unequip {
-                                a.equipped_weapon.name} to equip {weapon_to_equip.name}"
+                            f"Inventory full, cannot unequip {a.equipped_weapon.name} to equip {weapon_to_equip.name}"
                         )
                         return False  # Cannot equip if inventory full after unequipping
 

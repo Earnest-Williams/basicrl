@@ -384,14 +384,12 @@ def render_viewport(
             output_pixel_w,
         ) or tile_coord_x.shape != (output_pixel_h, output_pixel_w):
             raise ValueError(
-                f"Coordinate array shape mismatch. Expected:{
-                             (output_pixel_h, output_pixel_w)}, Got: y{tile_coord_y.shape},x{tile_coord_x.shape}"
+                f"Coordinate array shape mismatch. Expected:{(output_pixel_h, output_pixel_w)}, Got: y{tile_coord_y.shape},x{tile_coord_x.shape}"
             )
         # Validate shape of background color array
         if final_bg.shape != (vp_h, vp_w, 3):
             raise ValueError(
-                f"Background color shape mismatch. Expected:{
-                             (vp_h, vp_w, 3)}, Got:{final_bg.shape}"
+                f"Background color shape mismatch. Expected:{(vp_h, vp_w, 3)}, Got:{final_bg.shape}"
             )
 
         # Use NumPy advanced indexing to fill the background based on the coordinate maps

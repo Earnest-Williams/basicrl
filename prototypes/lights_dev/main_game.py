@@ -904,8 +904,7 @@ class GameState:
                             tile_id = d.tiles[y, x]
                             char = get_memory_character(tile_id, memory_intensity)
                             row_chars.append(
-                                f"{constants.MEMORY_COLOR}{char}{
-                                    constants.COLOR['RESET']}"
+                                f"{constants.MEMORY_COLOR}{char}{constants.COLOR['RESET']}"
                             )
                         else:
                             row_chars.append(constants.UNSEEN)
@@ -979,8 +978,7 @@ class GameState:
                 final_char = char if char != " " else constants.UNSEEN
                 if final_color_code:
                     row_chars.append(
-                        f"{final_color_code}{final_char}{
-                            constants.COLOR['RESET']}"
+                        f"{final_color_code}{final_char}{constants.COLOR['RESET']}"
                     )
                 else:
                     row_chars.append(final_char)
@@ -1202,12 +1200,10 @@ def run_simulation():
                 else ""
             )
             print(
-                f"\nMode: {mode_str}{debug_str} | Sim Time: {
-                    game_state.dungeon.current_time:.1f}s / {target_duration:.0f}s | Frame: {frame_count+1}"
+                f"\nMode: {mode_str}{debug_str} | Sim Time: {game_state.dungeon.current_time:.1f}s / {target_duration:.0f}s | Frame: {frame_count+1}"
             )
             print(
-                f"Frame Times (ms): Render={render_time*1000:.1f}, VisUpdate={frame_vis_time*1000:.2f}, StateUpdate={
-                    update_time*1000:.2f} | Avg Vis: {avg_vis_time_ms:.3f}ms | DeltaT: {dt*1000:.1f}ms"
+                f"Frame Times (ms): Render={render_time*1000:.1f}, VisUpdate={frame_vis_time*1000:.2f}, StateUpdate={update_time*1000:.2f} | Avg Vis: {avg_vis_time_ms:.3f}ms | DeltaT: {dt*1000:.1f}ms"
             )
             if game_state.player:
                 p_mem = 0.0
@@ -1218,8 +1214,7 @@ def run_simulation():
                 except IndexError:
                     logging.warning("Player index error mem check.")
                     p_mem = -1.0
-                status_line = f"Player @ {game_state.player.position} (Lvl:{game_state.player.light_level}, R:{
-                    game_state.player.light_radius}) | Mem@P: {p_mem:.2f}"
+                status_line = f"Player @ {game_state.player.position} (Lvl:{game_state.player.light_level}, R:{game_state.player.light_radius}) | Mem@P: {p_mem:.2f}"
                 if is_interactive:
                     status_line += f" | Last key: '{last_key_pressed}'"
                 print(status_line)

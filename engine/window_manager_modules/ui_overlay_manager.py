@@ -161,9 +161,7 @@ class UIOverlayManager:
             wm = self.window_manager_ref  # Shortcut for readability
             turn = gs.turn_count
             player_pos = gs.player_position
-            pos_str = (
-                f"({player_pos.x},{player_pos.y})" if player_pos else "N/A"
-            )
+            pos_str = f"({player_pos[0]},{player_pos[1]})" if player_pos else "N/A"
 
             entities_count_str = "?"
             try:  # Safely get entity count
@@ -196,8 +194,7 @@ class UIOverlayManager:
 
             debug_text = (
                 f"T:{turn} P:{pos_str} E:{entities_count_str} "
-                f"VP:{vp_cols}x{vp_rows} TR:{current_tile_w}x{
-                    current_tile_h} "  # Use fetched dimensions
+                f"VP:{vp_cols}x{vp_rows} TR:{current_tile_w}x{current_tile_h} "  # Use fetched dimensions
                 f"V:{'H' if ml.show_height_visualization else '-'} S:{gs.ui_state}"
             )
 

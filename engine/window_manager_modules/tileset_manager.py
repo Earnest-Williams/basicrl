@@ -260,8 +260,7 @@ class TilesetManager:
                     numba_tile_count += 1
                 else:
                     log.warning(
-                        f"Tile {tile_index} final shape {tile_np_array.shape} != expected ({self.tile_height}, {
-                            self.tile_width}, 4). Storing sentinel."
+                        f"Tile {tile_index} final shape {tile_np_array.shape} != expected ({self.tile_height}, {self.tile_width}, 4). Storing sentinel."
                     )
                     temp_tile_arrays[tile_index] = SENTINEL_TILE_ARRAY
             except Exception as e:

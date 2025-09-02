@@ -263,8 +263,7 @@ class ItemRegistry:
             for col, target_dtype in current_schema.items():
                 if col not in new_item_df.columns:
                     log.warning(
-                        f"Column '{
-                            col}' missing in create_item data, adding null."
+                        f"Column '{col}' missing in create_item data, adding null."
                     )
                     new_item_df = new_item_df.with_columns(
                         pl.lit(None, dtype=target_dtype).alias(col)
@@ -418,8 +417,7 @@ class ItemRegistry:
                 "Attempted to set protected/location component directly", **log_context
             )
             raise ValueError(
-                f"Cannot directly set '{
-                    component_name}'. Use move_item or specific actions."
+                f"Cannot directly set '{component_name}'. Use move_item or specific actions."
             )
 
         target_dtype = current_schema[component_name]
@@ -470,8 +468,7 @@ class ItemRegistry:
             return False
         if new_location in ("inventory", "equipped") and owner_entity_id is None:
             log.warning(
-                f"Move failed: {
-                        new_location} requires owner",
+                f"Move failed: {new_location} requires owner",
                 **log_context,
             )
             return False

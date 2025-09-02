@@ -255,8 +255,9 @@ class MainWindow(QMainWindow):
                 groups["Keyboard"].append(fmt)
         for group, items in groups.items():
             if items:
-                help_text += f"<b>{
-                        group}:</b><ul>{''.join(f'<li>{c}</li>' for c in items)}</ul>"
+                help_text += (
+                    f"<b>{group}:</b><ul>{''.join(f'<li>{c}</li>' for c in items)}</ul>"
+                )
         # Use QMessageBox directly
         msg = QMessageBox(self)
         msg.setWindowTitle("Help")
@@ -407,8 +408,7 @@ class MainWindow(QMainWindow):
                     QMessageBox.warning(
                         self,
                         "Warn",
-                        f"Skipping '{
-                                        k}' (load error).",
+                        f"Skipping '{k}' (load error).",
                     )
             if not temp_maps:
                 QMessageBox.critical(self, "Error", "No maps loaded.")
@@ -441,8 +441,7 @@ class MainWindow(QMainWindow):
                         QMessageBox.warning(
                             self,
                             "Tiles",
-                            f"Added defaults: {
-                                ', '.join(added)}\nConfig saved.",
+                            f"Added defaults: {', '.join(added)}\nConfig saved.",
                         )
                     else:
                         QMessageBox.critical(self, "Error", "Failed saving config.")

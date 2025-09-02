@@ -158,8 +158,7 @@ class SimulationWorker(QObject):
 
                 if agent.health <= 0:
                     self.status_update.emit(
-                        f"Agent died after its action (Turn {
-                            self.world.turn})."
+                        f"Agent died after its action (Turn {self.world.turn})."
                     )
                     self.emit_world_state()  # Show final state before loop breaks
                     with QMutexLocker(self.mutex):
@@ -183,8 +182,7 @@ class SimulationWorker(QObject):
                         enemy_act(enemy, self.world)  # Enemy logic execution
                     if agent.health <= 0:
                         self.status_update.emit(
-                            f"Agent defeated by an enemy (Turn {
-                                self.world.turn})."
+                            f"Agent defeated by an enemy (Turn {self.world.turn})."
                         )
                         break  # Exit inner enemy loop
                 if agent.health <= 0:  # Check if agent died during enemy turns

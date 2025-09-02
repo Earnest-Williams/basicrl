@@ -219,8 +219,7 @@ class SoundManager:
         self.situational_modifiers = config.get("situational_modifiers", {})
 
         log.info(
-            f"Loaded sound config: {len(self.sound_effects)} effects, {
-                 len(self.background_music)} music tracks"
+            f"Loaded sound config: {len(self.sound_effects)} effects, {len(self.background_music)} music tracks"
         )
 
     def _initialize_audio_backend(self) -> None:
@@ -271,10 +270,7 @@ class SoundManager:
                 cleanup_files.append(temp_file)
                 sound_file = temp_file
             except Exception as exc:
-                log.warning(
-                    f"Failed to generate procedural sound {
-                            effect_name}: {exc}"
-                )
+                log.warning(f"Failed to generate procedural sound {effect_name}: {exc}")
                 return False
         else:
             sound_file = effect.get_random_file()
@@ -395,10 +391,7 @@ class SoundManager:
                     self.current_music_file = music_file
                     log.debug(f"Switched to background music: {music_name}")
                 except Exception as e:
-                    log.warning(
-                        f"Failed to play background music {
-                                music_name}: {e}"
-                    )
+                    log.warning(f"Failed to play background music {music_name}: {e}")
                     self.current_music_file = None
 
     def _calculate_volume(

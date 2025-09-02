@@ -510,10 +510,7 @@ def equip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
 
     can, reason, target_slot = can_equip(entity_id, item_id, gs)
     if not can or target_slot is None:
-        log.debug(
-            f"Cannot equip item {item_id} on entity {
-                  entity_id}: {reason}"
-        )
+        log.debug(f"Cannot equip item {item_id} on entity {entity_id}: {reason}")
         if entity_id == gs.player_id:
             gs.add_message(f"Cannot equip that: {reason}")
         return False  # Turn not consumed
@@ -645,10 +642,7 @@ def unequip_item(entity_id: int, item_id: int, gs: "GameState") -> bool:
 
     can, reason = can_unequip(entity_id, item_id, gs)
     if not can:
-        log.debug(
-            f"Cannot unequip item {
-                  item_id} from entity {entity_id}: {reason}"
-        )
+        log.debug(f"Cannot unequip item {item_id} from entity {entity_id}: {reason}")
         if entity_id == gs.player_id:
             gs.add_message(f"Cannot unequip: {reason}.")
         return False
@@ -820,8 +814,7 @@ def attach_item(
     )
     if not can or mount_slot_id is None:
         log.debug(
-            f"Cannot attach item {item_to_attach_id} to {
-                target_host_item_id}: {reason}"
+            f"Cannot attach item {item_to_attach_id} to {target_host_item_id}: {reason}"
         )
         if entity_id == gs.player_id:
             gs.add_message(f"Cannot attach: {reason}.")

@@ -245,8 +245,7 @@ class EntityRegistry:
         if component_name not in self.entities_df.columns:
             log.warning("Component does not exist", **log_context)
             raise ValueError(
-                f"Component '{
-                    component_name}' does not exist in ENTITY_SCHEMA."
+                f"Component '{component_name}' does not exist in ENTITY_SCHEMA."
             )
 
         try:
@@ -305,15 +304,11 @@ class EntityRegistry:
         if component_name not in self.entities_df.columns:
             log.warning("Component does not exist", **log_context)
             raise ValueError(
-                f"Component '{
-                    component_name}' does not exist in ENTITY_SCHEMA."
+                f"Component '{component_name}' does not exist in ENTITY_SCHEMA."
             )
         if component_name in ("entity_id", "is_active"):
             log.warning("Attempted to set protected component", **log_context)
-            raise ValueError(
-                f"Cannot directly set '{
-                             component_name}' component."
-            )
+            raise ValueError(f"Cannot directly set '{component_name}' component.")
         try:
             target_dtype = ENTITY_SCHEMA[component_name]
             try:
@@ -321,16 +316,14 @@ class EntityRegistry:
                     value, (dict, list, type(None))
                 ):
                     log.warning(
-                        f"Potentially incompatible type for Object column '{
-                            component_name}'",
+                        f"Potentially incompatible type for Object column '{component_name}'",
                         type=type(value),
                         **log_context,
                     )
                 lit_value = pl.lit(value).cast(target_dtype, strict=False)
             except Exception as cast_err:
                 log.error(
-                    f"Type error setting component '{
-                        component_name}'. Expected compatible with {target_dtype}.",
+                    f"Type error setting component '{component_name}'. Expected compatible with {target_dtype}.",
                     value_type=type(value),
                     error=cast_err,
                     **log_context,

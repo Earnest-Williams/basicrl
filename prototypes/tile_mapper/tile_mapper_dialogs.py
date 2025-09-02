@@ -137,10 +137,8 @@ class EditTileDialog(QDialog):
             reply = QMessageBox.warning(
                 self,
                 "Confirm Default Tile Change",
-                f"Changing character ('{
-                    self.original_char}') designated as 'default_tile'.\n\n"
-                f"Update 'default_tile' in '{
-                    CONFIG_FILE}' manually if needed.\n\n"
+                f"Changing character ('{self.original_char}') designated as 'default_tile'.\n\n"
+                f"Update 'default_tile' in '{CONFIG_FILE}' manually if needed.\n\n"
                 f"Proceed?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
@@ -319,8 +317,7 @@ class MapSelectionDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Grid Too Small",
-                f"Grid ({self.grid_rows}x{self.grid_cols}) too small for {
-                    num_selected} maps.",
+                f"Grid ({self.grid_rows}x{self.grid_cols}) too small for {num_selected} maps.",
             )
             return
 

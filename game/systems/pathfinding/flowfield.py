@@ -176,8 +176,7 @@ class FlowFieldPathfinder:
             return True
 
         log.info(
-            f"Computing flow field from {
-                len(stimulus_sources)} sources (with height cost)..."
+            f"Computing flow field from {len(stimulus_sources)} sources (with height cost)..."
         )
         start_time = time.time()
 
@@ -254,8 +253,7 @@ class FlowFieldPathfinder:
 
         integration_time = time.time()
         log.info(
-            f"  Integration field computed ({processed_count} nodes processed) in {
-                integration_time - start_time:.4f}s"
+            f"  Integration field computed ({processed_count} nodes processed) in {integration_time - start_time:.4f}s"
         )
 
         # Calculate Flow Vectors (unchanged Numba call)
@@ -266,14 +264,8 @@ class FlowFieldPathfinder:
         )
 
         flow_time = time.time()
-        log.info(
-            f"  Flow vectors calculated in {
-                 flow_time - integration_time:.4f}s"
-        )
-        log.info(
-            f"Total field computation time: {
-                 flow_time - start_time:.4f}s"
-        )
+        log.info(f"  Flow vectors calculated in {flow_time - integration_time:.4f}s")
+        log.info(f"Total field computation time: {flow_time - start_time:.4f}s")
 
         self._last_sources = list(stimulus_sources)
         return True
@@ -324,10 +316,7 @@ if __name__ == "__main__":
     height_factor = 0.75  # Make height changes fairly costly
 
     log.info(f"Created map: {map_w}x{map_h} with height variations")
-    log.info(
-        f"Max traversable step: {
-             max_step}, Height cost factor: {height_factor}"
-    )
+    log.info(f"Max traversable step: {max_step}, Height cost factor: {height_factor}")
 
     # 2. Initialize Pathfinder (Pass height map and max step)
     pathfinder = FlowFieldPathfinder(
@@ -354,8 +343,7 @@ if __name__ == "__main__":
         if pathfinder.passable[agent_pos_y, agent_pos_x]:
             flow_dx, flow_dy = pathfinder.get_flow_vector(agent_pos_y, agent_pos_x)
             log.info(
-                f"Agent at ({agent_pos_y}, {agent_pos_x}) should move by: ({
-                    flow_dx}, {flow_dy})"
+                f"Agent at ({agent_pos_y}, {agent_pos_x}) should move by: ({flow_dx}, {flow_dy})"
             )
 
             cost_from_agent = pathfinder.get_integration_field()[
@@ -364,14 +352,10 @@ if __name__ == "__main__":
             if cost_from_agent == np.inf:
                 log.info("Cost from agent position to source: UNREACHABLE")
             else:
-                log.info(
-                    f"Cost from agent position to source: {
-                         cost_from_agent:.2f}"
-                )
+                log.info(f"Cost from agent position to source: {cost_from_agent:.2f}")
         else:
             log.warning(
-                f"Agent at ({agent_pos_y}, {
-                        agent_pos_x}) is on impassable terrain."
+                f"Agent at ({agent_pos_y}, {agent_pos_x}) is on impassable terrain."
             )
 
         # Test agent on plateau
@@ -381,16 +365,12 @@ if __name__ == "__main__":
                 agent_on_plateau_y, agent_on_plateau_x
             )
             log.info(
-                f"Agent at ({agent_on_plateau_y}, {agent_on_plateau_x}) [H={
-                    heights[agent_on_plateau_y, agent_on_plateau_x]}] should move by: ({flow_dx_p}, {flow_dy_p})"
+                f"Agent at ({agent_on_plateau_y}, {agent_on_plateau_x}) [H={heights[agent_on_plateau_y, agent_on_plateau_x]}] should move by: ({flow_dx_p}, {flow_dy_p})"
             )
             cost_from_plateau = pathfinder.get_integration_field()[
                 agent_on_plateau_y, agent_on_plateau_x
             ]
-            log.info(
-                f"Cost from plateau agent to source: {
-                     cost_from_plateau:.2f}"
-            )
+            log.info(f"Cost from plateau agent to source: {cost_from_plateau:.2f}")
 
         # (Visualization code unchanged - Source [source 1574-1578])
         print("\nVisualizing Flow Field (Sample):")

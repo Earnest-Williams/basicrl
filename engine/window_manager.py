@@ -636,8 +636,7 @@ class WindowManager(QWidget):
             log.info(
                 "Applying zoom",
                 change=accumulated_change,
-                old=f"{
-                     old_tile_w}x{old_tile_h}",
+                old=f"{old_tile_w}x{old_tile_h}",
                 new=f"{new_width}x{new_height}",
             )
             success = self.tileset_manager.load_new_tileset(

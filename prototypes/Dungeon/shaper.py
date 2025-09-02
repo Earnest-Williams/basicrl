@@ -1138,10 +1138,7 @@ def generate_shaped_cave(  # Added rng parameter
         log.error("Failed to initialize cave grid.")
         return None
     initial_grid, depth_grid, type_grid, origin = init_result
-    print(
-        f"Grid Initialized. Size: {
-          initial_grid.shape}. Origin Offset: {origin}"
-    )
+    print(f"Grid Initialized. Size: {initial_grid.shape}. Origin Offset: {origin}")
 
     print("\n--- Stage: Running Cellular Automata ---")
     final_grid = run_cellular_automata(initial_grid, iterations=ca_iterations)
@@ -1182,8 +1179,7 @@ def generate_shaped_cave(  # Added rng parameter
     map_dataframe = create_map_dataframe(final_grid, depth_grid, type_grid, origin, rng)
     if map_dataframe is not None:
         print(
-            f"\nShaping complete. Generated DataFrame with {
-                len(map_dataframe)} rows."
+            f"\nShaping complete. Generated DataFrame with {len(map_dataframe)} rows."
         )
     else:
         log.error("Failed to create DataFrame.")

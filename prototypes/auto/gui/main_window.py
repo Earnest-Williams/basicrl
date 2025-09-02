@@ -136,10 +136,7 @@ class MainWindow(QMainWindow):
         # Parent thread to main window context
         self.simulation_thread = QThread(self)
         self.worker.moveToThread(self.simulation_thread)
-        logging.debug(
-            f"Worker {self.worker} moved to thread {
-                self.simulation_thread}"
-        )
+        logging.debug(f"Worker {self.worker} moved to thread {self.simulation_thread}")
 
         # --- Connect Worker Signals to GUI Slots ---
         logging.debug("Connecting worker signals to GUI slots...")
@@ -202,10 +199,7 @@ class MainWindow(QMainWindow):
             # Update button based on the NEW state
             self.pause_button.setText("Resume" if target_pause_state else "Pause")
             self.step_button.setEnabled(target_pause_state)
-            logging.info(
-                f"Simulation {
-                    'paused' if target_pause_state else 'resumed'}."
-            )
+            logging.info(f"Simulation {'paused' if target_pause_state else 'resumed'}.")
         else:
             logging.warning("Pause clicked but worker does not exist.")
 
@@ -240,8 +234,7 @@ class MainWindow(QMainWindow):
         """Cleans up and resets UI state when simulation ends or is stopped."""
         logging.info(f"Simulation finished signal received. Reason: {reason}")
         self.status_bar.showMessage(
-            f"Simulation Finished: {
-                reason}",
+            f"Simulation Finished: {reason}",
             5000,
         )  # Show for 5 secs
 
