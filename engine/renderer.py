@@ -17,7 +17,7 @@ from .render_lighting import (
 )
 from .render_base_layers import prepare_base_layers
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict as PyDict, List
+from typing import TYPE_CHECKING, Dict as PyDict
 
 # Third-party Imports
 import numpy as np
@@ -589,7 +589,10 @@ def render_viewport(
             )
 
     # --- Prepare Entity Data (Query using Polars) ---
-    entities_to_render_list: List[PyDict] = []
+    entity_xs: np.ndarray | None = None
+    entity_ys: np.ndarray | None = None
+    entity_glyphs: np.ndarray | None = None
+    entity_colors: np.ndarray | None = None
     # Check if dummy object was used
     if isinstance(gs.entity_registry, object) and gs.entity_registry is not object:
         try:
@@ -609,20 +612,18 @@ def render_viewport(
                     (pl.col("glyph") > 0)
                 )
 
-                # Convert the filtered DataFrame to a list of dictionaries for use in Numba
                 if entities_in_vp_bounds.height > 0:
-                    # Select necessary columns for rendering (position, glyph, color)
-                    entities_to_render_list = entities_in_vp_bounds.select(
-                        [
-                            "entity_id",
-                            "x",
-                            "y",
-                            "glyph",
-                            "color_fg_r",
-                            "color_fg_g",
-                            "color_fg_b",
-                        ]
-                    ).to_dicts()
+                    entity_xs = entities_in_vp_bounds["x"].to_numpy().astype(np.int64)
+                    entity_ys = entities_in_vp_bounds["y"].to_numpy().astype(np.int64)
+                    entity_glyphs = (
+                        entities_in_vp_bounds["glyph"].to_numpy().astype(np.int32)
+                    )
+                    r = entities_in_vp_bounds["color_fg_r"].to_numpy().astype(np.uint8)
+                    g = entities_in_vp_bounds["color_fg_g"].to_numpy().astype(np.uint8)
+                    b = entities_in_vp_bounds["color_fg_b"].to_numpy().astype(np.uint8)
+                    entity_colors = np.stack(
+                        [r, g, b, np.full(r.shape[0], 255, dtype=np.uint8)], axis=1
+                    )
 
         except Exception as e:
             # Catch any errors during Polars query or data processing for entities
@@ -633,14 +634,17 @@ def render_viewport(
             )
 
     # --- Render Entities (Draws entities over items/tiles, calls Numba helper) ---
-    if entities_to_render_list:
+    if entity_xs is not None and entity_xs.size > 0:
         try:
             # Only call the Numba entity rendering function if Numba is available and tile_arrays is a NumbaDict
             if _NUMBA_AVAILABLE and isinstance(tile_arrays, NumbaDict):
                 # Note: Visibility check for entities is done *inside* the Numba function
                 render_entities(
                     output_image_array,
-                    entities_to_render_list,
+                    entity_xs,
+                    entity_ys,
+                    entity_glyphs,
+                    entity_colors,
                     tile_arrays,
                     intensity_map,
                     viewport_x,

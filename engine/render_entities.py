@@ -1,19 +1,15 @@
 """Rendering helpers for tiles, items, and entities."""
 
-from typing import Dict as PyDict, List, cast
-
 import numpy as np
 
 try:
     from numba import njit, uint8
     from numba.typed import Dict as NumbaDict
-    from numba import types as nb_types
 
     _NUMBA_AVAILABLE = True
 except ImportError:
     _NUMBA_AVAILABLE = False
     NumbaDict = dict  # type: ignore
-    nb_types = object  # type: ignore
 
     def njit(func=None, **options):  # type: ignore
         if func:
@@ -172,7 +168,10 @@ def render_ground_items(
 @njit(cache=True, nogil=True)
 def render_entities(
     output_image_array: np.ndarray,
-    entities_to_render: List[PyDict],
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
     tile_arrays: NumbaDict,
     intensity_map: np.ndarray,
     viewport_x: int,
@@ -182,30 +181,36 @@ def render_entities(
     tile_w: int,
     tile_h: int,
 ) -> None:
-    for entity_data in entities_to_render:
-        if not (
-            "x" in entity_data
-            and "y" in entity_data
-            and "glyph" in entity_data
-            and "color_fg_r" in entity_data
-            and "color_fg_g" in entity_data
-            and "color_fg_b" in entity_data
-        ):
-            continue
+    if (
+        xs.ndim != 1
+        or ys.ndim != 1
+        or glyphs.ndim != 1
+        or colors.ndim != 2
+        or colors.shape[1] != 4
+        or xs.shape[0] != ys.shape[0]
+        or xs.shape[0] != glyphs.shape[0]
+        or xs.shape[0] != colors.shape[0]
+        or xs.dtype != np.int64
+        or ys.dtype != np.int64
+        or glyphs.dtype != np.int32
+        or colors.dtype != np.uint8
+    ):
+        return
 
-        map_ex = cast(nb_types.int64, entity_data["x"])
-        map_ey = cast(nb_types.int64, entity_data["y"])
-        glyph_idx = cast(nb_types.int66, entity_data["glyph"])
-        color_r = cast(nb_types.uint8, entity_data["color_fg_r"])
-        color_g = cast(nb_types.uint8, entity_data["color_fg_g"])
-        color_b = cast(nb_types.uint8, entity_data["color_fg_b"])
+    n_entities = xs.shape[0]
+    if n_entities == 0:
+        return
 
+    for i in range(n_entities):
+        map_x = xs[i]
+        map_y = ys[i]
+        glyph_idx = glyphs[i]
         if glyph_idx <= 0:
             continue
 
-        cons_ex = map_ex - viewport_x
-        cons_ey = map_ey - viewport_y
-        if not (0 <= cons_ey < vp_h and 0 <= cons_ex < vp_w):
+        cons_x = map_x - viewport_x
+        cons_y = map_y - viewport_y
+        if not (0 <= cons_y < vp_h and 0 <= cons_x < vp_w):
             continue
 
         if glyph_idx in tile_arrays:
@@ -215,22 +220,23 @@ def render_entities(
                 and entity_tile_rgba_array.shape != NJIT_SENTINEL_TILE_ARRAY_SHAPE
             ):
                 if (
-                    0 <= cons_ey < intensity_map.shape[0]
-                    and 0 <= cons_ex < intensity_map.shape[1]
+                    0 <= cons_y < intensity_map.shape[0]
+                    and 0 <= cons_x < intensity_map.shape[1]
                 ):
-                    e_intensity_f32 = intensity_map[cons_ey, cons_ex]
+                    e_intensity_f32 = intensity_map[cons_y, cons_x]
                 else:
                     e_intensity_f32 = np.float32(1.0)
 
+                color_r = colors[i, 0]
+                color_g = colors[i, 1]
+                color_b = colors[i, 2]
                 base_fg_e_rgb = np.array([color_r, color_g, color_b], dtype=np.uint8)
                 lit_fg_e_rgb = _interpolate_color_numba_vector(
                     base_fg_e_rgb, e_intensity_f32
                 )
 
-                px_start_y = cons_ey * tile_h
-                px_start_x = cons_ex * tile_w
-                slice(px_start_y, px_start_y + tile_h)
-                slice(px_start_x, px_start_x + tile_w)
+                px_start_y = cons_y * tile_h
+                px_start_x = cons_x * tile_w
                 target_pixel_block = output_image_array[
                     px_start_y : px_start_y + tile_h, px_start_x : px_start_x + tile_w
                 ]
