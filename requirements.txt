@@ -11,4 +11,5 @@ pyyaml==6.0.2
 readchar==4.2.1
 simpleaudio==1.0.4
 structlog==25.4.0
+pyopenal==0.7.11a1
 

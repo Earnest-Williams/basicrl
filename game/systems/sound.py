@@ -32,16 +32,21 @@ log = structlog.get_logger(__name__)
 # Audio backend detection - try multiple backends for compatibility
 AUDIO_BACKEND = None
 try:
-    import pygame.mixer as audio_backend
-    AUDIO_BACKEND = "pygame"
-    log.info("Using pygame audio backend")
-except ImportError:
+    from openal import oalOpen, Listener, AL_PLAYING
+    AUDIO_BACKEND = "pyopenal"
+    log.info("Using pyopenal audio backend")
+except Exception:  # pragma: no cover - backend availability depends on environment
     try:
-        import simpleaudio as audio_backend
-        AUDIO_BACKEND = "simpleaudio"
-        log.info("Using simpleaudio backend")
+        import pygame.mixer as audio_backend
+        AUDIO_BACKEND = "pygame"
+        log.info("Using pygame audio backend")
     except ImportError:
-        log.warning("No audio backend available - sound system will be disabled")
+        try:
+            import simpleaudio as audio_backend
+            AUDIO_BACKEND = "simpleaudio"
+            log.info("Using simpleaudio backend")
+        except ImportError:
+            log.warning("No audio backend available - sound system will be disabled")
 
 
 class SoundEffect:
@@ -55,11 +60,11 @@ class SoundEffect:
         self.base_path = base_path
         self._loaded_sounds = {}
         
-    def get_random_file(self) -> Optional[str]:
+    def get_random_file(self) -> Optional[Path]:
         """Get a random sound file from the available options."""
         if not self.files:
             return None
-        return random.choice(self.files)
+        return self.base_path / random.choice(self.files)
     
     def matches_conditions(self, context: Dict[str, Any]) -> bool:
         """Check if this sound effect matches the given context."""
@@ -89,11 +94,11 @@ class BackgroundMusic:
         self.base_path = base_path
         self._current_track = None
         
-    def get_random_file(self) -> Optional[str]:
+    def get_random_file(self) -> Optional[Path]:
         """Get a random music file from the available options."""
         if not self.files:
             return None
-        return random.choice(self.files)
+        return self.base_path / random.choice(self.files)
     
     def matches_conditions(self, context: Dict[str, Any]) -> bool:
         """Check if this background music matches the current game context."""
@@ -125,6 +130,7 @@ class SoundManager:
         self.current_music = None
         self.current_music_name = None
         self.active_sounds: Set[Any] = set()
+        self.listener_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
         
         # Audio settings
         self.master_volume = 1.0
@@ -191,7 +197,11 @@ class SoundManager:
             return
             
         try:
-            if AUDIO_BACKEND == "pygame":
+            if AUDIO_BACKEND == "pyopenal":
+                # Listener defaults; position will be updated as needed
+                Listener.position = self.listener_position
+                log.info("PyOpenAL audio backend initialized")
+            elif AUDIO_BACKEND == "pygame":
                 import pygame
                 pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
                 pygame.mixer.init()
@@ -213,21 +223,37 @@ class SoundManager:
         # Check if sound matches context conditions
         if context and not effect.matches_conditions(context):
             return False
-        
+
         # Get sound file
         sound_file = effect.get_random_file()
         if not sound_file:
             return False
-        
+
+        source_pos: Optional[Tuple[float, float]] = None
+        listener_pos: Tuple[float, float, float] = self.listener_position
+        if context:
+            source_pos = context.get("source_position") or context.get("position")
+            lp = context.get("listener_position")
+            if lp:
+                listener_pos = (lp[0], lp[1], 0.0) if len(lp) == 2 else tuple(lp)
+            if source_pos and "distance" not in context:
+                sx, sy = source_pos
+                lx, ly, lz = listener_pos
+                dist = math.hypot(sx - lx, sy - ly)
+                context = dict(context)
+                context["distance"] = dist
+
         # Calculate volume with modifiers
         volume = self._calculate_volume(effect.volume, context)
-        
+
+        self._prune_finished_sounds()
+
         # Limit concurrent sounds
         if len(self.active_sounds) >= self.max_concurrent_sounds:
             return False
-        
+
         try:
-            return self._play_sound_file(sound_file, volume, effect.random_pitch)
+            return self._play_sound_file(sound_file, volume, effect.random_pitch, source_pos, listener_pos)
         except Exception as e:
             log.warning(f"Failed to play sound effect {effect_name}: {e}")
             return False
@@ -281,8 +307,8 @@ class SoundManager:
         if not context:
             return max(0.0, min(1.0, final_volume))
         
-        # Apply distance-based falloff
-        distance = context.get("distance", 0)
+        # Apply distance-based falloff if not handled by backend
+        distance = 0 if AUDIO_BACKEND == "pyopenal" else context.get("distance", 0)
         if distance > 0 and self.sound_fade_distance > 0:
             distance_modifier = max(0.0, 1.0 - (distance / self.sound_fade_distance))
             final_volume *= distance_modifier
@@ -299,25 +325,134 @@ class SoundManager:
     def _calculate_music_volume(self, base_volume: float, context: Dict[str, Any]) -> float:
         """Calculate background music volume with modifiers."""
         return max(0.0, min(1.0, base_volume * self.music_volume * self.master_volume))
+
+    def _prune_finished_sounds(self) -> None:
+        """Remove finished sound handles from active list."""
+        if not self.active_sounds:
+            return
+        if AUDIO_BACKEND == "pyopenal":
+            finished = {s for s in self.active_sounds if getattr(s, "state", None) != AL_PLAYING}
+            for src in finished:
+                try:
+                    src.stop()
+                    src.delete()
+                except Exception:
+                    pass
+            self.active_sounds.difference_update(finished)
+        elif AUDIO_BACKEND == "pygame":
+            finished = {c for c in self.active_sounds if not c.get_busy()}
+            for c in finished:
+                try:
+                    c.stop()
+                except Exception:
+                    pass
+            self.active_sounds.difference_update(finished)
+        elif AUDIO_BACKEND == "simpleaudio":
+            finished = {p for p in self.active_sounds if not p.is_playing()}
+            for p in finished:
+                try:
+                    p.stop()
+                except Exception:
+                    pass
+            self.active_sounds.difference_update(finished)
     
-    def _play_sound_file(self, filename: str, volume: float, pitch_variance: float = 0.0) -> bool:
+    def _play_sound_file(
+        self,
+        filename: Path,
+        volume: float,
+        pitch_variance: float = 0.0,
+        source_pos: Optional[Tuple[float, float]] = None,
+        listener_pos: Optional[Tuple[float, float, float]] = None,
+    ) -> bool:
         """Play a sound file using the current audio backend."""
-        # This is a placeholder - actual implementation depends on audio backend
-        # and whether sound files exist
-        log.debug(f"Would play sound: {filename} at volume {volume:.2f}")
-        return True
+        fname = str(filename)
+        if AUDIO_BACKEND == "pyopenal":
+            try:
+                sound = oalOpen(fname)
+                src = sound.play()
+                if pitch_variance:
+                    pitch = 1.0 + random.uniform(-pitch_variance, pitch_variance)
+                    src.set_pitch(pitch)
+                src.set_gain(volume)
+                if source_pos:
+                    sx, sy = source_pos
+                    src.position = (sx, 0.0, sy)
+                if listener_pos:
+                    Listener.position = listener_pos
+                self.active_sounds.add(src)
+                return True
+            except Exception as e:
+                log.warning(f"OpenAL failed to play sound {fname}: {e}")
+                return False
+        elif AUDIO_BACKEND == "pygame":
+            try:
+                sound = audio_backend.Sound(fname)
+                sound.set_volume(volume)
+                channel = sound.play()
+                if channel:
+                    self.active_sounds.add(channel)
+                return channel is not None
+            except Exception as e:
+                log.warning(f"Pygame failed to play sound {fname}: {e}")
+                return False
+        elif AUDIO_BACKEND == "simpleaudio":
+            try:
+                wave_obj = audio_backend.WaveObject.from_wave_file(fname)
+                play_obj = wave_obj.play()
+                self.active_sounds.add(play_obj)
+                return True
+            except Exception as e:
+                log.warning(f"Simpleaudio failed to play sound {fname}: {e}")
+                return False
+        log.debug(f"No audio backend to play sound: {fname}")
+        return False
     
-    def _play_background_music_file(self, filename: str, volume: float, loop: bool = True) -> None:
+    def _play_background_music_file(self, filename: Path, volume: float, loop: bool = True) -> None:
         """Play background music using the current audio backend."""
-        # This is a placeholder - actual implementation depends on audio backend
-        # and whether music files exist
-        log.debug(f"Would play music: {filename} at volume {volume:.2f}, loop={loop}")
+        fname = str(filename)
+        if AUDIO_BACKEND == "pyopenal":
+            try:
+                sound = oalOpen(fname)
+                src = sound.play()
+                src.set_gain(volume)
+                src.looping = loop
+                self.current_music = src
+                self.active_sounds.add(src)
+            except Exception as e:
+                log.warning(f"OpenAL failed to play music {fname}: {e}")
+        elif AUDIO_BACKEND == "pygame":
+            try:
+                audio_backend.music.load(fname)
+                audio_backend.music.set_volume(volume)
+                audio_backend.music.play(-1 if loop else 0)
+                self.current_music = "pygame"
+            except Exception as e:
+                log.warning(f"Pygame failed to play music {fname}: {e}")
+        elif AUDIO_BACKEND == "simpleaudio":
+            try:
+                wave_obj = audio_backend.WaveObject.from_wave_file(fname)
+                play_obj = wave_obj.play()
+                self.current_music = play_obj
+                self.active_sounds.add(play_obj)
+            except Exception as e:
+                log.warning(f"Simpleaudio failed to play music {fname}: {e}")
+        else:
+            log.debug(f"No audio backend to play music: {fname}")
     
     def _stop_background_music(self) -> None:
         """Stop the current background music."""
         if self.current_music:
             log.debug(f"Stopping background music: {self.current_music_name}")
-            # Actual backend-specific stop code would go here
+            try:
+                if AUDIO_BACKEND == "pyopenal":
+                    self.current_music.stop()
+                    self.current_music.delete()
+                elif AUDIO_BACKEND == "pygame":
+                    audio_backend.music.stop()
+                elif AUDIO_BACKEND == "simpleaudio":
+                    self.current_music.stop()
+            except Exception:
+                pass
             self.current_music = None
             self.current_music_name = None
     
@@ -342,6 +477,12 @@ class SoundManager:
     def set_music_volume(self, volume: float) -> None:
         """Set the background music volume (0.0 to 1.0)."""
         self.music_volume = max(0.0, min(1.0, volume))
+
+    def set_listener_position(self, x: float, y: float, z: float = 0.0) -> None:
+        """Update the 3D listener position."""
+        self.listener_position = (x, y, z)
+        if AUDIO_BACKEND == "pyopenal" and self.enabled:
+            Listener.position = self.listener_position
     
     def enable_audio(self, enabled: bool) -> None:
         """Enable or disable the entire audio system."""
@@ -357,6 +498,15 @@ class SoundManager:
         """Clean up audio resources."""
         if self.enabled:
             self._stop_background_music()
+            for src in list(self.active_sounds):
+                try:
+                    if AUDIO_BACKEND == "pyopenal":
+                        src.stop()
+                        src.delete()
+                    else:
+                        src.stop()
+                except Exception:
+                    pass
             self.active_sounds.clear()
 
 
