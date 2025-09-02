@@ -5,6 +5,7 @@ import sys
 import time
 import tomllib # Standard in Python 3.11+
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 from typing import Dict as PyDict # Use PyDict for Dict type alias
 
@@ -57,6 +58,21 @@ log = structlog.get_logger()  # module-level logger
 # --- End Structlog Setup ---
 
 
+# --- Structured Config Data ---
+@dataclass
+class Configs:
+    """Container for all configuration data needed to start the game."""
+
+    main: PyDict[str, Any]
+    item_templates: PyDict[str, Any]
+    entity_templates: PyDict[str, Any]
+    effect_definitions: PyDict[str, Any]
+    keybindings: PyDict[str, Any]
+    settings: PyDict[str, Any]
+
+
+
+
 # --- Config Loading Helpers ---
 def load_toml_config(config_path: Path, config_name: str) -> PyDict[str, Any]:
     """Loads a TOML configuration file."""
@@ -98,6 +114,195 @@ def load_yaml_config(config_path: Path, config_name: str) -> PyDict[str, Any]:
         raise # Re-raise other load errors
 
 # --- End Config Loading ---
+
+
+def load_configs() -> Configs:
+    """Load all game configuration files into a structured object."""
+
+    config = load_yaml_config(CONFIG_FILE, "Main")
+    item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get(
+        "templates", {}
+    )
+    entity_templates = load_yaml_config(ENTITIES_CONFIG_FILE, "Entities").get(
+        "templates", {}
+    )
+    effect_definitions = load_yaml_config(EFFECTS_CONFIG_FILE, "Effects").get(
+        "effects", {}
+    )
+    keybindings_config = load_toml_config(KEYBINDINGS_FILE, "Keybindings")
+    settings_config = load_toml_config(SETTINGS_FILE, "Settings")
+    log.info(
+        "Configurations loaded",
+        items=len(item_templates),
+        entities=len(entity_templates),
+        effects=len(effect_definitions),
+        keybindings=len(keybindings_config.get("bindings", {})),
+        settings=len(settings_config),
+    )
+    return Configs(
+        main=config,
+        item_templates=item_templates,
+        entity_templates=entity_templates,
+        effect_definitions=effect_definitions,
+        keybindings=keybindings_config,
+        settings=settings_config,
+    )
+
+
+def init_game_state(configs: Configs) -> GameState:
+    """Create the initial game state using loaded configurations."""
+
+    config = configs.main
+    map_width: int = config.get("map_width", 80)
+    map_height: int = config.get("map_height", 50)
+    dungeon_seed_cfg = config.get("dungeon_seed")
+    procgen_cfg = config.get("procgen", {})
+    region_algorithms = procgen_cfg.get("regions", {})
+    current_region = "dungeon"
+    generation_algorithm = region_algorithms.get(current_region, "bsp")
+    player_glyph: int = config.get("player_glyph", 113)
+    player_start_hp: int = config.get("player_start_hp", 30)
+    player_fov_radius: int = config.get("player_fov_radius", 8)
+    memory_fade_cfg = config.get("memory_fade", {})
+    enable_memory_fade: bool = memory_fade_cfg.get("enabled", True)
+    memory_fade_duration: float = memory_fade_cfg.get("duration", 60.0)
+    memory_fade_midpoint: float = memory_fade_cfg.get(
+        "midpoint", memory_fade_duration / 2.0
+    )
+    memory_fade_steepness: float = memory_fade_cfg.get(
+        "steepness", 6.0 / memory_fade_duration
+    )
+    ai_config = config.get("ai", {})
+
+    log.info("Creating game map", width=map_width, height=map_height)
+    game_map = GameMap(width=map_width, height=map_height)
+
+    log.info("Generating dungeon layout...")
+    dungeon_seed = (
+        int(time.time() * 1000) if dungeon_seed_cfg is None else int(dungeon_seed_cfg)
+    )
+    rng_seed_to_pass = dungeon_seed
+    log.info("Using dungeon seed", seed=dungeon_seed)
+    player_start_pos = generate_dungeon(
+        game_map,
+        map_width,
+        map_height,
+        seed=dungeon_seed,
+        algorithm=generation_algorithm,
+    )
+    log.info("Dungeon generated", player_start=player_start_pos)
+
+    # Print map section after generation
+    print_map_section(game_map, player_start_pos[0], player_start_pos[1], radius=10)
+
+    log.info("Initializing game state...")
+    game_state = GameState(
+        existing_map=game_map,
+        player_start_pos=player_start_pos,
+        player_glyph=player_glyph,
+        player_start_hp=player_start_hp,
+        player_fov_radius=player_fov_radius,
+        item_templates=configs.item_templates,
+        entity_templates=configs.entity_templates,
+        effect_definitions=configs.effect_definitions,
+        rng_seed=rng_seed_to_pass,
+        ai_config=ai_config,
+        memory_fade_config={
+            "enabled": enable_memory_fade,
+            "duration": memory_fade_duration,
+            "midpoint": memory_fade_midpoint,
+            "steepness": memory_fade_steepness,
+        },
+    )
+
+    # Spawn initial items
+    if player_start_pos:
+        spawn_x, spawn_y = player_start_pos
+        if hasattr(game_state, "item_registry") and game_state.item_registry:
+            log.info("Spawning initial items near player", pos=(spawn_x, spawn_y))
+            game_state.item_registry.create_item(
+                "simple_dagger", "ground", x=spawn_x + 1, y=spawn_y
+            )
+            game_state.item_registry.create_item(
+                "cookies", "ground", x=spawn_x, y=spawn_y + 1
+            )
+            game_state.item_registry.create_item(
+                "torch", "ground", x=spawn_x - 1, y=spawn_y
+            )
+        else:
+            log.warning(
+                "ItemRegistry not found in GameState, skipping initial item spawn."
+            )
+
+    return game_state
+
+
+def init_window(configs: Configs, game_state: GameState) -> WindowManager:
+    """Create the main window and associate the main loop."""
+
+    config = configs.main
+    initial_tileset_folder_rel: str = config.get(
+        "initial_tileset_folder", "fonts/classic_roguelike_sliced_svgs"
+    )
+    initial_tileset_folder_abs = SCRIPT_DIR / initial_tileset_folder_rel
+    log.debug(
+        "Resolved initial tileset path",
+        relative=initial_tileset_folder_rel,
+        absolute=str(initial_tileset_folder_abs),
+    )
+    initial_tile_width: int = config.get("initial_tile_width", 16)
+    initial_tile_height: int = config.get("initial_tile_height", 16)
+    min_tile_size: int = config.get("minimum_tile_size", 4)
+    scroll_debounce_ms: int = config.get("scroll_scale_debounce_ms", 200)
+    resize_debounce_ms: int = config.get("resize_debounce_ms", 100)
+    lighting_config = config.get("lighting", {})
+    lighting_ambient: float = lighting_config.get("ambient_level", 0.15)
+    lighting_min_fov: float = lighting_config.get("min_fov_level", 0.25)
+    lighting_falloff: float = lighting_config.get("falloff_power", 1.5)
+    enable_colored_lights: bool = lighting_config.get("colored_lights", True)
+    hv_config = config.get("height_visualization", {})
+    vis_enabled_default: bool = hv_config.get("enabled_by_default", False)
+    vis_max_diff: int = hv_config.get("max_relative_difference", 10)
+    vis_color_high: list = hv_config.get("color_high", [255, 255, 0])
+    vis_color_mid: list = hv_config.get("color_mid", [0, 255, 0])
+    vis_color_low: list = hv_config.get("color_low", [0, 128, 255])
+    vis_blend_factor: float = hv_config.get("blend_factor", 0.3)
+    gameplay_rules = config.get("gameplay_rules", {})
+    max_traversable_step: int = gameplay_rules.get("max_traversable_step", 2)
+    enable_memory_fade: bool = config.get("memory_fade", {}).get("enabled", True)
+
+    window = WindowManager(
+        app_config=config,
+        keybindings_config=configs.keybindings,
+        initial_tileset_path=str(initial_tileset_folder_abs),
+        initial_tile_width=initial_tile_width,
+        initial_tile_height=initial_tile_height,
+        map_width=game_state.map_width,
+        map_height=game_state.map_height,
+        min_tile_size_cfg=min_tile_size,
+        scroll_debounce_cfg=scroll_debounce_ms,
+        resize_debounce_cfg=resize_debounce_ms,
+    )
+
+    log.info("Initializing main loop...")
+    main_loop = MainLoop(
+        game_state=game_state,
+        window=window,
+        vis_enabled_default=vis_enabled_default,
+        vis_max_diff=vis_max_diff,
+        vis_color_high=vis_color_high,
+        vis_color_mid=vis_color_mid,
+        vis_color_low=vis_color_low,
+        vis_blend_factor=vis_blend_factor,
+        max_traversable_step=max_traversable_step,
+        lighting_ambient=lighting_ambient,
+        lighting_min_fov=lighting_min_fov,
+        lighting_falloff=lighting_falloff,
+        enable_memory_fade=enable_memory_fade,
+        enable_colored_lights=enable_colored_lights,
+    )
+    window.set_main_loop(main_loop)
+    return window
 
 
 # --- Debug Map Printing Function ---
@@ -148,149 +353,10 @@ def main() -> None:
     log.info(f"Config directory: {CONFIG_DIR}")
 
     app = QApplication(qt_args)
-
     try:
-        # --- Load Configurations ---
-        config = load_yaml_config(CONFIG_FILE, "Main")
-        item_templates = load_yaml_config(ITEMS_CONFIG_FILE, "Items").get(
-            "templates", {}
-        )
-        entity_templates = load_yaml_config(ENTITIES_CONFIG_FILE, "Entities").get(
-            "templates", {}
-        )
-        effect_definitions = load_yaml_config(EFFECTS_CONFIG_FILE, "Effects").get(
-            "effects", {}
-        )
-        keybindings_config = load_toml_config(KEYBINDINGS_FILE, "Keybindings")
-        settings_config = load_toml_config(SETTINGS_FILE, "Settings")
-        log.info(
-            "Configurations loaded",
-            items=len(item_templates),
-            entities=len(entity_templates),
-            effects=len(effect_definitions),
-            keybindings=len(keybindings_config.get("bindings", {})),
-            settings=len(settings_config),
-        )
-
-        # --- Extract Config Values ---
-        # (Extraction logic unchanged)
-        initial_tileset_folder_rel: str = config.get( "initial_tileset_folder", "fonts/classic_roguelike_sliced_svgs" )
-        initial_tileset_folder_abs = SCRIPT_DIR / initial_tileset_folder_rel
-        log.debug( "Resolved initial tileset path", relative=initial_tileset_folder_rel, absolute=str(initial_tileset_folder_abs), )
-        initial_tile_width: int = config.get("initial_tile_width", 16)
-        initial_tile_height: int = config.get("initial_tile_height", 16)
-        min_tile_size: int = config.get("minimum_tile_size", 4)
-        scroll_debounce_ms: int = config.get("scroll_scale_debounce_ms", 200)
-        resize_debounce_ms: int = config.get("resize_debounce_ms", 100)
-        map_width: int = config.get("map_width", 80)
-        map_height: int = config.get("map_height", 50)
-        dungeon_seed_cfg = config.get("dungeon_seed")
-        procgen_cfg = config.get("procgen", {})
-        region_algorithms = procgen_cfg.get("regions", {})
-        current_region = "dungeon"
-        generation_algorithm = region_algorithms.get(current_region, "bsp")
-        player_glyph: int = config.get("player_glyph", 113)
-        player_start_hp: int = config.get("player_start_hp", 30)
-        player_fov_radius: int = config.get("player_fov_radius", 8)
-        lighting_config = config.get("lighting", {})
-        lighting_ambient: float = lighting_config.get("ambient_level", 0.15)
-        lighting_min_fov: float = lighting_config.get("min_fov_level", 0.25)
-        lighting_falloff: float = lighting_config.get("falloff_power", 1.5)
-        enable_colored_lights: bool = lighting_config.get("colored_lights", True)
-
-        memory_fade_cfg = config.get("memory_fade", {})
-        enable_memory_fade: bool = memory_fade_cfg.get("enabled", True)
-        memory_fade_duration: float = memory_fade_cfg.get("duration", 60.0)
-        memory_fade_midpoint: float = memory_fade_cfg.get(
-            "midpoint", memory_fade_duration / 2.0
-        )
-        memory_fade_steepness: float = memory_fade_cfg.get(
-            "steepness", 6.0 / memory_fade_duration
-        )
-        hv_config = config.get("height_visualization", {})
-        vis_enabled_default: bool = hv_config.get("enabled_by_default", False)
-        vis_max_diff: int = hv_config.get("max_relative_difference", 10)
-        vis_color_high: list = hv_config.get("color_high", [255, 255, 0])
-        vis_color_mid: list = hv_config.get("color_mid", [0, 255, 0])
-        vis_color_low: list = hv_config.get("color_low", [0, 128, 255])
-        vis_blend_factor: float = hv_config.get("blend_factor", 0.3)
-        gameplay_rules = config.get("gameplay_rules", {})
-        max_traversable_step: int = gameplay_rules.get("max_traversable_step", 2)
-        ai_config = config.get("ai", {})
-        log.info("Main configuration values extracted.")
-
-        # --- Game Initialization ---
-        log.info("Creating game map", width=map_width, height=map_height)
-        game_map = GameMap(width=map_width, height=map_height)
-
-        log.info("Generating dungeon layout...")
-        dungeon_seed = ( int(time.time() * 1000) if dungeon_seed_cfg is None else int(dungeon_seed_cfg) )
-        rng_seed_to_pass = dungeon_seed
-        log.info("Using dungeon seed", seed=dungeon_seed)
-        player_start_pos = generate_dungeon(
-            game_map,
-            map_width,
-            map_height,
-            seed=dungeon_seed,
-            algorithm=generation_algorithm,
-        )
-        log.info("Dungeon generated", player_start=player_start_pos)
-
-        # Print map section after generation
-        print_map_section(game_map, player_start_pos[0], player_start_pos[1], radius=10)
-
-        log.info("Initializing game state...")
-        game_state = GameState(
-            existing_map=game_map,
-            player_start_pos=player_start_pos,
-            player_glyph=player_glyph,
-            player_start_hp=player_start_hp,
-            player_fov_radius=player_fov_radius,
-            item_templates=item_templates,
-            entity_templates=entity_templates,
-            effect_definitions=effect_definitions,
-            rng_seed=rng_seed_to_pass,
-            ai_config=ai_config,
-            memory_fade_config={
-                "enabled": enable_memory_fade,
-                "duration": memory_fade_duration,
-                "midpoint": memory_fade_midpoint,
-                "steepness": memory_fade_steepness,
-            },
-        )
-
-        # Spawn initial items
-        if player_start_pos:
-            spawn_x, spawn_y = player_start_pos
-            if hasattr(game_state, "item_registry") and game_state.item_registry:
-                log.info("Spawning initial items near player", pos=(spawn_x, spawn_y))
-                game_state.item_registry.create_item( "simple_dagger", "ground", x=spawn_x + 1, y=spawn_y )
-                game_state.item_registry.create_item( "cookies", "ground", x=spawn_x, y=spawn_y + 1 )
-                game_state.item_registry.create_item( "torch", "ground", x=spawn_x - 1, y=spawn_y )
-            else: log.warning( "ItemRegistry not found in GameState, skipping initial item spawn." )
-
-        log.info("Creating main window...")
-        # WindowManager Instantiation
-        window = WindowManager(
-            app_config=config, keybindings_config=keybindings_config,
-            initial_tileset_path=str(initial_tileset_folder_abs),
-            initial_tile_width=initial_tile_width, initial_tile_height=initial_tile_height,
-            map_width=game_state.map_width, map_height=game_state.map_height,
-            min_tile_size_cfg=min_tile_size, scroll_debounce_cfg=scroll_debounce_ms,
-            resize_debounce_cfg=resize_debounce_ms,
-        )
-
-        log.info("Initializing main loop...")
-        main_loop = MainLoop(
-            game_state=game_state, window=window,
-            vis_enabled_default=vis_enabled_default, vis_max_diff=vis_max_diff,
-            vis_color_high=vis_color_high, vis_color_mid=vis_color_mid,
-            vis_color_low=vis_color_low, vis_blend_factor=vis_blend_factor,
-            max_traversable_step=max_traversable_step, lighting_ambient=lighting_ambient,
-            lighting_min_fov=lighting_min_fov, lighting_falloff=lighting_falloff,
-            enable_memory_fade=enable_memory_fade, enable_colored_lights=enable_colored_lights,
-        )
-        window.set_main_loop(main_loop)
+        configs = load_configs()
+        game_state = init_game_state(configs)
+        window = init_window(configs, game_state)
 
     # --- Exception Handling ---
     except FileNotFoundError as e:
