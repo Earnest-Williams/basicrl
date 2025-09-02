@@ -110,14 +110,6 @@ class MainLoop:
             )
             gs.add_message("Invalid action.", (255, 0, 0))
             player_acted = False  # Invalid action means no turn taken
-        except Exception as e:
-            log.error(
-                "Unexpected exception during action processing",
-                action=action,
-                error=str(e),
-                exc_info=True,
-            )
-            raise
 
         if player_acted:
             log.debug("Player action resulted in turn", action_type=action.get("type"))

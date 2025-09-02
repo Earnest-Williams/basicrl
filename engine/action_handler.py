@@ -47,18 +47,18 @@ class _MissingSystem:
         return _missing
 
 
-def _import_optional_system(name: str):
-    """Attempt to import a system module, returning a stub on failure."""
+def _optional_import(module: str) -> Any:
+    """Attempt to import ``module`` returning a stub on failure."""
 
     try:
-        return importlib.import_module(f"game.systems.{name}")
+        return importlib.import_module(module)
     except ImportError:
-        log.error("CRITICAL: Failed to import game.systems.%s.", name)
-        return _MissingSystem(name)
+        log.error("CRITICAL: Failed to import %s.", module)
+        return _MissingSystem(module)
 
 
-equipment_system = _import_optional_system("equipment_system")
-combat_system = _import_optional_system("combat_system")
+equipment_system = _optional_import("game.systems.equipment_system")
+combat_system = _optional_import("game.systems.combat_system")
 
 
 
