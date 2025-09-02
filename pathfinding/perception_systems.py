@@ -750,8 +750,8 @@ def monster_perception(
 
     end_time = time.time()
     print(
-        f"Monster perception for {num_monsters} monsters took {
-            end_time - start_time:.4f}s using {N_JOBS} jobs."
+        f"Monster perception for {num_monsters} monsters took "
+        f"{end_time - start_time:.4f}s using {N_JOBS} jobs."
     )
 
     # --- Update Monster State (Post-Parallel) ---
