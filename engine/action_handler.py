@@ -1,11 +1,19 @@
 # engine/action_handler.py
 """
 Handles processing of player actions, validating them against game rules,
-and triggering appropriate game state changes or effect executions. Includes falling
-and melee attack initiation.
+and triggering appropriate game state changes or effect executions. Includes
+falling and melee attack initiation.
+
+Missing optional systems
+------------------------
+``equipment_system`` and ``combat_system`` are optional. If either cannot be
+imported a stub object is used and the related actions become no-ops. Player
+turns may still be consumed, but equipment changes and melee attacks will have
+no effect. Import failures are logged once during module initialisation.
 """
 from typing import Any, Dict, Tuple  # Added Tuple
 
+import importlib
 import structlog
 
 from game.effects.executor import execute_effect
@@ -19,49 +27,39 @@ from game.world.game_map import GameMap
 from game.systems import movement_system
 from game.systems.death_system import handle_entity_death
 
-# Import equipment system safely
-try:
-    from game.systems import equipment_system
-except ImportError:
-    _log_early = structlog.get_logger()
-    _log_early.error("CRITICAL: Failed to import game.systems.equipment_system.")
+log = structlog.get_logger(__name__)
 
-    class DummyEquipmentSystem:
-        def __getattr__(self, name):
-            def method(*args, **kwargs):
-                log = (
-                    structlog.get_logger()
-                )  # Logger inside method to avoid early init issues
-                log.error(f"Equipment system not loaded. Call to {name} failed.")
-                return False
 
-            return method
+class _MissingSystem:
+    """Fallback for optional systems.
 
-    equipment_system = DummyEquipmentSystem()
+    Attribute access returns a callable that simply returns ``False`` allowing
+    the rest of the engine to continue operating without the subsystem.
+    """
 
-# --- Import the combat system safely ---
-try:
-    from game.systems import combat_system
-except ImportError:
-    _log_early = structlog.get_logger()
-    _log_early.error("CRITICAL: Failed to import game.systems.combat_system.")
+    def __init__(self, name: str):
+        self._name = name
 
-    # Define dummy function
-    class DummyCombatSystem:
-        def handle_melee_attack(self, *args, **kwargs):
-            log = structlog.get_logger()  # Logger inside method
-            log.error("Combat system not loaded. Call to handle_melee_attack failed.")
-            # If combat fails, the action (attack attempt) effectively does nothing
-            # but should still consume the turn. We return False here to indicate
-            # the *system* failed, but process_player_action will handle turn cost.
-            # Returning False here aligns better with other system failures.
+    def __getattr__(self, attr):  # pragma: no cover - trivial forwarding
+        def _missing(*args, **kwargs):
             return False
 
-    combat_system = DummyCombatSystem()
-# --- End Import ---
+        return _missing
 
 
-log = structlog.get_logger(__name__)  # Define module logger after potential early logs
+def _import_optional_system(name: str):
+    """Attempt to import a system module, returning a stub on failure."""
+
+    try:
+        return importlib.import_module(f"game.systems.{name}")
+    except ImportError:
+        log.error("CRITICAL: Failed to import game.systems.%s.", name)
+        return _MissingSystem(name)
+
+
+equipment_system = _import_optional_system("equipment_system")
+combat_system = _import_optional_system("combat_system")
+
 
 
 # --- Fall Parameters ---
