@@ -127,9 +127,11 @@ class WindowManager(QWidget):
         self._scroll_scale_timer.timeout.connect(self._apply_scroll_scaling)
 
         # Active keybindings
-        self.active_keybinding_sets: List[str] = [
-            "common", "modern", "numpad", "arrows",
-        ]
+        # Start with core sets and guarantee modern and arrow sets are enabled
+        self.active_keybinding_sets: List[str] = ["common", "numpad"]
+        for default_set in ("modern", "arrows"):
+            if default_set not in self.active_keybinding_sets:
+                self.active_keybinding_sets.append(default_set)
         log.info("Active keybinding sets", sets=self.active_keybinding_sets)
 
         # Instantiate other handlers

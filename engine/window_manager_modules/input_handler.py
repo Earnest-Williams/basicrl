@@ -128,10 +128,19 @@ class InputHandler:
                 if key_code == bound_key_enum and modifiers == required_mod_enum:
                     action_type: str | None = binding_data.get("action_type")
                     if action_type == "move":
+                        dx = binding_data.get("dx", 0)
+                        dy = binding_data.get("dy", 0)
+                        log.debug(
+                            "Dispatching move action",
+                            dx=dx,
+                            dy=dy,
+                            keybinding_set=set_name,
+                            action_name=action_name,
+                        )
                         return {
                             "type": "move",
-                            "dx": binding_data.get("dx", 0),
-                            "dy": binding_data.get("dy", 0),
+                            "dx": dx,
+                            "dy": dy,
                         }
                     elif action_type == "action":
                         # Use the action_name from the keybinding as the 'type'
