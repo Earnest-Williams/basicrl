@@ -5,6 +5,8 @@ import yaml
 from pathlib import Path
 
 import pytest
+from pydub import AudioSegment
+from pydub.generators import Sine
 
 from game.systems.sound import SoundManager, SoundEffect, BackgroundMusic
 from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
@@ -189,6 +191,24 @@ class TestSoundManager:
                 "cast_spell": "magic_proc"
             },
             "situational_modifiers": {
+                "environment_effects": {
+                    "cavern": {
+                        "reverb": 0.4,
+                        "volume_modifier": 1.0,
+                    },
+                    "surface": {
+                        "low_pass_filter": 0.6,
+                        "volume_modifier": 0.9,
+                    },
+                },
+                "time_of_day": {
+                    "day": {"volume_modifier": 1.0, "low_pass_modifier": 1.0},
+                    "night": {
+                        "volume_modifier": 0.8,
+                        "reverb_modifier": 1.2,
+                        "low_pass_modifier": 1.1,
+                    },
+                },
                 "occlusion": {
                     "wall_absorption": 0.5,
                     "rear_attenuation": 0.5,
@@ -347,7 +367,44 @@ class TestSoundManager:
             
             # Test event with no mapping
             manager.handle_game_event("unknown_event", {})
-            
+
+        finally:
+            os.unlink(config_path)
+
+    def test_environment_effects_change_between_biomes(self):
+        """Effects should change with environment and time of day."""
+        config_path = self.create_test_config()
+        try:
+            manager = SoundManager(config_path)
+            manager.enabled = True
+
+            tone = Sine(440).to_audio_segment(duration=200)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                tone.export(f.name, format="wav")
+                source = Path(f.name)
+
+            try:
+                cav_day_path = manager._apply_environment_effects(
+                    source, {"environment": "cavern", "time_of_day": "day"}
+                )
+                cav_night_path = manager._apply_environment_effects(
+                    source, {"environment": "cavern", "time_of_day": "night"}
+                )
+                surface_path = manager._apply_environment_effects(
+                    source, {"environment": "surface", "time_of_day": "day"}
+                )
+
+                cav_day = AudioSegment.from_wav(cav_day_path)
+                cav_night = AudioSegment.from_wav(cav_night_path)
+                surface = AudioSegment.from_wav(surface_path)
+
+                assert cav_day.raw_data != cav_night.raw_data
+                assert cav_day.raw_data != surface.raw_data
+            finally:
+                os.unlink(source)
+                os.unlink(cav_day_path)
+                os.unlink(cav_night_path)
+                os.unlink(surface_path)
         finally:
             os.unlink(config_path)
     

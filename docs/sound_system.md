@@ -22,7 +22,12 @@ The BasicRL sound system provides situationally appropriate sound effects and ba
    pip install simpleaudio
    ```
 
-3. **Add Audio Files**: Create directories and add audio files:
+3. **Install DSP Library**: Environmental effects use `pydub`:
+   ```bash
+   pip install pydub
+   ```
+
+4. **Add Audio Files**: Create directories and add audio files:
    ```
    config/
    ├── sounds/          # Sound effect files (.ogg format)
@@ -215,19 +220,53 @@ situational_modifiers:
   distance_falloff:
     enabled: true
     max_distance: 15
-    
+
   # Environmental acoustics
   environment_effects:
     cavern:
       reverb: 0.3
       volume_modifier: 1.1
+      eq:
+        bass: 2.0
+    surface:
+      reverb: 0.0
+      volume_modifier: 0.9
+      eq:
+        treble: 1.5
     water:
       low_pass_filter: 0.7
       volume_modifier: 0.8
+
+  # Time-based modifiers
+  time_of_day:
+    night:
+      volume_modifier: 0.8
+      reverb_modifier: 1.2
+      low_pass_modifier: 1.1
+    day:
+      volume_modifier: 1.0
+      low_pass_modifier: 1.0
+
   occlusion:
     wall_absorption: 0.5  # Volume reduction when blocked
     rear_attenuation: 0.5 # Modifier for sounds behind the listener
 ```
+
+### Adding New Environments
+
+1. Edit `config/sounds.yaml` and add a new block under
+   `situational_modifiers.environment_effects` with your environment name.
+2. Specify `reverb`, `low_pass_filter`, or an `eq` section with `bass`/`treble`
+   gains.
+3. Optional: adjust `time_of_day` modifiers (e.g., `reverb_modifier` or
+   `low_pass_modifier`) to change effects based on day/night.
+4. Pass the `environment` and `time_of_day` values in the sound context when
+   calling `play_sound` or `handle_event`.
+5. Verify that effects change when moving between biomes by running:
+
+   ```bash
+   pytest tests/test_sound_system.py::TestSoundManager::test_environment_effects_change_between_biomes
+   ```
 
 ## Event Mappings
 

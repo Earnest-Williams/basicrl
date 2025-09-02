@@ -229,11 +229,15 @@ situational_modifiers:
     cavern:
       reverb: 0.3             # Echo effect
       volume_modifier: 1.1    # Sounds carry further
-      
+      eq:
+        bass: 2.0             # Slight bass boost
+
     surface:
       reverb: 0.0             # No echo in open air
       volume_modifier: 0.9    # Sounds dissipate
-      
+      eq:
+        treble: 1.5          # Brighten high frequencies
+
     water:
       low_pass_filter: 0.7    # Muffled underwater sounds
       volume_modifier: 0.8
@@ -243,9 +247,11 @@ situational_modifiers:
     night:
       volume_modifier: 0.8    # Quieter at night
       reverb_modifier: 1.2    # More echo at night
+      low_pass_modifier: 1.1  # Slightly more muffled at night
 
     day:
       volume_modifier: 1.0    # Normal volume during day
+      low_pass_modifier: 1.0  # Default filter strength
 
   # Occlusion parameters
   occlusion:
