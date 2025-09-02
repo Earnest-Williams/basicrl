@@ -5,11 +5,14 @@ import yaml
 from pathlib import Path
 
 import pytest
+import numpy as np
 from pydub import AudioSegment
 from pydub.generators import Sine
 
 from game.systems.sound import SoundManager, SoundEffect, BackgroundMusic
 from game.world.game_map import GameMap, TILE_ID_FLOOR, TILE_ID_WALL
+from game.constants import FeatureType, FlowType
+from pathfinding.perception_systems import compute_noise_map
 
 
 class TestSoundEffect:
@@ -433,6 +436,50 @@ class TestSoundManager:
             
         finally:
             os.unlink(config_path)
+
+
+class TestNoiseAttenuation:
+    """Ensure noise maps influence volume through obstacles."""
+
+    def _create_manager(self) -> SoundManager:
+        config = {"audio": {"enabled": False}, "sound_effects": {}}
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+            yaml.safe_dump(config, f)
+            path = Path(f.name)
+        try:
+            return SoundManager(path)
+        finally:
+            os.unlink(path)
+
+    def test_volume_reduced_by_door_and_wall(self):
+        manager = self._create_manager()
+
+        terrain = np.full((3, 5), FeatureType.FLOOR, dtype=np.int32)
+        source = (0, 1)
+        listener = (4, 1, 0.0)
+
+        open_noise = compute_noise_map(terrain, 1, 0, FlowType.REAL_NOISE)
+        vol_open = manager._calculate_volume(
+            1.0, source_pos=source, listener_pos=listener, noise_map=open_noise
+        )
+
+        door_map = terrain.copy()
+        door_map[:, 2] = FeatureType.WALL
+        door_map[1, 2] = FeatureType.CLOSED_DOOR
+        door_noise = compute_noise_map(door_map, 1, 0, FlowType.REAL_NOISE)
+        vol_door = manager._calculate_volume(
+            1.0, source_pos=source, listener_pos=listener, noise_map=door_noise
+        )
+
+        wall_map = terrain.copy()
+        wall_map[:, 2] = FeatureType.WALL
+        wall_noise = compute_noise_map(wall_map, 1, 0, FlowType.REAL_NOISE)
+        vol_wall = manager._calculate_volume(
+            1.0, source_pos=source, listener_pos=listener, noise_map=wall_noise
+        )
+
+        assert vol_wall == 0.0
+        assert vol_door < vol_open
 
 
 if __name__ == "__main__":
