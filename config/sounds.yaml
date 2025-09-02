@@ -86,10 +86,19 @@ sound_effects:
     files: ["magic_cast_01.ogg", "magic_cast_02.ogg"]
     volume: 0.8
     random_pitch: 0.1
-    
+
   teleport:
     files: ["teleport_whoosh.ogg"]
     volume: 0.9
+
+  # Procedural magic effect using synthesis
+  magic_charge:
+    type: procedural
+    generator: magic
+    volume: 0.7
+    settings:
+      duration: 0.4
+      start_freq: 660.0
     
   # Environmental
   level_up:

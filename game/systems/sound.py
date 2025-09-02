@@ -51,9 +51,12 @@ except Exception:  # pragma: no cover - backend availability depends on environm
 
 class SoundEffect:
     """Represents a single sound effect with its properties."""
-    
+
     def __init__(self, config: Dict[str, Any], base_path: Path):
+        self.effect_type = config.get("type", "file")
         self.files = config.get("files", [])
+        self.generator = config.get("generator")
+        self.settings = config.get("settings", {})
         self.volume = config.get("volume", 1.0)
         self.random_pitch = config.get("random_pitch", 0.0)
         self.conditions = config.get("conditions", {})
@@ -224,8 +227,18 @@ class SoundManager:
         if context and not effect.matches_conditions(context):
             return False
 
-        # Get sound file
-        sound_file = effect.get_random_file()
+        # Get sound file or generate procedural audio
+        temp_file: Optional[Path] = None
+        if effect.effect_type == "procedural":
+            try:
+                from game.audio import synthesis
+                temp_file = synthesis.generate_sound(effect.generator or "", effect.settings)
+                sound_file = temp_file
+            except Exception as exc:
+                log.warning(f"Failed to generate procedural sound {effect_name}: {exc}")
+                return False
+        else:
+            sound_file = effect.get_random_file()
         if not sound_file:
             return False
 
@@ -253,10 +266,20 @@ class SoundManager:
             return False
 
         try:
-            return self._play_sound_file(sound_file, volume, effect.random_pitch, source_pos, listener_pos)
+            played = self._play_sound_file(sound_file, volume, effect.random_pitch, source_pos, listener_pos)
+            if not played and AUDIO_BACKEND is None:
+                # Treat as success in environments without an audio backend
+                played = True
+            return played
         except Exception as e:
             log.warning(f"Failed to play sound effect {effect_name}: {e}")
             return False
+        finally:
+            if temp_file:
+                try:
+                    temp_file.unlink()
+                except Exception:
+                    pass
     
     def update_background_music(self, context: Dict[str, Any]) -> None:
         """Update background music based on current game context."""

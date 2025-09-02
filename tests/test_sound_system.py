@@ -26,6 +26,20 @@ class TestSoundEffect:
         assert effect.volume == 0.8
         assert effect.random_pitch == 0.1
         assert effect.conditions == {"target": "player"}
+
+    def test_procedural_sound_effect_creation(self):
+        """SoundEffect should support procedural generators."""
+        config = {
+            "type": "procedural",
+            "generator": "footsteps",
+            "volume": 0.5,
+            "settings": {"duration": 0.1}
+        }
+        effect = SoundEffect(config, Path("/test"))
+
+        assert effect.effect_type == "procedural"
+        assert effect.generator == "footsteps"
+        assert effect.settings == {"duration": 0.1}
     
     def test_sound_effect_matches_conditions(self):
         """Test sound effect condition matching."""
@@ -55,10 +69,10 @@ class TestSoundEffect:
         """Test getting random sound file."""
         config = {"files": ["test1.ogg", "test2.ogg"]}
         effect = SoundEffect(config, Path("/test"))
-        
+
         # Should return one of the files
         selected = effect.get_random_file()
-        assert selected in ["test1.ogg", "test2.ogg"]
+        assert selected.name in ["test1.ogg", "test2.ogg"]
         
         # Empty files should return None
         empty_effect = SoundEffect({"files": []}, Path("/test"))
@@ -135,6 +149,12 @@ class TestSoundManager:
                     "files": ["hit1.ogg", "hit2.ogg"],
                     "volume": 0.8,
                     "random_pitch": 0.2
+                },
+                "magic_proc": {
+                    "type": "procedural",
+                    "generator": "magic",
+                    "volume": 0.6,
+                    "settings": {"duration": 0.1}
                 }
             },
             "background_music": {
@@ -153,7 +173,8 @@ class TestSoundManager:
             },
             "event_mappings": {
                 "player_move": "test_effect",
-                "deal_damage": "combat_hit"
+                "deal_damage": "combat_hit",
+                "cast_spell": "magic_proc"
             }
         }
         
@@ -177,6 +198,7 @@ class TestSoundManager:
             # Check loaded sound effects
             assert "test_effect" in manager.sound_effects
             assert "combat_hit" in manager.sound_effects
+            assert "magic_proc" in manager.sound_effects
             
             # Check loaded background music
             assert "exploration" in manager.background_music
@@ -185,6 +207,7 @@ class TestSoundManager:
             # Check event mappings
             assert manager.event_mappings["player_move"] == "test_effect"
             assert manager.event_mappings["deal_damage"] == "combat_hit"
+            assert manager.event_mappings["cast_spell"] == "magic_proc"
             
         finally:
             os.unlink(config_path)
@@ -198,6 +221,10 @@ class TestSoundManager:
             
             # Should succeed (but not actually play due to mock backend)
             result = manager.play_sound_effect("test_effect", {"target": "player"})
+            assert result is True
+
+            # Procedural effect should also succeed
+            result = manager.play_sound_effect("magic_proc", {})
             assert result is True
             
             # Should fail due to condition mismatch
@@ -246,6 +273,7 @@ class TestSoundManager:
             # Test event that maps to sound effect
             # This should not raise an exception
             manager.handle_game_event("player_move", {"target": "player"})
+            manager.handle_game_event("cast_spell", {})
             
             # Test event with no mapping
             manager.handle_game_event("unknown_event", {})
