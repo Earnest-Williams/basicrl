@@ -29,6 +29,8 @@ player_fov_radius: 4
 
 # -- Engine Settings --
 resize_debounce_ms: 100 # Delay for redrawing after window resize
+enable_sound: true
+enable_ai: true
 
 # -- Lighting Parameters (NEW) --
 lighting:

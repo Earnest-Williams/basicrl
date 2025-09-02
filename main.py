@@ -181,6 +181,8 @@ def init_game_state(configs: Configs, region: str = "dungeon") -> GameState:
         "steepness", 6.0 / memory_fade_duration
     )
     ai_config = config.get("ai", {})
+    enable_sound: bool = config.get("enable_sound", True)
+    enable_ai: bool = config.get("enable_ai", True)
 
     log.info("Creating game map", width=map_width, height=map_height)
     game_map = GameMap(width=map_width, height=map_height)
@@ -226,6 +228,8 @@ def init_game_state(configs: Configs, region: str = "dungeon") -> GameState:
             "midpoint": memory_fade_midpoint,
             "steepness": memory_fade_steepness,
         },
+        enable_sound=enable_sound,
+        enable_ai=enable_ai,
     )
 
     # Spawn initial items
