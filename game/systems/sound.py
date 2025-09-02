@@ -248,11 +248,12 @@ class SoundManager:
             return False
 
         # Get sound file or generate procedural audio
-        temp_file: Optional[Path] = None
+        cleanup_files: List[Path] = []
         if effect.effect_type == "procedural":
             try:
                 from game.audio import synthesis
                 temp_file = synthesis.generate_sound(effect.generator or "", effect.settings)
+                cleanup_files.append(temp_file)
                 sound_file = temp_file
             except Exception as exc:
                 log.warning(f"Failed to generate procedural sound {effect_name}: {exc}")
@@ -292,6 +293,13 @@ class SoundManager:
             game_map,
         )
 
+        # Apply environment DSP effects
+        if context:
+            processed = self._apply_environment_effects(sound_file, context)
+            if processed != sound_file:
+                cleanup_files.append(processed)
+                sound_file = processed
+
         self._prune_finished_sounds()
 
         # Limit concurrent sounds
@@ -315,9 +323,9 @@ class SoundManager:
             log.warning(f"Failed to play sound effect {effect_name}: {e}")
             return False
         finally:
-            if temp_file:
+            for temp in cleanup_files:
                 try:
-                    temp_file.unlink()
+                    temp.unlink()
                 except Exception:
                     pass
     
@@ -393,6 +401,12 @@ class SoundManager:
             volume_modifier = env_effects.get("volume_modifier", 1.0)
             final_volume *= volume_modifier
 
+        # Apply time-of-day modifiers
+        time_of_day = context.get("time_of_day")
+        if time_of_day and "time_of_day" in self.situational_modifiers:
+            tod_effects = self.situational_modifiers["time_of_day"].get(time_of_day, {})
+            final_volume *= tod_effects.get("volume_modifier", 1.0)
+
         occlusion_cfg = self.situational_modifiers.get("occlusion", {})
 
         # Apply directional attenuation for sounds behind the listener
@@ -420,6 +434,68 @@ class SoundManager:
                 final_volume *= 1.0 - wall_abs
 
         return max(0.0, min(1.0, final_volume))
+
+    def _apply_environment_effects(self, fname: Path, context: Dict[str, Any]) -> Path:
+        """Apply environmental DSP effects and return processed file path."""
+        env_name = context.get("environment")
+        if not env_name or "environment_effects" not in self.situational_modifiers:
+            return fname
+        env_cfg = self.situational_modifiers["environment_effects"].get(env_name, {})
+        tod_cfg: Dict[str, Any] = {}
+        time_of_day = context.get("time_of_day")
+        if time_of_day and "time_of_day" in self.situational_modifiers:
+            tod_cfg = self.situational_modifiers["time_of_day"].get(time_of_day, {})
+
+        reverb_amt = env_cfg.get("reverb")
+        lp_amt = env_cfg.get("low_pass_filter")
+        eq_cfg = env_cfg.get("eq")
+        if reverb_amt is None and lp_amt is None and not eq_cfg:
+            return fname
+
+        from tempfile import NamedTemporaryFile
+        from pydub import AudioSegment, effects
+
+        try:
+            segment = AudioSegment.from_file(fname)
+        except Exception:
+            # Fallback for environments without ffmpeg when using wav files
+            segment = AudioSegment.from_wav(fname)
+        if reverb_amt:
+            reverb_amt *= tod_cfg.get("reverb_modifier", 1.0)
+            segment = self._add_reverb(segment, reverb_amt)
+        if lp_amt:
+            lp_amt *= tod_cfg.get("low_pass_modifier", 1.0)
+            cutoff = int(2000 + (8000 * (1.0 - max(0.0, min(1.0, lp_amt)))))
+            segment = effects.low_pass_filter(segment, cutoff)
+        if eq_cfg:
+            segment = self._apply_eq(segment, eq_cfg)
+
+        tmp = NamedTemporaryFile(delete=False, suffix=".wav")
+        segment.export(tmp.name, format="wav")
+        return Path(tmp.name)
+
+    def _add_reverb(self, segment, amount: float):
+        """Simple reverb using delayed overlays."""
+        delay = int(50 + 150 * amount)
+        decay = 0.6 * amount
+        echo = segment - 20
+        for i in range(1, 4):
+            segment = segment.overlay(echo, position=delay * i, gain_during_overlay=-decay * i * 10)
+        return segment
+
+    def _apply_eq(self, segment, eq_cfg: Dict[str, float]):
+        """Very simple two-band EQ for bass and treble adjustments."""
+        bass_gain = eq_cfg.get("bass")
+        treble_gain = eq_cfg.get("treble")
+        if bass_gain is not None:
+            bass = segment.low_pass_filter(200).apply_gain(bass_gain)
+            high = segment.high_pass_filter(200)
+            segment = bass.overlay(high)
+        if treble_gain is not None:
+            treble = segment.high_pass_filter(4000).apply_gain(treble_gain)
+            mid = segment.low_pass_filter(4000)
+            segment = mid.overlay(treble)
+        return segment
     
     def _calculate_music_volume(self, base_volume: float, context: Dict[str, Any]) -> float:
         """Calculate background music volume with modifiers."""
