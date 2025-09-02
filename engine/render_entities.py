@@ -23,6 +23,111 @@ from .render_lighting import _interpolate_color_numba_vector
 NJIT_SENTINEL_TILE_ARRAY_SHAPE = (0, 0, 4)
 
 
+def _extract_color_components(color_dict: dict) -> tuple[int, int, int, int]:
+    """Internal helper to normalize color information.
+
+    The rendering code expects RGBA color components in the range 0-255 and of
+    ``np.uint8`` dtype.  Entity and item dictionaries may store colour
+    information in a few different ways (either a single ``color``/``color_fg``
+    sequence or separate ``color_fg_r``/``color_fg_g``/``color_fg_b`` keys).
+
+    Parameters
+    ----------
+    color_dict:
+        Dictionary representing an entity/item; must contain some colour
+        information.  Missing channels default to ``0`` for RGB and ``255`` for
+        alpha.
+
+    Returns
+    -------
+    tuple[int, int, int, int]
+        Normalised ``(r, g, b, a)`` components.
+    """
+
+    if "color" in color_dict and isinstance(color_dict["color"], (list, tuple)):
+        seq = color_dict["color"]
+    elif "color_fg" in color_dict and isinstance(
+        color_dict["color_fg"], (list, tuple)
+    ):
+        seq = color_dict["color_fg"]
+    else:
+        seq = (
+            color_dict.get("color_fg_r", 0),
+            color_dict.get("color_fg_g", 0),
+            color_dict.get("color_fg_b", 0),
+            color_dict.get("color_fg_a"),
+        )
+
+    r = int(seq[0]) if len(seq) > 0 and seq[0] is not None else 0
+    g = int(seq[1]) if len(seq) > 1 and seq[1] is not None else 0
+    b = int(seq[2]) if len(seq) > 2 and seq[2] is not None else 0
+    a = int(seq[3]) if len(seq) > 3 and seq[3] is not None else 255
+    return r, g, b, a
+
+
+def pack_ground_items(items: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Pack a list of ground item dictionaries into typed NumPy arrays.
+
+    Parameters
+    ----------
+    items:
+        Sequence of dictionaries each containing at least ``x``, ``y``,
+        ``glyph`` and colour information.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ``xs``, ``ys``, ``glyphs`` and ``colors`` arrays ready for the Numba
+        rendering functions.  Arrays are empty with correct dtype if ``items``
+        is empty.
+    """
+
+    n = len(items)
+    xs = np.empty(n, dtype=np.int64)
+    ys = np.empty(n, dtype=np.int64)
+    glyphs = np.empty(n, dtype=np.int32)
+    colors = np.empty((n, 4), dtype=np.uint8)
+
+    for i, it in enumerate(items):
+        xs[i] = int(it.get("x", 0))
+        ys[i] = int(it.get("y", 0))
+        glyphs[i] = int(it.get("glyph", 0))
+        r, g, b, a = _extract_color_components(it)
+        colors[i, 0] = r
+        colors[i, 1] = g
+        colors[i, 2] = b
+        colors[i, 3] = a
+
+    return xs, ys, glyphs, colors
+
+
+def pack_entities(entities: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Pack a list of entity dictionaries into typed NumPy arrays.
+
+    Behaviour mirrors :func:`pack_ground_items` but is provided separately for
+    clarity.  The input is a sequence of dictionaries describing entities with
+    ``x``, ``y``, ``glyph`` and colour information.
+    """
+
+    n = len(entities)
+    xs = np.empty(n, dtype=np.int64)
+    ys = np.empty(n, dtype=np.int64)
+    glyphs = np.empty(n, dtype=np.int32)
+    colors = np.empty((n, 4), dtype=np.uint8)
+
+    for i, ent in enumerate(entities):
+        xs[i] = int(ent.get("x", 0))
+        ys[i] = int(ent.get("y", 0))
+        glyphs[i] = int(ent.get("glyph", 0))
+        r, g, b, a = _extract_color_components(ent)
+        colors[i, 0] = r
+        colors[i, 1] = g
+        colors[i, 2] = b
+        colors[i, 3] = a
+
+    return xs, ys, glyphs, colors
+
+
 @njit(cache=True, nogil=True)
 def render_map_tiles(
     output_image_array: np.ndarray,
