@@ -103,15 +103,22 @@ def parse(source: str) -> Work:
 
     seat: SeatClause | None = None
     tending: TendingClause | None = None
-    if index < len(tokens):
-        if tokens[index] == ("KEYWORD", "SEAT"):
+    while index < len(tokens):
+        token_type, token_value = tokens[index]
+        if token_type != "KEYWORD":
+            raise ValueError(f"Unexpected token {token_value}")
+        if token_value == "SEAT":
+            if seat is not None:
+                raise ValueError("Duplicate SEAT clause")
             index += 1
             seat = SeatClause(read_value())
-        elif tokens[index] == ("KEYWORD", "TENDING"):
+        elif token_value == "TENDING":
+            if tending is not None:
+                raise ValueError("Duplicate TENDING clause")
             index += 1
             tending = TendingClause(read_value())
         else:
-            raise ValueError(f"Unexpected clause {tokens[index][1]}")
+            raise ValueError(f"Unexpected clause {token_value}")
 
     if index != len(tokens):
         raise ValueError("Unexpected trailing tokens")
@@ -132,8 +139,8 @@ def parse(source: str) -> Work:
 
     # Preserve optional clauses for callers that care about them (e.g., scripting)
     if seat is not None:
-        setattr(work, "seat", seat)
+        object.__setattr__(work, "seat", seat)
     if tending is not None:
-        setattr(work, "tending", tending)
+        object.__setattr__(work, "tending", tending)
 
     return work

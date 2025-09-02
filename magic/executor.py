@@ -21,12 +21,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, Tuple, Iterable, Set
+from typing import Callable, Dict, Tuple, Iterable, Set, TYPE_CHECKING
 
 import structlog
 
 from .wards import Counterseal, Ward, is_blocked
-from game.game_state import GameState
+
+if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
+    from game.game_state import GameState
 
 log = structlog.get_logger()
 
@@ -45,7 +47,7 @@ class Substance(str, Enum):
     AETHER = "aether"
 
 
-EffectHandler = Callable[["Work", GameState], None]
+EffectHandler = Callable[["Work", "GameState"], None]
 EFFECT_HANDLERS: Dict[Tuple[Art, Substance], EffectHandler] = {}
 
 
