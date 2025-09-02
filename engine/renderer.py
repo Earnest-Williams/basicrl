@@ -94,62 +94,97 @@ class RenderConfig:
     memory_fade_variance: np.float32 = np.float32(0.0)
     memory_noise_level: np.float32 = np.float32(0.0)
 
+
+@dataclass
+class ViewportParams:
+    """Collects parameters required for viewport rendering."""
+    viewport_x: int
+    viewport_y: int
+    viewport_width: int
+    viewport_height: int
+    tile_arrays: NumbaDict | PyDict
+    tile_fg_colors: np.ndarray
+    tile_bg_colors: np.ndarray
+    tile_indices_render: np.ndarray
+    max_defined_tile_id: int
+    tile_w: int
+    tile_h: int
+    coord_arrays: PyDict[str, np.ndarray]
+
 # --- Main Rendering Function ---
 def render_viewport(
     game_state: GameState,
-    tile_arrays: NumbaDict | PyDict, # Can be Python dict if Numba not available
-    tile_fg_colors: np.ndarray,
-    tile_bg_colors: np.ndarray,
-    tile_indices_render: np.ndarray,
-    max_defined_tile_id: int,
-    tile_w: int,
-    tile_h: int,
-    viewport_x: int,
-    viewport_y: int,
-    viewport_width: int,
-    viewport_height: int,
-    coord_arrays: PyDict[str, np.ndarray], # These are NumPy arrays for indexing
+    viewport: ViewportParams,
     render_config: RenderConfig,
 ) -> Image.Image | None:
-    """
-    Renders the visible portion of the game world to a PIL Image.
-    Orchestrates the rendering pipeline, calling Numba helpers where applicable.
-    """
-    log.debug("render_viewport called",
-              vp_x=viewport_x, vp_y=viewport_y, vp_w=viewport_width, vp_h=viewport_height,
-              tile_dims=f"{tile_w}x{tile_h}", max_tile_id=max_defined_tile_id,
-              tile_arrays_type=type(tile_arrays), tile_arrays_len=len(tile_arrays) if tile_arrays is not None else 'None',
-              fg_colors_shape=tile_fg_colors.shape if tile_fg_colors is not None else 'None',
-              bg_colors_shape=tile_bg_colors.shape if tile_bg_colors is not None else 'None',
-              indices_shape=tile_indices_render.shape if tile_indices_render is not None else 'None',
-              coord_keys=list(coord_arrays.keys()) if coord_arrays is not None else 'None',
-              render_config_details=render_config)
+    """Render the visible portion of the game world to a PIL Image."""
+    log.debug(
+        "render_viewport called",
+        vp_x=viewport.viewport_x,
+        vp_y=viewport.viewport_y,
+        vp_w=viewport.viewport_width,
+        vp_h=viewport.viewport_height,
+        tile_dims=f"{viewport.tile_w}x{viewport.tile_h}",
+        max_tile_id=viewport.max_defined_tile_id,
+        tile_arrays_type=type(viewport.tile_arrays),
+        tile_arrays_len=len(viewport.tile_arrays)
+        if viewport.tile_arrays is not None
+        else "None",
+        fg_colors_shape=viewport.tile_fg_colors.shape
+        if viewport.tile_fg_colors is not None
+        else "None",
+        bg_colors_shape=viewport.tile_bg_colors.shape
+        if viewport.tile_bg_colors is not None
+        else "None",
+        indices_shape=viewport.tile_indices_render.shape
+        if viewport.tile_indices_render is not None
+        else "None",
+        coord_keys=list(viewport.coord_arrays.keys())
+        if viewport.coord_arrays is not None
+        else "None",
+        render_config_details=render_config,
+    )
 
+
+    viewport_x = viewport.viewport_x
+    viewport_y = viewport.viewport_y
+    viewport_width = viewport.viewport_width
+    viewport_height = viewport.viewport_height
+    tile_w = viewport.tile_w
+    tile_h = viewport.tile_h
+    tile_arrays = viewport.tile_arrays
+    tile_fg_colors = viewport.tile_fg_colors
+    tile_bg_colors = viewport.tile_bg_colors
+    tile_indices_render = viewport.tile_indices_render
+    max_defined_tile_id = viewport.max_defined_tile_id
+    coord_arrays = viewport.coord_arrays
 
     # --- Input Validation ---
-    # Basic checks to prevent crashes early
     if not isinstance(game_state, GameState) or GameState is object:
         log.error("render_viewport called with invalid GameState object")
-        # Return a dummy error image with appropriate size
-        pw = max(1, viewport_width * max(1, tile_w));
+        pw = max(1, viewport_width * max(1, tile_w))
         ph = max(1, viewport_height * max(1, tile_h))
-        return Image.new("RGBA", (pw, ph), (255,0,0,255))
+        return Image.new("RGBA", (pw, ph), (255, 0, 0, 255))
 
-    gs = game_state; gm = gs.game_map # Shortcuts
+    gs = game_state
+    gm = gs.game_map
 
     if tile_w <= 0 or tile_h <= 0 or tile_arrays is None or max_defined_tile_id < 0:
-        log.warning( "Cannot render: Invalid params/cache", tile_w=tile_w, tile_h=tile_h,
-                     has_arrays=(tile_arrays is not None), max_id=max_defined_tile_id )
-        # Return a blank image based on nominal viewport size
-        pw = max(1, viewport_width * max(1, tile_w));
+        log.warning(
+            "Cannot render: Invalid params/cache",
+            tile_w=tile_w,
+            tile_h=tile_h,
+            has_arrays=(tile_arrays is not None),
+            max_id=max_defined_tile_id,
+        )
+        pw = max(1, viewport_width * max(1, tile_w))
         ph = max(1, viewport_height * max(1, tile_h))
         return Image.new("RGBA", (pw, ph), (0, 0, 0, 255))
 
     player_pos = gs.player_position
     if player_pos is None:
         log.warning("Cannot render: Player position not found")
-        # Return a blank image based on nominal viewport size
-        pw = max(1, viewport_width * max(1, tile_w));
+        pw = max(1, viewport_width * max(1, tile_w))
         ph = max(1, viewport_height * max(1, tile_h))
         return Image.new("RGBA", (pw, ph), (0, 0, 0, 255))
 
