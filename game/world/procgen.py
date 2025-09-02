@@ -620,6 +620,7 @@ def generate_dungeon(
     map_height: int,
     seed: int | None = None,
     algorithm: str = "bsp",
+    region: str | None = None,
 ) -> Tuple[int, int]:
     """Entry point for dungeon generation selecting different algorithms."""
     if not isinstance(game_map, GameMap):
@@ -632,6 +633,7 @@ def generate_dungeon(
         height=map_height,
         seed=seed,
         algorithm=algorithm,
+        region=region,
     )
 
     rng = GameRNG(seed=seed)

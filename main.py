@@ -149,8 +149,16 @@ def load_configs() -> Configs:
     )
 
 
-def init_game_state(configs: Configs) -> GameState:
-    """Create the initial game state using loaded configurations."""
+def init_game_state(configs: Configs, region: str = "dungeon") -> GameState:
+    """Create the initial game state using loaded configurations.
+
+    Parameters
+    ----------
+    configs:
+        Loaded configuration data for the game.
+    region:
+        Region key to generate. Defaults to "dungeon".
+    """
 
     config = configs.main
     map_width: int = config.get("map_width", 80)
@@ -158,7 +166,7 @@ def init_game_state(configs: Configs) -> GameState:
     dungeon_seed_cfg = config.get("dungeon_seed")
     procgen_cfg = config.get("procgen", {})
     region_algorithms = procgen_cfg.get("regions", {})
-    current_region = "dungeon"
+    current_region = region
     generation_algorithm = region_algorithms.get(current_region, "bsp")
     player_glyph: int = config.get("player_glyph", 113)
     player_start_hp: int = config.get("player_start_hp", 30)
@@ -177,7 +185,11 @@ def init_game_state(configs: Configs) -> GameState:
     log.info("Creating game map", width=map_width, height=map_height)
     game_map = GameMap(width=map_width, height=map_height)
 
-    log.info("Generating dungeon layout...")
+    log.info(
+        "Generating dungeon layout...",
+        region=current_region,
+        algorithm=generation_algorithm,
+    )
     dungeon_seed = (
         int(time.time() * 1000) if dungeon_seed_cfg is None else int(dungeon_seed_cfg)
     )
@@ -189,6 +201,7 @@ def init_game_state(configs: Configs) -> GameState:
         map_height,
         seed=dungeon_seed,
         algorithm=generation_algorithm,
+        region=current_region,
     )
     log.info("Dungeon generated", player_start=player_start_pos)
 
@@ -341,6 +354,11 @@ def main() -> None:
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable debug logging"
     )
+    parser.add_argument(
+        "--region",
+        default="dungeon",
+        help="Region to generate (e.g., 'dungeon', 'caverns')",
+    )
     args, qt_args = parser.parse_known_args()
     level = (
         logging.DEBUG
@@ -355,7 +373,7 @@ def main() -> None:
     app = QApplication(qt_args)
     try:
         configs = load_configs()
-        game_state = init_game_state(configs)
+        game_state = init_game_state(configs, region=args.region)
         window = init_window(configs, game_state)
 
     # --- Exception Handling ---
