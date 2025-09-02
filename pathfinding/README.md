@@ -13,12 +13,12 @@ The goal is to enable agents (particularly monsters or NPCs with heightened sens
     * **Scent System:** Implements `update_smell` which simulates scent aging (`_age_scent_kernel`) and laying (`_lay_scent_kernel`), also using Numba kernels. Tracks scent intensity and the time it was last detected (`cave_when`).
     * **Monster Perception:** Provides `monster_perception` which checks if monsters detect the player based on noise, scent, or line-of-sight using `game.world.los.line_of_sight`. This check is parallelized across monsters using Joblib (`Parallel`, `delayed`) for efficiency. Monster data is expected in a Polars DataFrame.
     * **Placeholders:** Includes a placeholder function for `skill_check` that needs an actual implementation.
-* **`test.py`:**
+* **`prototypes/pathfinding/test.py`:**
     * Serves as a test harness and demonstration for the perception systems.
     * Initializes a sample map, player, and monsters (using Polars).
     * Runs a simple simulation loop calling `update_noise`, `update_smell`, and `monster_perception`.
     * **Demonstrates structured logging** using `structlog` with console and rotating file handlers, configured to output JSON logs. Includes sample command-line queries (`jq`, `zq`) for analyzing these logs. *Note: `structlog` usage here is experimental and not yet fully integrated project-wide.*
-* **`fix.sh`:** Standard code formatting script using `ruff`, `black`, etc.
+* **`../scripts/fix.sh`:** Standard code formatting script using `ruff`, `black`, etc.
 
 ## Dependencies
 
