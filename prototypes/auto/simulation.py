@@ -1354,8 +1354,7 @@ class AgentAI:
                                 )
                         else:
                             print(
-                                f"{target_kind.capitalize()
-                                     } defeated at {target_pos}"
+                                f"{target_kind.capitalize()} defeated at {target_pos}"
                             )
                     return True  # Attack happened
             return False  # No adjacent target found
