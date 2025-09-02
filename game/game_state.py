@@ -30,6 +30,23 @@ log = structlog.get_logger()
 
 
 class GameState:
+    """Central container for mutable game data.
+
+    The magic subsystem relies on the following minimal interface:
+
+    ``player_id``
+        Integer identifier of the acting entity (usually the player).
+    ``has_seal_tag(entity_id, tag)``
+        Return ``True`` if ``entity_id`` possesses the given seal tag.
+    ``has_font_source(entity_id, source)``
+        Return ``True`` if the entity can supply ``source`` as a font.
+    ``has_vent_target(entity_id, target)``
+        Return ``True`` if the entity exposes ``target`` as a vent.
+
+    Each lookup is backed by list components (``seal_tags``, ``font_sources``,
+    and ``vent_targets``) managed by :class:`game.entities.registry.EntityRegistry`.
+    """
+
     def __init__(
         self,
         existing_map: GameMap,
