@@ -20,7 +20,7 @@ optional :class:`Counterseal`s to ensure the Work is permitted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Tuple, Iterable, Set, TYPE_CHECKING
+from typing import Callable, Dict, Tuple, Iterable, Set, TYPE_CHECKING, List
 
 import structlog
 
@@ -35,6 +35,37 @@ log = structlog.get_logger()
 
 EffectHandler = Callable[["Work", "GameState"], None]
 EFFECT_HANDLERS: Dict[Tuple[Art, Substance], EffectHandler] = {}
+
+# ---------------------------------------------------------------------------
+# Friction event callbacks
+FrictionCallback = Callable[["Work", "GameState"], None]
+FRICTION_CALLBACKS: Dict[str, List[FrictionCallback]] = {
+    "quiver": [],
+    "warp": [],
+    "shiver": [],
+    "backlash": [],
+}
+
+
+def register_friction_callback(event: str, callback: FrictionCallback) -> None:
+    """Register a callback for a friction ``event``.
+
+    ``event`` must be one of ``"quiver"``, ``"warp"``, ``"shiver"`` or
+    ``"backlash"``. Callbacks receive the triggering :class:`Work` and
+    :class:`GameState`.
+    """
+
+    FRICTION_CALLBACKS.setdefault(event, []).append(callback)
+    log.debug("Registered friction callback", event_name=event, callback=callback)
+
+
+def _dispatch_friction_event(event: str, work: "Work", context: "GameState") -> None:
+    """Invoke callbacks registered for ``event``."""
+    for cb in FRICTION_CALLBACKS.get(event, []):
+        try:
+            cb(work, context)
+        except Exception as err:  # pragma: no cover - defensive
+            log.error("Friction callback failed", event_name=event, error=str(err))
 
 
 def register_handler(art: Art, substance: Substance, handler: EffectHandler) -> None:
@@ -200,20 +231,66 @@ def _update_friction(work: Work, context: GameState) -> None:
         _handle_quiver(work, context)
 
 
+def _apply_status(context: GameState, status_id: str, duration: int) -> None:
+    """Apply a status effect to the acting entity if components exist."""
+    try:
+        statuses = context.entity_registry.get_entity_component(
+            context.player_id, "status_effects"
+        ) or []
+        updated = list(statuses)
+        updated.append({"id": status_id, "duration": duration})
+        context.entity_registry.set_entity_component(
+            context.player_id, "status_effects", updated
+        )
+    except Exception:  # pragma: no cover - defensive
+        log.debug("Unable to apply status effect", status=status_id)
+
+
+def _drain_player_fuel(context: GameState, amount: int) -> None:
+    """Reduce the player's fuel resource if present."""
+    if hasattr(context, "player_fuel"):
+        context.player_fuel = max(0, context.player_fuel - amount)
+
+
+def _drain_player_hp(context: GameState, amount: int) -> None:
+    """Reduce the player's hit points via the entity registry."""
+    try:
+        hp = context.entity_registry.get_entity_component(context.player_id, "hp")
+        if hp is not None:
+            context.entity_registry.set_entity_component(
+                context.player_id, "hp", max(0, hp - amount)
+            )
+    except Exception:  # pragma: no cover - defensive
+        log.debug("Unable to drain HP", amount=amount)
+
+
 def _handle_quiver(work: Work, context: GameState) -> None:
     log.info("Quiver threshold reached", friction=work.friction)
+    _drain_player_fuel(context, 1)
+    _apply_status(context, "quivering", 1)
+    _dispatch_friction_event("quiver", work, context)
 
 
 def _handle_warp(work: Work, context: GameState) -> None:
     log.info("Warp threshold reached", friction=work.friction)
+    _drain_player_fuel(context, 2)
+    _apply_status(context, "warped", 1)
+    _dispatch_friction_event("warp", work, context)
 
 
 def _handle_shiver(work: Work, context: GameState) -> None:
     log.info("Shiver threshold reached", friction=work.friction)
+    _drain_player_fuel(context, 3)
+    _apply_status(context, "shivering", 1)
+    _dispatch_friction_event("shiver", work, context)
 
 
 def _handle_backlash(work: Work, context: GameState) -> None:
     log.warning("Backlash threshold reached", friction=work.friction)
+    _drain_player_fuel(context, 5)
+    _drain_player_hp(context, 1)
+    _apply_status(context, "backlash", 1)
+    _dispatch_friction_event("backlash", work, context)
 
 
 __all__ = [
@@ -222,6 +299,7 @@ __all__ = [
     "Work",
     "execute_work",
     "register_handler",
+    "register_friction_callback",
 ]
 
 # Import game effect handlers to populate the registry before any work runs
