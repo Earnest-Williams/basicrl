@@ -92,30 +92,30 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
         elif cost_type in ("mana", "fullness"):  # Handle generic resources
             if source_id is None:
                 log.warning(
-                    f"Cost check failed: {cost_type} cost requires source_entity_id"
+                    ff"Cost check failed: {cost_type} cost requires source_entity_id"
                 )
                 can_pay = False
                 failure_reason = (
-                    f"{cost_type.capitalize()} cost requires a source entity"
+                    ff"{cost_type.capitalize()} cost requires a source entity"
                 )
                 break
             current_value = entity_registry.get_entity_component(source_id, cost_type)
             if current_value is None or current_value < amount:
                 log.debug(
-                    f"Cost check failed: Insufficient {cost_type}",
+                    ff"Cost check failed: Insufficient {cost_type}",
                     source=source_id,
                     needed=amount,
                     has=current_value,
                 )
                 can_pay = False
-                failure_reason = f"Insufficient {cost_type}"
+                failure_reason = ff"Insufficient {cost_type}"
                 break
         # --- Add elif for other cost types (e.g., hp) here ---
         # elif cost_type == "hp": ...
         else:
             log.warning("Cost check failed: Unknown cost type", type=cost_type)
             can_pay = False
-            failure_reason = f"Unknown cost type '{cost_type}'"
+            failure_reason = ff"Unknown cost type '{cost_type}'"
             break
 
     if not can_pay:
@@ -161,8 +161,7 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
             current_value = entity_registry.get_entity_component(source_id, cost_type)
             if current_value is None or current_value < amount:
                 log.error(
-                    f"{cost_type.capitalize(
-                    )} deduction failed: value changed between check and deduct",
+                    ff"{cost_type.capitalize( )} deduction failed: value changed between check and deduct",
                     source=source_id,
                 )
                 deduction_failed = True
@@ -172,11 +171,11 @@ def _check_and_deduct_costs(effect_definition: dict, context: Dict[str, Any]) ->
                 source_id, cost_type, new_value
             )
             if not success:
-                log.error(f"Failed to deduct {cost_type}", source=source_id)
+                log.error(ff"Failed to deduct {cost_type}", source=source_id)
                 deduction_failed = True
                 break
             log.debug(
-                f"Deducted {cost_type}",
+                ff"Deducted {cost_type}",
                 source=source_id,
                 amount=amount,
                 new_value=new_value,

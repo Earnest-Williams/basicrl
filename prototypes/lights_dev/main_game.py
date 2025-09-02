@@ -35,7 +35,7 @@ try:
     import dungeon_generator
     from game_rng import GameRNG
 except ImportError as e:  # pragma: no cover - fail fast if dependencies missing
-    raise SystemExit(f"Failed to import required project modules: {e}") from e
+    raise SystemExit(ff"Failed to import required project modules: {e}") from e
 
 # Expose decay rate as a plain global for Numba
 MEMORY_DECAY_RATE = constants.MEMORY_DECAY_RATE
@@ -637,7 +637,7 @@ def _interpolate_color(
 
 
 def _format_true_color(rgb: Tuple[int, int, int]) -> str:
-    return f"\033[38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
+    return ff"\033[38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
 
 
 def _get_brightness_from_rgb_sum(rgb_sum: np.ndarray) -> float:
@@ -850,8 +850,7 @@ class GameState:
             for y in range(d.height):
                 row = [
                     (
-                        f"{_get_brightness_from_rgb_sum(
-                            rgb_sum_array[y, x]):.2f}"
+                        ff"{_get_brightness_from_rgb_sum( rgb_sum_array[y, x]):.2f}"
                         if np.any(rgb_sum_array[y, x] > 0.0)
                         else " .  "
                     )
@@ -864,7 +863,7 @@ class GameState:
             for y in range(d.height):
                 row = [
                     (
-                        f"{d.memory_intensity[y, x]:.1f}"
+                        ff"{d.memory_intensity[y, x]:.1f}"
                         if d.memory_intensity[y, x] > 0.01
                         else " . "
                     )
@@ -896,7 +895,7 @@ class GameState:
                             )
                         )
                         row_chars.append(
-                            f"{color_code}{char}{constants.COLOR['RESET']}"
+                            ff"{color_code}{char}{constants.COLOR['RESET']}"
                         )
                     else:
                         memory_intensity = d.memory_intensity[y, x]
@@ -904,7 +903,7 @@ class GameState:
                             tile_id = d.tiles[y, x]
                             char = get_memory_character(tile_id, memory_intensity)
                             row_chars.append(
-                                f"{constants.MEMORY_COLOR}{char}{constants.COLOR['RESET']}"
+                                ff"{constants.MEMORY_COLOR}{char}{constants.COLOR['RESET']}"
                             )
                         else:
                             row_chars.append(constants.UNSEEN)
@@ -978,7 +977,7 @@ class GameState:
                 final_char = char if char != " " else constants.UNSEEN
                 if final_color_code:
                     row_chars.append(
-                        f"{final_color_code}{final_char}{constants.COLOR['RESET']}"
+                        ff"{final_color_code}{final_char}{constants.COLOR['RESET']}"
                     )
                 else:
                     row_chars.append(final_char)
@@ -996,14 +995,14 @@ def run_simulation():
         print("ERROR: Need 'readchar' or profiler mode.")
         return
 
-    print(f"--- Running in {'PROFILER' if is_profiling else 'INTERACTIVE'} mode ---")
-    print(f"--- Debug Render Mode: {constants.DEBUG_RENDER_MODE} ---")
+    print(ff"--- Running in {'PROFILER' if is_profiling else 'INTERACTIVE'} mode ---")
+    print(ff"--- Debug Render Mode: {constants.DEBUG_RENDER_MODE} ---")
 
     # --- Instantiate RNG ONCE here ---
     # Use a fixed seed for reproducibility, or time-based
     main_seed = 12345 if is_profiling else int(time.time() * 1000)
     rng_instance = GameRNG(seed=main_seed)
-    print(f"--- Using RNG Seed: {main_seed} ---")
+    print(ff"--- Using RNG Seed: {main_seed} ---")
 
     # Pass RNG instance to GameState constructor
     game_state = GameState(80, 30, rng_instance)
@@ -1012,7 +1011,7 @@ def run_simulation():
         game_state.initialize_map_and_entities()
     except Exception as e:
         logging.exception("Map init failed!")
-        print(f"\nERROR: {e}")
+        print(ff"\nERROR: {e}")
         print("\033[?25h")
         return
 
@@ -1045,7 +1044,7 @@ def run_simulation():
             _update_dungeon_time(game_state.dungeon, np.float32(0.0))
         except Exception as e:
             logging.exception("Numba pre-compile error!")
-            print(f"\nWARNING: {e}")
+            print(ff"\nWARNING: {e}")
     elif not game_state.player:
         print("WARNING: Player missing, skipping pre-compile.")
     print("Pre-compilation finished.")
@@ -1195,15 +1194,15 @@ def run_simulation():
             )
             mode_str = "PROFILER" if is_profiling else "INTERACTIVE"
             debug_str = (
-                f" (Debug: {constants.DEBUG_RENDER_MODE})"
+                ff" (Debug: {constants.DEBUG_RENDER_MODE})"
                 if constants.DEBUG_RENDER_MODE != "normal"
                 else ""
             )
             print(
-                f"\nMode: {mode_str}{debug_str} | Sim Time: {game_state.dungeon.current_time:.1f}s / {target_duration:.0f}s | Frame: {frame_count+1}"
+                ff"\nMode: {mode_str}{debug_str} | Sim Time: {game_state.dungeon.current_time:.1f}s / {target_duration:.0f}s | Frame: {frame_count+1}"
             )
             print(
-                f"Frame Times (ms): Render={render_time*1000:.1f}, VisUpdate={frame_vis_time*1000:.2f}, StateUpdate={update_time*1000:.2f} | Avg Vis: {avg_vis_time_ms:.3f}ms | DeltaT: {dt*1000:.1f}ms"
+                ff"Frame Times (ms): Render={render_time*1000:.1f}, VisUpdate={frame_vis_time*1000:.2f}, StateUpdate={update_time*1000:.2f} | Avg Vis: {avg_vis_time_ms:.3f}ms | DeltaT: {dt*1000:.1f}ms"
             )
             if game_state.player:
                 p_mem = 0.0
@@ -1214,9 +1213,9 @@ def run_simulation():
                 except IndexError:
                     logging.warning("Player index error mem check.")
                     p_mem = -1.0
-                status_line = f"Player @ {game_state.player.position} (Lvl:{game_state.player.light_level}, R:{game_state.player.light_radius}) | Mem@P: {p_mem:.2f}"
+                status_line = ff"Player @ {game_state.player.position} (Lvl:{game_state.player.light_level}, R:{game_state.player.light_radius}) | Mem@P: {p_mem:.2f}"
                 if is_interactive:
-                    status_line += f" | Last key: '{last_key_pressed}'"
+                    status_line += ff" | Last key: '{last_key_pressed}'"
                 print(status_line)
             if is_profiling:
                 print("Profiler running... Press Ctrl+C to exit.")
