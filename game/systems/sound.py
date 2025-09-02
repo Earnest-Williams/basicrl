@@ -24,8 +24,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 import structlog
 import yaml
 
+from game.world import line_of_sight
+
 if TYPE_CHECKING:
     from game.game_state import GameState
+    from game.world.game_map import GameMap
 
 log = structlog.get_logger(__name__)
 
@@ -150,6 +153,7 @@ class SoundManager:
         self.current_music_file: Optional[Path] = None
         self.active_sounds: Set[Any] = set()
         self.listener_position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+        self.listener_orientation: Tuple[float, float] = (0.0, 1.0)
         
         # Audio settings
         self.master_volume = 1.0
@@ -260,11 +264,17 @@ class SoundManager:
 
         source_pos: Optional[Tuple[float, float]] = None
         listener_pos: Tuple[float, float, float] = self.listener_position
+        listener_orient: Tuple[float, float] = self.listener_orientation
+        game_map: Optional["GameMap"] = None
         if context:
             source_pos = context.get("source_position") or context.get("position")
             lp = context.get("listener_position")
             if lp:
                 listener_pos = (lp[0], lp[1], 0.0) if len(lp) == 2 else tuple(lp)
+            lo = context.get("listener_orientation")
+            if lo:
+                listener_orient = (lo[0], lo[1])
+            game_map = context.get("game_map")
             if source_pos and "distance" not in context:
                 sx, sy = source_pos
                 lx, ly, lz = listener_pos
@@ -273,7 +283,14 @@ class SoundManager:
                 context["distance"] = dist
 
         # Calculate volume with modifiers
-        volume = self._calculate_volume(effect.volume, context)
+        volume = self._calculate_volume(
+            effect.volume,
+            context,
+            source_pos,
+            listener_pos,
+            listener_orient,
+            game_map,
+        )
 
         self._prune_finished_sounds()
 
@@ -282,7 +299,14 @@ class SoundManager:
             return False
 
         try:
-            played = self._play_sound_file(sound_file, volume, effect.random_pitch, source_pos, listener_pos)
+            played = self._play_sound_file(
+                sound_file,
+                volume,
+                effect.random_pitch,
+                source_pos,
+                listener_pos,
+                listener_orient,
+            )
             if not played and AUDIO_BACKEND is None:
                 # Treat as success in environments without an audio backend
                 played = True
@@ -341,26 +365,60 @@ class SoundManager:
                     log.warning(f"Failed to play background music {music_name}: {e}")
                     self.current_music_file = None
     
-    def _calculate_volume(self, base_volume: float, context: Optional[Dict[str, Any]] = None) -> float:
+    def _calculate_volume(
+        self,
+        base_volume: float,
+        context: Optional[Dict[str, Any]] = None,
+        source_pos: Optional[Tuple[float, float]] = None,
+        listener_pos: Optional[Tuple[float, float, float]] = None,
+        listener_orientation: Optional[Tuple[float, float]] = None,
+        game_map: Optional["GameMap"] = None,
+    ) -> float:
         """Calculate final volume with all modifiers applied."""
         final_volume = base_volume * self.sfx_volume * self.master_volume
-        
-        if not context:
-            return max(0.0, min(1.0, final_volume))
-        
+
+        if context is None:
+            context = {}
+
         # Apply distance-based falloff if not handled by backend
         distance = 0 if AUDIO_BACKEND == "pyopenal" else context.get("distance", 0)
         if distance > 0 and self.sound_fade_distance > 0:
             distance_modifier = max(0.0, 1.0 - (distance / self.sound_fade_distance))
             final_volume *= distance_modifier
-        
+
         # Apply environmental modifiers
         environment = context.get("environment")
         if environment and "environment_effects" in self.situational_modifiers:
             env_effects = self.situational_modifiers["environment_effects"].get(environment, {})
             volume_modifier = env_effects.get("volume_modifier", 1.0)
             final_volume *= volume_modifier
-        
+
+        occlusion_cfg = self.situational_modifiers.get("occlusion", {})
+
+        # Apply directional attenuation for sounds behind the listener
+        if source_pos and listener_pos and listener_orientation:
+            dx = source_pos[0] - listener_pos[0]
+            dy = source_pos[1] - listener_pos[1]
+            dist = math.hypot(dx, dy)
+            if dist > 0:
+                ox, oy = listener_orientation
+                dot = (dx * ox + dy * oy) / dist
+                if dot < 0:
+                    rear = occlusion_cfg.get("rear_attenuation", 0.5)
+                    final_volume *= rear
+
+        # Apply occlusion based on map data
+        if source_pos and listener_pos and game_map and occlusion_cfg:
+            if not line_of_sight(
+                int(listener_pos[0]),
+                int(listener_pos[1]),
+                int(source_pos[0]),
+                int(source_pos[1]),
+                game_map.transparent,
+            ):
+                wall_abs = occlusion_cfg.get("wall_absorption", 0.5)
+                final_volume *= 1.0 - wall_abs
+
         return max(0.0, min(1.0, final_volume))
     
     def _calculate_music_volume(self, base_volume: float, context: Dict[str, Any]) -> float:
@@ -396,7 +454,22 @@ class SoundManager:
                 except Exception:
                     pass
             self.active_sounds.difference_update(finished)
-    
+
+    def _calculate_pan(
+        self,
+        source_pos: Tuple[float, float],
+        listener_pos: Tuple[float, float, float],
+        listener_orientation: Tuple[float, float],
+    ) -> float:
+        """Return stereo pan value (-1.0 left to 1.0 right)."""
+        dx = source_pos[0] - listener_pos[0]
+        dy = source_pos[1] - listener_pos[1]
+        angle_to_source = math.atan2(dy, dx)
+        listener_angle = math.atan2(listener_orientation[1], listener_orientation[0])
+        angle = angle_to_source - listener_angle
+        pan = math.sin(angle)
+        return max(-1.0, min(1.0, pan))
+
     def _play_sound_file(
         self,
         filename: Path,
@@ -404,6 +477,7 @@ class SoundManager:
         pitch_variance: float = 0.0,
         source_pos: Optional[Tuple[float, float]] = None,
         listener_pos: Optional[Tuple[float, float, float]] = None,
+        listener_orientation: Optional[Tuple[float, float]] = None,
     ) -> bool:
         """Play a sound file using the current audio backend."""
         fname = str(filename)
@@ -420,6 +494,15 @@ class SoundManager:
                     src.position = (sx, 0.0, sy)
                 if listener_pos:
                     Listener.position = listener_pos
+                if listener_orientation:
+                    Listener.orientation = (
+                        listener_orientation[0],
+                        listener_orientation[1],
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                    )
                 self.active_sounds.add(src)
                 return True
             except Exception as e:
@@ -428,9 +511,15 @@ class SoundManager:
         elif AUDIO_BACKEND == "pygame":
             try:
                 sound = audio_backend.Sound(fname)
-                sound.set_volume(volume)
                 channel = sound.play()
                 if channel:
+                    if source_pos and listener_pos and listener_orientation:
+                        pan = self._calculate_pan(source_pos, listener_pos, listener_orientation)
+                        left = volume * (1 - pan) / 2
+                        right = volume * (1 + pan) / 2
+                        channel.set_volume(left, right)
+                    else:
+                        channel.set_volume(volume, volume)
                     self.active_sounds.add(channel)
                 return channel is not None
             except Exception as e:
@@ -532,6 +621,22 @@ class SoundManager:
         self.listener_position = (x, y, z)
         if AUDIO_BACKEND == "pyopenal" and self.enabled:
             Listener.position = self.listener_position
+
+    def set_listener_orientation(self, x: float, y: float) -> None:
+        """Update the 2D listener orientation vector."""
+        length = math.hypot(x, y)
+        if length == 0:
+            return
+        self.listener_orientation = (x / length, y / length)
+        if AUDIO_BACKEND == "pyopenal" and self.enabled:
+            Listener.orientation = (
+                self.listener_orientation[0],
+                self.listener_orientation[1],
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+            )
     
     def enable_audio(self, enabled: bool) -> None:
         """Enable or disable the entire audio system."""
