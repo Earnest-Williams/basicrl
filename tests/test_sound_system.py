@@ -459,7 +459,7 @@ class TestNoiseAttenuation:
         listener = (4, 1, 0.0)
 
         open_noise = compute_noise_map(
-            terrain, 1, 0, terrain.shape[0], terrain.shape[1], FlowType.REAL_NOISE
+            terrain, 1, 0, terrain.shape, FlowType.REAL_NOISE
         )
         vol_open = manager._calculate_volume(
             1.0, source_pos=source, listener_pos=listener, noise_map=open_noise
@@ -469,7 +469,7 @@ class TestNoiseAttenuation:
         door_map[:, 2] = FeatureType.WALL
         door_map[1, 2] = FeatureType.CLOSED_DOOR
         door_noise = compute_noise_map(
-            door_map, 1, 0, door_map.shape[0], door_map.shape[1], FlowType.REAL_NOISE
+            door_map, 1, 0, door_map.shape, FlowType.REAL_NOISE
         )
         vol_door = manager._calculate_volume(
             1.0, source_pos=source, listener_pos=listener, noise_map=door_noise
@@ -478,7 +478,7 @@ class TestNoiseAttenuation:
         wall_map = terrain.copy()
         wall_map[:, 2] = FeatureType.WALL
         wall_noise = compute_noise_map(
-            wall_map, 1, 0, wall_map.shape[0], wall_map.shape[1], FlowType.REAL_NOISE
+            wall_map, 1, 0, wall_map.shape, FlowType.REAL_NOISE
         )
         vol_wall = manager._calculate_volume(
             1.0, source_pos=source, listener_pos=listener, noise_map=wall_noise

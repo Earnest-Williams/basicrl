@@ -28,28 +28,18 @@ try:
     from game.game_state import GameState
     from game.world.game_map import GameMap
     from game.world.fov import compute_light_color_array
-except ImportError:
-    # Attempt fallback imports if needed
-    try:
-        from basicrl.game.game_state import GameState
-        from basicrl.game.world.game_map import GameMap
-        from basicrl.game.world.fov import compute_light_color_array
-    except ImportError as exc:
-        raise RuntimeError(
-            "Failed to import GameState or GameMap in renderer"
-        ) from exc
+except ImportError as exc:  # pragma: no cover - import failure is fatal
+    raise RuntimeError(
+        "Failed to import GameState or GameMap in renderer"
+    ) from exc
 
 # Require GameRNG; abort if unavailable
 try:
     from game_rng import GameRNG
-except ImportError:
-    try:
-        from basicrl.game_rng import GameRNG
-    except ImportError as exc:
-        raise RuntimeError(
-            "Failed to import GameRNG in renderer"
-        ) from exc
-
+except ImportError as exc:  # pragma: no cover - import failure is fatal
+    raise RuntimeError(
+        "Failed to import GameRNG in renderer"
+    ) from exc
 
 if TYPE_CHECKING:
     pass

@@ -39,8 +39,11 @@ SCENT_RESET_AGE: int = 250  # Base age for scent reset cycle
 # Parallelism
 # Determine job count with safe fallback when CPU count is unknown
 def _job_count() -> int:
-    """Half of available cores, or 1 if ``os.cpu_count()`` is ``None``."""
-    cpu_count = os.cpu_count()
+    """Half of available cores, or 1 if ``os.cpu_count()`` is unavailable."""
+    try:
+        cpu_count = os.cpu_count()
+    except Exception:  # pragma: no cover - extremely unlikely
+        cpu_count = 1
     return max(1, cpu_count // 2) if cpu_count else 1
 
 
@@ -242,18 +245,21 @@ def compute_noise_map(
     terrain_map: np.ndarray,
     cy: int,
     cx: int,
-    height: int,
-    width: int,
+    map_size: Tuple[int, int],
     which_flow: FlowType = FlowType.REAL_NOISE,
     penalties: Dict[str, int] | None = None,
 ) -> np.ndarray:
     """Convenience wrapper that returns a noise map slice.
 
-    This function allocates the required arrays for the provided ``height`` and
-    ``width``, runs :func:`update_noise` for a single flow type and returns the
-    resulting 2D cost grid.  Both AI agents and the audio engine can use this to
-    ensure they operate on identical propagation data.
+    Args:
+        terrain_map: The terrain feature map.
+        cy, cx: Origin coordinates of the noise source.
+        map_size: ``(height, width)`` describing the map dimensions.
+        which_flow: Flow type to compute.
+        penalties: Door penalty configuration.
     """
+
+    height, width = map_size
 
     try:
         cave_cost = np.zeros((MAX_FLOWS, height, width), dtype=np.int32)
@@ -273,7 +279,7 @@ def compute_noise_map(
         # unavailable (e.g., during testing environments without Numba
         # compilation support).
         return _compute_noise_map_python(
-            terrain_map, cy, cx, height, width, which_flow, penalties or {}
+            terrain_map, cy, cx, map_size, which_flow, penalties or {}
         )
 
 
@@ -281,11 +287,11 @@ def _compute_noise_map_python(
     terrain_map: np.ndarray,
     cy: int,
     cx: int,
-    height: int,
-    width: int,
+    map_size: Tuple[int, int],
     which_flow: FlowType,
     penalties: Dict[str, int],
 ) -> np.ndarray:
+    height, width = map_size
     infinity = np.iinfo(np.int32).max // 2
     cost_grid = np.full((height, width), infinity, dtype=np.int32)
     if not in_bounds(cy, cx, height, width):
