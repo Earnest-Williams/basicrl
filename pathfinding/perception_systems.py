@@ -30,9 +30,6 @@ log = structlog.get_logger(__name__)
 # --- Constants ---
 
 # --- Configuration ---
-# Map dimensions (replace with actual dimensions)
-MAP_HGT: int = 64
-MAP_WID: int = 64
 # Noise/Smell parameters (from Sil analysis)
 BASE_FLOW_CENTER: int = 100
 NOISE_STRENGTH: int = 80  # Max propagation distance for noise cost calculation
@@ -98,9 +95,9 @@ def cave_closed_door(feature_type: int) -> bool:
 
 @njit(cache=True, fastmath=True)
 def _propagate_noise_kernel(
-    # Single slice for the current flow: shape (MAP_HGT, MAP_WID)
+    # Single slice for the current flow; shape (height, width)
     cost_grid: np.ndarray,
-    terrain_map: np.ndarray,  # Map features: shape (MAP_HGT, MAP_WID)
+    terrain_map: np.ndarray,  # Map features; shape (height, width)
     start_y: int,
     start_x: int,  # Origin of the noise
     start_cost: int,  # e.g., BASE_FLOW_CENTER
@@ -194,10 +191,10 @@ def _propagate_noise_kernel(
 
 
 def update_noise(
-    cave_cost: np.ndarray,  # Full 3D cost array: (MAX_FLOWS, MAP_HGT, MAP_WID)
+    cave_cost: np.ndarray,  # Full 3D cost array: (MAX_FLOWS, height, width)
     # Array to store centers: (MAX_FLOWS, 2) for y, x
     flow_centers: np.ndarray,
-    terrain_map: np.ndarray,  # Map features: (MAP_HGT, MAP_WID)
+    terrain_map: np.ndarray,  # Map features: (height, width)
     cy: int,
     cx: int,  # Center coordinates for this update
     which_flow: FlowType,  # Which flow map to update
@@ -245,18 +242,19 @@ def compute_noise_map(
     terrain_map: np.ndarray,
     cy: int,
     cx: int,
+    height: int,
+    width: int,
     which_flow: FlowType = FlowType.REAL_NOISE,
     penalties: Dict[str, int] | None = None,
 ) -> np.ndarray:
     """Convenience wrapper that returns a noise map slice.
 
-    This function allocates the required arrays, runs :func:`update_noise` for a
-    single flow type and returns the resulting 2D cost grid.  Both AI agents and
-    the audio engine can use this to ensure they operate on identical
-    propagation data.
+    This function allocates the required arrays for the provided ``height`` and
+    ``width``, runs :func:`update_noise` for a single flow type and returns the
+    resulting 2D cost grid.  Both AI agents and the audio engine can use this to
+    ensure they operate on identical propagation data.
     """
 
-    height, width = terrain_map.shape
     try:
         cave_cost = np.zeros((MAX_FLOWS, height, width), dtype=np.int32)
         flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)
@@ -275,7 +273,7 @@ def compute_noise_map(
         # unavailable (e.g., during testing environments without Numba
         # compilation support).
         return _compute_noise_map_python(
-            terrain_map, cy, cx, which_flow, penalties or {}
+            terrain_map, cy, cx, height, width, which_flow, penalties or {}
         )
 
 
@@ -283,10 +281,11 @@ def _compute_noise_map_python(
     terrain_map: np.ndarray,
     cy: int,
     cx: int,
+    height: int,
+    width: int,
     which_flow: FlowType,
     penalties: Dict[str, int],
 ) -> np.ndarray:
-    height, width = terrain_map.shape
     infinity = np.iinfo(np.int32).max // 2
     cost_grid = np.full((height, width), infinity, dtype=np.int32)
     if not in_bounds(cy, cx, height, width):
@@ -774,36 +773,37 @@ if __name__ == "__main__":
 
     # --- Initialize Map Data (Placeholders) ---
     # Replace with your actual map loading/generation
+    height, width = 64, 64
     # Terrain map: integers representing FeatureType
-    terrain_map = np.full((MAP_HGT, MAP_WID), FeatureType.FLOOR, dtype=np.int32)
+    terrain_map = np.full((height, width), FeatureType.FLOOR, dtype=np.int32)
     # Add some walls and a closed door for testing noise propagation
-    terrain_map[MAP_HGT // 2, MAP_WID // 4 : 3 * MAP_WID // 4] = FeatureType.WALL
-    terrain_map[MAP_HGT // 2 + 5, MAP_WID // 2] = FeatureType.CLOSED_DOOR
+    terrain_map[height // 2, width // 4 : 3 * width // 4] = FeatureType.WALL
+    terrain_map[height // 2 + 5, width // 2] = FeatureType.CLOSED_DOOR
     # Add boundary walls
     terrain_map[0, :] = FeatureType.WALL
-    terrain_map[MAP_HGT - 1, :] = FeatureType.WALL
+    terrain_map[height - 1, :] = FeatureType.WALL
     terrain_map[:, 0] = FeatureType.WALL
-    terrain_map[:, MAP_WID - 1] = FeatureType.WALL
+    terrain_map[:, width - 1] = FeatureType.WALL
 
     # Noise cost map: Init with a large value (infinity)
     infinity_val = np.iinfo(np.int32).max // 2
-    cave_cost = np.full((MAX_FLOWS, MAP_HGT, MAP_WID), infinity_val, dtype=np.int32)
+    cave_cost = np.full((MAX_FLOWS, height, width), infinity_val, dtype=np.int32)
     flow_centers = np.zeros((MAX_FLOWS, 2), dtype=np.int32)  # Store (y, x) centers
 
     # Scent map: Init with 0 (no scent)
-    cave_when = np.zeros((MAP_HGT, MAP_WID), dtype=np.int32)
+    cave_when = np.zeros((height, width), dtype=np.int32)
     global_scent_when: int = SCENT_RESET_AGE  # Initial scent timer
 
     # Define door penalties
     door_penalties = {"pass": 3, "real": 5}
 
     # --- Initialize Player and Monsters ---
-    player_y, player_x = MAP_HGT // 2 + 10, MAP_WID // 2
+    player_y, player_x = height // 2 + 10, width // 2
     player_stealth_skill = 10  # Example skill value
     rng = GameRNG(seed=123)  # Deterministic RNG for demo
 
     num_monsters = 500  # Example number of monsters for testing parallelism
-    monster_df = initialize_monsters(num_monsters, MAP_HGT, MAP_WID)
+    monster_df = initialize_monsters(num_monsters, height, width)
     # Ensure monsters don't start inside walls (simple repositioning)
     monster_df = monster_df.with_columns(
         pl.when(terrain_map[pl.col("fy"), pl.col("fx")] == FeatureType.WALL)
@@ -817,8 +817,7 @@ if __name__ == "__main__":
     )
 
     print(
-        f"Map: {MAP_HGT}x{MAP_WID}, Player: ({
-            player_y}, {player_x}), Monsters: {num_monsters}"
+        f"Map: {height}x{width}, Player: ({player_y}, {player_x}), Monsters: {num_monsters}"
     )
     print(f"Using {N_JOBS} parallel jobs for perception.")
 
@@ -888,7 +887,7 @@ if __name__ == "__main__":
         # (Player moves, monsters move, combat happens, etc. - not implemented)
         # Simple player movement example
         player_x += 1
-        if player_x >= MAP_WID - 1:
+        if player_x >= width - 1:
             player_x = 1  # Basic wrap/reset
 
     print("\nDemo finished.")
