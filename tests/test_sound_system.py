@@ -85,7 +85,7 @@ class TestBackgroundMusic:
     def test_background_music_creation(self):
         """Test creating background music."""
         config = {
-            "files": ["music1.ogg"],
+            "generator": {"tempo": 90, "harmony": "major", "intensity": 0.3},
             "volume": 0.6,
             "loop": True,
             "fade_in_time": 2.0,
@@ -94,8 +94,7 @@ class TestBackgroundMusic:
             "conditions": {"game_state": ["exploring"]}
         }
         music = BackgroundMusic(config, Path("/test"))
-        
-        assert music.files == ["music1.ogg"]
+        assert music.generator_settings == {"tempo": 90, "harmony": "major", "intensity": 0.3}
         assert music.volume == 0.6
         assert music.loop is True
         assert music.fade_in_time == 2.0
@@ -106,7 +105,7 @@ class TestBackgroundMusic:
     def test_background_music_matches_conditions(self):
         """Test background music condition matching."""
         config = {
-            "files": ["music.ogg"],
+            "generator": {"tempo": 100, "harmony": "minor", "intensity": 0.5},
             "conditions": {
                 "game_state": ["exploring"],
                 "min_depth": 5
@@ -159,16 +158,28 @@ class TestSoundManager:
             },
             "background_music": {
                 "exploration": {
-                    "files": ["explore.ogg"],
+                    "generator": {"tempo": 90, "harmony": "major", "intensity": 0.3},
                     "volume": 0.4,
                     "loop": True,
                     "conditions": {"game_state": ["exploring"]}
                 },
                 "combat": {
-                    "files": ["combat.ogg"],
+                    "generator": {"tempo": 140, "harmony": "minor", "intensity": 0.8},
                     "volume": 0.6,
                     "priority": 10,
                     "conditions": {"game_state": ["combat"]}
+                },
+                "deep_dungeon": {
+                    "generator": {"tempo": 70, "harmony": "minor", "intensity": 0.6},
+                    "volume": 0.5,
+                    "priority": 5,
+                    "conditions": {"min_depth": 10, "game_state": ["exploring"]}
+                },
+                "night": {
+                    "generator": {"tempo": 80, "harmony": "minor", "intensity": 0.4},
+                    "volume": 0.4,
+                    "priority": 3,
+                    "conditions": {"time_of_day": ["night"], "game_state": ["exploring"]}
                 }
             },
             "event_mappings": {
@@ -203,6 +214,8 @@ class TestSoundManager:
             # Check loaded background music
             assert "exploration" in manager.background_music
             assert "combat" in manager.background_music
+            assert "deep_dungeon" in manager.background_music
+            assert "night" in manager.background_music
             
             # Check event mappings
             assert manager.event_mappings["player_move"] == "test_effect"
@@ -249,16 +262,22 @@ class TestSoundManager:
             context = {"game_state": "exploring"}
             manager.update_background_music(context)
             assert manager.current_music_name == "exploration"
-            
+            assert manager.current_music_file is not None
+
             # Test combat music (higher priority)
             context = {"game_state": "combat"}
             manager.update_background_music(context)
             assert manager.current_music_name == "combat"
-            
-            # Test back to exploration
-            context = {"game_state": "exploring"}
+
+            # Test depth-based music
+            context = {"game_state": "exploring", "depth": 12}
             manager.update_background_music(context)
-            assert manager.current_music_name == "exploration"
+            assert manager.current_music_name == "deep_dungeon"
+
+            # Test time-of-day music
+            context = {"game_state": "exploring", "time_of_day": "night"}
+            manager.update_background_music(context)
+            assert manager.current_music_name == "night"
             
         finally:
             os.unlink(config_path)
