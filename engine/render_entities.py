@@ -87,7 +87,10 @@ def render_map_tiles(
 @njit(cache=True, nogil=True)
 def render_ground_items(
     output_image_array: np.ndarray,
-    items_to_render: List[PyDict],
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
     tile_arrays: NumbaDict,
     intensity_map: np.ndarray,
     viewport_x: int,
@@ -97,24 +100,30 @@ def render_ground_items(
     tile_w: int,
     tile_h: int,
 ) -> None:
-    for item_data in items_to_render:
-        if not (
-            "x" in item_data
-            and "y" in item_data
-            and "glyph" in item_data
-            and "color_fg_r" in item_data
-            and "color_fg_g" in item_data
-            and "color_fg_b" in item_data
-        ):
-            continue
+    if (
+        xs.ndim != 1
+        or ys.ndim != 1
+        or glyphs.ndim != 1
+        or colors.ndim != 2
+        or colors.shape[1] != 4
+        or xs.shape[0] != ys.shape[0]
+        or xs.shape[0] != glyphs.shape[0]
+        or xs.shape[0] != colors.shape[0]
+        or xs.dtype != np.int64
+        or ys.dtype != np.int64
+        or glyphs.dtype != np.int32
+        or colors.dtype != np.uint8
+    ):
+        return
 
-        map_x = cast(nb_types.int64, item_data["x"])
-        map_y = cast(nb_types.int64, item_data["y"])
-        item_glyph_idx = cast(nb_types.int66, item_data["glyph"])
-        color_r = cast(nb_types.uint8, item_data["color_fg_r"])
-        color_g = cast(nb_types.uint8, item_data["color_fg_g"])
-        color_b = cast(nb_types.uint8, item_data["color_fg_b"])
+    n_items = xs.shape[0]
+    if n_items == 0:
+        return
 
+    for i in range(n_items):
+        map_x = xs[i]
+        map_y = ys[i]
+        item_glyph_idx = glyphs[i]
         if item_glyph_idx <= 0:
             continue
 
@@ -137,6 +146,9 @@ def render_ground_items(
                 else:
                     item_intensity = np.float32(1.0)
 
+                color_r = colors[i, 0]
+                color_g = colors[i, 1]
+                color_b = colors[i, 2]
                 base_item_fg_rgb = np.array([color_r, color_g, color_b], dtype=np.uint8)
                 lit_item_fg_rgb = _interpolate_color_numba_vector(
                     base_item_fg_rgb, item_intensity

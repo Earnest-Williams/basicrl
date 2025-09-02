@@ -461,7 +461,10 @@ def render_viewport(
         # Continue rendering other layers, but tiles might be missing/incorrect
 
     # --- Prepare Ground Item Data (Query using Polars) ---
-    items_to_render_list: List[PyDict] = []
+    item_xs: np.ndarray | None = None
+    item_ys: np.ndarray | None = None
+    item_glyphs: np.ndarray | None = None
+    item_colors: np.ndarray | None = None
     # Only query items if there is any visible area on the map
     if np.any(map_visible_vp):
         try:
@@ -531,21 +534,16 @@ def render_viewport(
                     pl.Series(values=visible_item_mask)
                 )
 
-                # Convert the filtered DataFrame to a list of dictionaries for use in Numba
                 if visible_items_df.height > 0:
-                    # Select necessary columns for rendering (position, glyph, color)
-                    # Note: item_id is included for potential debugging/logging within Numba, but not used for drawing
-                    items_to_render_list = visible_items_df.select(
-                        [
-                            "x",
-                            "y",
-                            "glyph",
-                            "color_fg_r",
-                            "color_fg_g",
-                            "color_fg_b",
-                            "item_id",
-                        ]
-                    ).to_dicts()
+                    item_xs = visible_items_df["x"].to_numpy().astype(np.int64)
+                    item_ys = visible_items_df["y"].to_numpy().astype(np.int64)
+                    item_glyphs = visible_items_df["glyph"].to_numpy().astype(np.int32)
+                    r = visible_items_df["color_fg_r"].to_numpy().astype(np.uint8)
+                    g = visible_items_df["color_fg_g"].to_numpy().astype(np.uint8)
+                    b = visible_items_df["color_fg_b"].to_numpy().astype(np.uint8)
+                    item_colors = np.stack(
+                        [r, g, b, np.full(r.shape[0], 255, dtype=np.uint8)], axis=1
+                    )
 
         except Exception as e:
             # Catch any errors during Polars query or data processing for items
@@ -556,13 +554,16 @@ def render_viewport(
             )
 
     # --- Render Ground Items (Draws items over tiles, calls Numba helper) ---
-    if items_to_render_list:
+    if item_xs is not None and item_xs.size > 0:
         try:
             # Only call the Numba item rendering function if Numba is available and tile_arrays is a NumbaDict
             if _NUMBA_AVAILABLE and isinstance(tile_arrays, NumbaDict):
                 render_ground_items(
                     output_image_array,
-                    items_to_render_list,
+                    item_xs,
+                    item_ys,
+                    item_glyphs,
+                    item_colors,
                     tile_arrays,
                     intensity_map,
                     viewport_x,
