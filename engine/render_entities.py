@@ -88,6 +88,13 @@ def pack_ground_items(items: list[dict]) -> tuple[np.ndarray, np.ndarray, np.nda
     glyphs = np.empty(n, dtype=np.int32)
     colors = np.empty((n, 4), dtype=np.uint8)
 
+    assert xs.dtype == np.int64, f"Expected xs to have dtype int64, got {xs.dtype}"
+    assert ys.dtype == np.int64, f"Expected ys to have dtype int64, got {ys.dtype}"
+    assert glyphs.dtype == np.int32, f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
+    assert colors.dtype == np.uint8 and colors.shape[1] == 4, (
+        f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
+    )
+
     for i, it in enumerate(items):
         xs[i] = int(it.get("x", 0))
         ys[i] = int(it.get("y", 0))
@@ -114,6 +121,13 @@ def pack_entities(entities: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndar
     ys = np.empty(n, dtype=np.int64)
     glyphs = np.empty(n, dtype=np.int32)
     colors = np.empty((n, 4), dtype=np.uint8)
+
+    assert xs.dtype == np.int64, f"Expected xs to have dtype int64, got {xs.dtype}"
+    assert ys.dtype == np.int64, f"Expected ys to have dtype int64, got {ys.dtype}"
+    assert glyphs.dtype == np.int32, f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
+    assert colors.dtype == np.uint8 and colors.shape[1] == 4, (
+        f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
+    )
 
     for i, ent in enumerate(entities):
         xs[i] = int(ent.get("x", 0))
