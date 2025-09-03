@@ -215,22 +215,6 @@ def render_ground_items(
     tile_w: int,
     tile_h: int,
 ) -> None:
-    if (
-        xs.ndim != 1
-        or ys.ndim != 1
-        or glyphs.ndim != 1
-        or colors.ndim != 2
-        or colors.shape[1] != 4
-        or xs.shape[0] != ys.shape[0]
-        or xs.shape[0] != glyphs.shape[0]
-        or xs.shape[0] != colors.shape[0]
-        or xs.dtype != np.int64
-        or ys.dtype != np.int64
-        or glyphs.dtype != np.int32
-        or colors.dtype != np.uint8
-    ):
-        return
-
     n_items = xs.shape[0]
     if n_items == 0:
         return
@@ -300,22 +284,6 @@ def render_entities(
     tile_w: int,
     tile_h: int,
 ) -> None:
-    if (
-        xs.ndim != 1
-        or ys.ndim != 1
-        or glyphs.ndim != 1
-        or colors.ndim != 2
-        or colors.shape[1] != 4
-        or xs.shape[0] != ys.shape[0]
-        or xs.shape[0] != glyphs.shape[0]
-        or xs.shape[0] != colors.shape[0]
-        or xs.dtype != np.int64
-        or ys.dtype != np.int64
-        or glyphs.dtype != np.int32
-        or colors.dtype != np.uint8
-    ):
-        return
-
     n_entities = xs.shape[0]
     if n_entities == 0:
         return
@@ -367,3 +335,94 @@ def render_entities(
                 target_pixel_block[entity_draw_mask, 3] = entity_alpha_channel[
                     entity_draw_mask
                 ]
+
+
+def _validate_render_arrays(
+    xs: np.ndarray, ys: np.ndarray, glyphs: np.ndarray, colors: np.ndarray
+) -> bool:
+    """Return ``True`` if the provided arrays have the expected shapes and dtypes."""
+
+    return not (
+        xs.ndim != 1
+        or ys.ndim != 1
+        or glyphs.ndim != 1
+        or colors.ndim != 2
+        or colors.shape[1] != 4
+        or xs.shape[0] != ys.shape[0]
+        or xs.shape[0] != glyphs.shape[0]
+        or xs.shape[0] != colors.shape[0]
+        or xs.dtype != np.int64
+        or ys.dtype != np.int64
+        or glyphs.dtype != np.int32
+        or colors.dtype != np.uint8
+    )
+
+
+def render_ground_items_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_ground_items(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
+
+
+def render_entities_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_entities(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
