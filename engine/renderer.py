@@ -9,8 +9,8 @@ from .render_entities import (
     pack_ground_items,
     pack_entities,
     render_map_tiles,
-    render_ground_items,
-    render_entities,
+    render_ground_items_py,
+    render_entities_py,
 )
 from .render_lighting import (
     calculate_lighting,
@@ -561,7 +561,7 @@ def render_viewport(
         try:
             # Only call the Numba item rendering function if Numba is available and tile_arrays is a NumbaDict
             if _NUMBA_AVAILABLE and isinstance(tile_arrays, NumbaDict):
-                render_ground_items(
+                render_ground_items_py(
                     output_image_array,
                     item_xs,
                     item_ys,
@@ -643,7 +643,7 @@ def render_viewport(
             # Only call the Numba entity rendering function if Numba is available and tile_arrays is a NumbaDict
             if _NUMBA_AVAILABLE and isinstance(tile_arrays, NumbaDict):
                 # Note: Visibility check for entities is done *inside* the Numba function
-                render_entities(
+                render_entities_py(
                     output_image_array,
                     entity_xs,
                     entity_ys,
