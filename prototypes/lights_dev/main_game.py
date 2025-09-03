@@ -843,7 +843,7 @@ class GameState:
                 return "Error: Failed Illum calc."
         d = self.dungeon
         result = []
-        player_pos = self.player.position if self.player else (-1, -1)
+        player_pos = self.player if self.player else Entity(-1, -1)
         rgb_sum_array = self.current_illumination_rgb_sum
         if constants.DEBUG_RENDER_MODE == "level":
             result.append("--- Est. Brightness (0.0-1.0+, from RGB Sum) ---")
@@ -919,7 +919,7 @@ class GameState:
                 tile_id = d.tiles[y, x]
                 char = constants.UNSEEN
                 final_color_code = ""
-                is_player_tile = x == player_pos[0] and y == player_pos[1]
+                is_player_tile = x == player_pos.x and y == player_pos.y
                 light_source_at_tile: Optional[LightSource] = None
                 if not is_player_tile:
                     for light in self.light_sources:
