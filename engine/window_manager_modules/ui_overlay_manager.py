@@ -162,10 +162,7 @@ class UIOverlayManager:
             turn = gs.turn_count
             player_pos = gs.player_position
             pos_str = (
-                f"({player_pos[0]},{
-                player_pos[1]})"
-                if player_pos
-                else "N/A"
+                f"({player_pos.x},{player_pos.y})" if player_pos else "N/A"
             )
 
             entities_count_str = "?"
