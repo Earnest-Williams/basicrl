@@ -277,78 +277,6 @@ def render_ground_items(
                     target_pixel_block[r, c, 3] = item_alpha_channel[r, c]
 
 
-def render_ground_items_py(
-    output_image_array: np.ndarray,
-    xs: np.ndarray,
-    ys: np.ndarray,
-    glyphs: np.ndarray,
-    colors: np.ndarray,
-    tile_arrays: NumbaDict,
-    intensity_map: np.ndarray,
-    viewport_x: int,
-    viewport_y: int,
-    vp_h: int,
-    vp_w: int,
-    tile_w: int,
-    tile_h: int,
-) -> None:
-    """Python wrapper for render_ground_items that validates inputs."""
-    if not _validate_render_arrays(xs, ys, glyphs, colors):
-        return
-
-    render_ground_items(
-        output_image_array,
-        xs,
-        ys,
-        glyphs,
-        colors,
-        tile_arrays,
-        intensity_map,
-        viewport_x,
-        viewport_y,
-        vp_h,
-        vp_w,
-        tile_w,
-        tile_h,
-    )
-
-
-def render_entities_py(
-    output_image_array: np.ndarray,
-    xs: np.ndarray,
-    ys: np.ndarray,
-    glyphs: np.ndarray,
-    colors: np.ndarray,
-    tile_arrays: NumbaDict,
-    intensity_map: np.ndarray,
-    viewport_x: int,
-    viewport_y: int,
-    vp_h: int,
-    vp_w: int,
-    tile_w: int,
-    tile_h: int,
-) -> None:
-    """Python wrapper for render_entities that validates inputs."""
-    if not _validate_render_arrays(xs, ys, glyphs, colors):
-        return
-
-    render_entities(
-        output_image_array,
-        xs,
-        ys,
-        glyphs,
-        colors,
-        tile_arrays,
-        intensity_map,
-        viewport_x,
-        viewport_y,
-        vp_h,
-        vp_w,
-        tile_w,
-        tile_h,
-    )
-
-
 @njit(cache=True, nogil=True)
 def render_entities(
     output_image_array: np.ndarray,
@@ -436,3 +364,75 @@ def _validate_render_arrays(
     if not (xs.shape[0] == ys.shape[0] == glyphs.shape[0] == colors.shape[0]):
         return False
     return True
+
+
+def render_ground_items_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    """Python wrapper for render_ground_items that validates inputs."""
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_ground_items(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
+
+
+def render_entities_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    """Python wrapper for render_entities that validates inputs."""
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_entities(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
