@@ -46,9 +46,7 @@ def _extract_color_components(color_dict: dict) -> tuple[int, int, int, int]:
 
     if "color" in color_dict and isinstance(color_dict["color"], (list, tuple)):
         seq = color_dict["color"]
-    elif "color_fg" in color_dict and isinstance(
-        color_dict["color_fg"], (list, tuple)
-    ):
+    elif "color_fg" in color_dict and isinstance(color_dict["color_fg"], (list, tuple)):
         seq = color_dict["color_fg"]
     else:
         seq = (
@@ -65,7 +63,9 @@ def _extract_color_components(color_dict: dict) -> tuple[int, int, int, int]:
     return r, g, b, a
 
 
-def pack_ground_items(items: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def pack_ground_items(
+    items: list[dict],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Pack a list of ground item dictionaries into typed NumPy arrays.
 
     Parameters
@@ -90,16 +90,18 @@ def pack_ground_items(items: list[dict]) -> tuple[np.ndarray, np.ndarray, np.nda
 
     assert xs.dtype == np.int64, f"Expected xs to have dtype int64, got {xs.dtype}"
     assert ys.dtype == np.int64, f"Expected ys to have dtype int64, got {ys.dtype}"
-    assert glyphs.dtype == np.int32, f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
-    assert colors.dtype == np.uint8 and colors.shape[1] == 4, (
-        f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
-    )
+    assert (
+        glyphs.dtype == np.int32
+    ), f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
+    assert (
+        colors.dtype == np.uint8 and colors.shape[1] == 4
+    ), f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
 
-    for i, it in enumerate(items):
-        xs[i] = int(it.get("x", 0))
-        ys[i] = int(it.get("y", 0))
-        glyphs[i] = int(it.get("glyph", 0))
-        r, g, b, a = _extract_color_components(it)
+    for i, item in enumerate(items):
+        xs[i] = int(item.get("x", 0))
+        ys[i] = int(item.get("y", 0))
+        glyphs[i] = int(item.get("glyph", 0))
+        r, g, b, a = _extract_color_components(item)
         colors[i, 0] = r
         colors[i, 1] = g
         colors[i, 2] = b
@@ -108,7 +110,9 @@ def pack_ground_items(items: list[dict]) -> tuple[np.ndarray, np.ndarray, np.nda
     return xs, ys, glyphs, colors
 
 
-def pack_entities(entities: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def pack_entities(
+    entities: list[dict],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Pack a list of entity dictionaries into typed NumPy arrays.
 
     Behaviour mirrors :func:`pack_ground_items` but is provided separately for
@@ -124,10 +128,12 @@ def pack_entities(entities: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndar
 
     assert xs.dtype == np.int64, f"Expected xs to have dtype int64, got {xs.dtype}"
     assert ys.dtype == np.int64, f"Expected ys to have dtype int64, got {ys.dtype}"
-    assert glyphs.dtype == np.int32, f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
-    assert colors.dtype == np.uint8 and colors.shape[1] == 4, (
-        f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
-    )
+    assert (
+        glyphs.dtype == np.int32
+    ), f"Expected glyphs to have dtype int32, got {glyphs.dtype}"
+    assert (
+        colors.dtype == np.uint8 and colors.shape[1] == 4
+    ), f"Expected colors to have dtype uint8 and shape (n, 4), got dtype {colors.dtype} and shape {colors.shape}"
 
     for i, ent in enumerate(entities):
         xs[i] = int(ent.get("x", 0))
@@ -260,12 +266,87 @@ def render_ground_items(
                 target_pixel_block = output_image_array[dest_slice_y, dest_slice_x]
                 item_alpha_channel = item_tile_rgba_array[:, :, 3]
                 item_draw_mask = item_alpha_channel > 10
-                target_pixel_block[item_draw_mask, 0] = lit_item_fg_rgb[0]
-                target_pixel_block[item_draw_mask, 1] = lit_item_fg_rgb[1]
-                target_pixel_block[item_draw_mask, 2] = lit_item_fg_rgb[2]
-                target_pixel_block[item_draw_mask, 3] = item_alpha_channel[
-                    item_draw_mask
-                ]
+
+                # Fix: Use np.where instead of multi-dimensional boolean indexing
+                mask_rows, mask_cols = np.where(item_draw_mask)
+                for j in range(mask_rows.shape[0]):
+                    r, c = mask_rows[j], mask_cols[j]
+                    target_pixel_block[r, c, 0] = lit_item_fg_rgb[0]
+                    target_pixel_block[r, c, 1] = lit_item_fg_rgb[1]
+                    target_pixel_block[r, c, 2] = lit_item_fg_rgb[2]
+                    target_pixel_block[r, c, 3] = item_alpha_channel[r, c]
+
+
+def render_ground_items_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    """Python wrapper for render_ground_items that validates inputs."""
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_ground_items(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
+
+
+def render_entities_py(
+    output_image_array: np.ndarray,
+    xs: np.ndarray,
+    ys: np.ndarray,
+    glyphs: np.ndarray,
+    colors: np.ndarray,
+    tile_arrays: NumbaDict,
+    intensity_map: np.ndarray,
+    viewport_x: int,
+    viewport_y: int,
+    vp_h: int,
+    vp_w: int,
+    tile_w: int,
+    tile_h: int,
+) -> None:
+    """Python wrapper for render_entities that validates inputs."""
+    if not _validate_render_arrays(xs, ys, glyphs, colors):
+        return
+
+    render_entities(
+        output_image_array,
+        xs,
+        ys,
+        glyphs,
+        colors,
+        tile_arrays,
+        intensity_map,
+        viewport_x,
+        viewport_y,
+        vp_h,
+        vp_w,
+        tile_w,
+        tile_h,
+    )
 
 
 @njit(cache=True, nogil=True)
@@ -329,100 +410,29 @@ def render_entities(
                 ]
                 entity_alpha_channel = entity_tile_rgba_array[:, :, 3]
                 entity_draw_mask = entity_alpha_channel > 10
-                target_pixel_block[entity_draw_mask, 0] = lit_fg_e_rgb[0]
-                target_pixel_block[entity_draw_mask, 1] = lit_fg_e_rgb[1]
-                target_pixel_block[entity_draw_mask, 2] = lit_fg_e_rgb[2]
-                target_pixel_block[entity_draw_mask, 3] = entity_alpha_channel[
-                    entity_draw_mask
-                ]
+
+                # Fix: Use np.where instead of multi-dimensional boolean indexing
+                mask_rows, mask_cols = np.where(entity_draw_mask)
+                for j in range(mask_rows.shape[0]):
+                    r, c = mask_rows[j], mask_cols[j]
+                    target_pixel_block[r, c, 0] = lit_fg_e_rgb[0]
+                    target_pixel_block[r, c, 1] = lit_fg_e_rgb[1]
+                    target_pixel_block[r, c, 2] = lit_fg_e_rgb[2]
+                    target_pixel_block[r, c, 3] = entity_alpha_channel[r, c]
 
 
 def _validate_render_arrays(
     xs: np.ndarray, ys: np.ndarray, glyphs: np.ndarray, colors: np.ndarray
 ) -> bool:
     """Return ``True`` if the provided arrays have the expected shapes and dtypes."""
-
-    return not (
-        xs.ndim != 1
-        or ys.ndim != 1
-        or glyphs.ndim != 1
-        or colors.ndim != 2
-        or colors.shape[1] != 4
-        or xs.shape[0] != ys.shape[0]
-        or xs.shape[0] != glyphs.shape[0]
-        or xs.shape[0] != colors.shape[0]
-        or xs.dtype != np.int64
-        or ys.dtype != np.int64
-        or glyphs.dtype != np.int32
-        or colors.dtype != np.uint8
-    )
-
-
-def render_ground_items_py(
-    output_image_array: np.ndarray,
-    xs: np.ndarray,
-    ys: np.ndarray,
-    glyphs: np.ndarray,
-    colors: np.ndarray,
-    tile_arrays: NumbaDict,
-    intensity_map: np.ndarray,
-    viewport_x: int,
-    viewport_y: int,
-    vp_h: int,
-    vp_w: int,
-    tile_w: int,
-    tile_h: int,
-) -> None:
-    if not _validate_render_arrays(xs, ys, glyphs, colors):
-        return
-
-    render_ground_items(
-        output_image_array,
-        xs,
-        ys,
-        glyphs,
-        colors,
-        tile_arrays,
-        intensity_map,
-        viewport_x,
-        viewport_y,
-        vp_h,
-        vp_w,
-        tile_w,
-        tile_h,
-    )
-
-
-def render_entities_py(
-    output_image_array: np.ndarray,
-    xs: np.ndarray,
-    ys: np.ndarray,
-    glyphs: np.ndarray,
-    colors: np.ndarray,
-    tile_arrays: NumbaDict,
-    intensity_map: np.ndarray,
-    viewport_x: int,
-    viewport_y: int,
-    vp_h: int,
-    vp_w: int,
-    tile_w: int,
-    tile_h: int,
-) -> None:
-    if not _validate_render_arrays(xs, ys, glyphs, colors):
-        return
-
-    render_entities(
-        output_image_array,
-        xs,
-        ys,
-        glyphs,
-        colors,
-        tile_arrays,
-        intensity_map,
-        viewport_x,
-        viewport_y,
-        vp_h,
-        vp_w,
-        tile_w,
-        tile_h,
-    )
+    if xs.dtype != np.int64:
+        return False
+    if ys.dtype != np.int64:
+        return False
+    if glyphs.dtype != np.int32:
+        return False
+    if colors.dtype != np.uint8 or colors.ndim != 2 or colors.shape[1] != 4:
+        return False
+    if not (xs.shape[0] == ys.shape[0] == glyphs.shape[0] == colors.shape[0]):
+        return False
+    return True

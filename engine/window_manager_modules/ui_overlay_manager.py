@@ -161,7 +161,7 @@ class UIOverlayManager:
             wm = self.window_manager_ref  # Shortcut for readability
             turn = gs.turn_count
             player_pos = gs.player_position
-            pos_str = f"({player_pos[0]},{player_pos[1]})" if player_pos else "N/A"
+            pos_str = f"({player_pos.x},{player_pos.y})" if player_pos else "N/A"
 
             entities_count_str = "?"
             try:  # Safely get entity count
@@ -177,7 +177,6 @@ class UIOverlayManager:
             label_w = wm.label.width()
             label_h = wm.label.height()
 
-            # --- CORRECTED: Get tile dimensions from TilesetManager via WindowManager ---
             if wm.tileset_manager:
                 current_tile_w = wm.tileset_manager.tile_width
                 current_tile_h = wm.tileset_manager.tile_height
@@ -187,7 +186,6 @@ class UIOverlayManager:
                 log.error(
                     "TilesetManager not available on WindowManager for debug overlay."
                 )
-            # --- END CORRECTION ---
 
             vp_cols = max(1, label_w // current_tile_w) if current_tile_w > 0 else "?"
             vp_rows = max(1, label_h // current_tile_h) if current_tile_h > 0 else "?"
